@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: main
 
       - uses: actions/setup-python@v6
         with:
@@ -38,5 +40,5 @@ jobs:
             exit 0
           fi
           git commit -m "NFL board update"
-          git pull --rebase
+          git pull --rebase -X theirs
           git push
