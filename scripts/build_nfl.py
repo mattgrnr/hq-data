@@ -74,11 +74,35 @@ def pick_season(games, today):
     return max(live) if live else max(starts)
 
 
-def pick_week(season_games):
+def pick_week(season_games, today):
     open_weeks = [int(g["week"]) for g in season_games if g["home_score"] == ""]
-    if open_weeks:
-        return min(open_weeks)
-    return max(int(g["week"]) for g in season_games)
+    if not open_weeks:
+        return max(int(g["week"]) for g in season_games)
+    week = min(open_weeks)
+    # a finished week stays up until two days after its last game (Monday night -> Wednesday)
+    done = [dt.date.fromisoformat(g["gameday"]) for g in season_games if int(g["week"]) == week - 1]
+    if done and today < max(done) + dt.timedelta(days=2):
+        return week - 1
+    return week
+
+
+def qb_depth(text, today):
+    """team -> {gsis_id: rank} from the latest depth chart snapshot, if it is recent."""
+    snaps = defaultdict(dict)
+    rd = csv.reader(io.StringIO(text))
+    hdr = next(rd, None)
+    if not hdr:
+        return {}
+    c = {h: i for i, h in enumerate(hdr)}
+    for f in rd:
+        if f[c["pos_abb"]] == "QB" and f[c["gsis_id"]]:
+            snaps[f[c["dt"]][:10]].setdefault(f[c["team"]], {})[f[c["gsis_id"]]] = int(f[c["pos_rank"]])
+    if not snaps:
+        return {}
+    latest = max(snaps)
+    if dt.date.fromisoformat(latest) < today - dt.timedelta(days=4):
+        return {}
+    return snaps[latest]
 
 
 # ---------- play-by-play: red-zone usage and defense vs position ----------
@@ -155,7 +179,7 @@ def main():
     prior = season - 1
 
     season_games = [g for g in games if int(g["season"]) == season]
-    week = pick_week(season_games)
+    week = pick_week(season_games, today)
     week_games = [g for g in season_games if int(g["week"]) == week]
 
     played = defaultdict(int)
@@ -170,6 +194,7 @@ def main():
     cur_weekly = rows(rel(f"stats_player/stats_player_week_{season}.csv"))
     roster_rows = rows(rel(f"weekly_rosters/roster_weekly_{season}.csv"))
     injury_rows = rows(rel(f"injuries/injuries_{season}.csv"))
+    depth = qb_depth(rel(f"depth_charts/depth_charts_{season}.csv"), today)
 
     pos_of = {}
     for r in prior_stats:
@@ -271,12 +296,14 @@ def main():
             return now
         return "Out" if inj_prev.get(pid) == "Out" else ""
 
-    # one QB per team: whoever threw the most in the team's latest game
+    # one QB per team: highest on the depth chart among those not ruled out,
+    # then whoever threw the most in the team's latest game
     def starting_qb(team, candidates):
         lw = team_last_week.get(team)
         recent = qb_att_by_week.get((team, lw), {}) if lw else {}
+        ranks = depth.get(team, {})
         def key(pid):
-            return (recent.get(pid, 0), cur[pid]["att"], priors.get(pid, {}).get("pyd", 0))
+            return (-ranks.get(pid, 99), recent.get(pid, 0), cur[pid]["att"], priors.get(pid, {}).get("pyd", 0))
         return max(candidates, key=key) if candidates else None
 
     built = []
