@@ -1,0 +1,42 @@
+name: NFL board
+
+on:
+  schedule:
+    - cron: "17 11 * * *"   # daily, 6:17 AM Central: overnight stats and rosters
+    - cron: "17 21 * * *"   # daily, 4:17 PM Central: afternoon injury reports
+    - cron: "7 16 * * 0"    # Sunday, 11:07 AM Central: last changes before kickoff
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nfl-board
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build board
+        run: python scripts/build_nfl.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nfl/board.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "NFL board update"
+          git pull --rebase
+          git push
