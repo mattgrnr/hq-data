@@ -1,0 +1,7 @@
+name = "total-hq"
+main = "worker.js"
+compatibility_date = "2026-08-16"
+# domains for existing sites stay managed in the dashboard
+workers_dev = false
+preview_urls = true
+keep_vars = true
