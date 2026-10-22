@@ -10,9 +10,12 @@ import urllib.error
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 REL = "https://github.com/nflverse/nflverse-data/releases/download"
 GAMES_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
+IDS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
+ET = ZoneInfo("America/New_York")
 OUT = Path(__file__).resolve().parent.parent / "nfl" / "board.json"
 LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downloading
 
@@ -196,6 +199,15 @@ def main():
     injury_rows = rows(rel(f"injuries/injuries_{season}.csv"))
     depth = qb_depth(rel(f"depth_charts/depth_charts_{season}.csv"), today)
 
+    # sleeper ids let the site match live in-game stats; the board still builds without them
+    sleeper = {}
+    try:
+        for r in rows(fetch(IDS_URL)):
+            if r["gsis_id"] and r["sleeper_id"] not in ("", "NA"):
+                sleeper[r["gsis_id"]] = r["sleeper_id"]
+    except Exception as e:
+        print("player ids unavailable:", e)
+
     pos_of = {}
     for r in prior_stats:
         pos_of[r["player_id"]] = r["position"]
@@ -373,6 +385,8 @@ def main():
         out["sg"] = p["sg"]
         out["s"] = p["s"]
         out["w"] = p["w"]
+        if p["id"] in sleeper:
+            out["sl"] = sleeper[p["id"]]
         for k in ("newteam", "st", "td"):
             if p.get(k):
                 out[k] = p[k]
@@ -396,6 +410,13 @@ def main():
     def line(v):
         return None if v in ("", "NA") else float(v)
 
+    def kickoff(g):
+        try:
+            t = dt.datetime.fromisoformat(f"{g['gameday']}T{g['gametime']}").replace(tzinfo=ET)
+            return int(t.timestamp())
+        except ValueError:
+            return None
+
     slate = []
     for g in sorted(week_games, key=lambda x: (x["gameday"], x["gametime"], x["home_team"])):
         final = g["home_score"] != ""
@@ -404,6 +425,7 @@ def main():
             "gameday": g["gameday"], "gametime": g["gametime"],
             "spread": line(g["spread_line"]), "total": line(g["total_line"]),
             "roof": g["roof"] or "",
+            "ko": kickoff(g),
             "final": final,
             "statsIn": final and g["home_team"] in stats_in and g["away_team"] in stats_in,
         })
