@@ -51,9 +51,13 @@ jobs:
       - name: Deploy or preview
         run: |
           set -o pipefail
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID repository secret"
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Missing CLOUDFLARE_API_TOKEN repository secret"
             exit 1
+          fi
+          # wrangler resolves the account from the token when this is unset
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            unset CLOUDFLARE_ACCOUNT_ID
           fi
           alias=$(echo "${GITHUB_REF_NAME#preview/}" | tr -c 'a-z0-9\n' '-' | cut -c1-30)
           for site in ${{ steps.sites.outputs.list }}; do
