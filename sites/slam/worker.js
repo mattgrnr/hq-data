@@ -296,6 +296,13 @@ body{background:
 #app .pbadge.inj-Q{color:#F5C451;border-color:rgba(245,196,81,.45);background:rgba(245,196,81,.08)}
 #app .pbadge.inj-D{color:#FF8A5B;border-color:rgba(255,138,91,.45);background:rgba(255,138,91,.08)}
 #app .controls{grid-template-columns:1fr 1fr 1fr}
+#app .h2h{margin-top:14px;border-radius:12px;padding:10px 12px 12px;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+#app .h2h-t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;letter-spacing:.13em;font-size:12px;text-transform:uppercase;color:var(--faint);text-align:center;margin-bottom:8px}
+#app .h2h-g{display:grid;grid-template-columns:repeat(5,1fr);text-align:center}
+#app .h2h-c+.h2h-c{border-left:1px solid rgba(255,255,255,.07)}
+#app .h2h-k{font-size:9px;letter-spacing:.16em;color:var(--faint)}
+#app .h2h-v{font-family:'Space Grotesk',monospace;font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;margin-top:2px}
+#app .h2h-none{text-align:center;color:var(--faint);font-size:12.5px}
 #app .ctrl.srch{grid-column:1 / -1}
 #app .spinner{border-color:rgba(255,255,255,.1);border-top-color:var(--red)}
 #app .frow.stack{display:block}
@@ -524,10 +531,11 @@ function histBar(r, k, st){
 function histRows(p){
   const v = p.vs;
   if(!v) return "";
-  if(!v.gp) return '<div class="frow"><span>Career vs '+esc(v.opp)+'</span><b>No games yet</b></div>';
-  return '<div class="frow stack"><span>Career vs '+esc(v.opp)+' · last 3 seasons + this</span><b>'
-    + v.gp+' GP · '+v.pts.toFixed(1)+' pts · '+v.reb.toFixed(1)+' reb · '+v.ast.toFixed(1)+' ast</b></div>'
-    + '<div class="frow"><span>PRA vs '+esc(v.opp)+'</span><b>'+(v.pts+v.reb+v.ast).toFixed(1)+'</b></div>';
+  if(!v.gp) return '<div class="h2h"><div class="h2h-t">vs '+esc(v.opp)+'</div><div class="h2h-none">No games in the last 3 seasons</div></div>';
+  const cell = (k, val) => '<div class="h2h-c"><div class="h2h-k">'+k+'</div><div class="h2h-v">'+val+'</div></div>';
+  return '<div class="h2h"><div class="h2h-t">vs '+esc(v.opp)+' · last 3 seasons + this</div><div class="h2h-g">'
+    + cell("GP", v.gp) + cell("PTS", v.pts.toFixed(1)) + cell("REB", v.reb.toFixed(1)) + cell("AST", v.ast.toFixed(1)) + cell("PRA", (v.pts+v.reb+v.ast).toFixed(1))
+    + '</div></div>';
 }
 
 function detailHTML(r){
