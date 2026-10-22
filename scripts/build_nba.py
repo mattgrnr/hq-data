@@ -27,6 +27,7 @@ K_ROOKIE = 10   # no history: lean on the league average for the position group
 K_MIN = 10      # minutes follow this season's role faster than scoring rates do
 K_TEAM = 20
 MIN_MPG = 10    # below this a player isn't in the rotation
+HIST_SEASONS = 3  # head-to-head history: this many past seasons plus the current one
 STATS = ("pts", "reb", "ast", "fg3m")
 GROUPS = ("G", "F", "C")
 
@@ -94,10 +95,10 @@ BOX_COLS = ["game_id", "season_type", "game_date", "athlete_id", "athlete_displa
             "field_goals_attempted", "free_throws_attempted", "offensive_rebounds", "turnovers", "did_not_play"]
 
 
-def box_rows(season, teams):
+def box_rows(season, teams, types=(2,)):
     out = []
     for r in parquet(f"espn_nba_player_boxscores/player_box_{season}.parquet", BOX_COLS):
-        if r["season_type"] != 2 or r["did_not_play"] or num(r["minutes"]) <= 0 or r["team_abbreviation"] not in teams:
+        if r["season_type"] not in types or r["did_not_play"] or num(r["minutes"]) <= 0 or r["team_abbreviation"] not in teams:
             continue
         out.append({
             "gid": int(r["game_id"]), "date": str(r["game_date"])[:10], "pid": int(r["athlete_id"]),
@@ -316,6 +317,31 @@ def main():
         if not p["name"]:
             continue
         players.append(p)
+
+    # head to head: every game each player has logged against tonight's opponent
+    opp_of = {}
+    for g in slate:
+        opp_of[g["home_abbreviation"]] = g["away_abbreviation"]
+        opp_of[g["away_abbreviation"]] = g["home_abbreviation"]
+    want = {p["id"]: opp_of.get(p["team"]) for p in players}
+    hist = list(rows)
+    for s in range(season - HIST_SEASONS, season):
+        hist += box_rows(s, nba, types=(2, 3, 5))
+    sides = defaultdict(set)
+    for r in hist:
+        sides[r["gid"]].add(r["team"])
+    h2h = defaultdict(lambda: {"gp": 0, "pts": 0.0, "reb": 0.0, "ast": 0.0})
+    for r in hist:
+        opp = want.get(r["pid"])
+        if opp and opp in sides[r["gid"]] and r["team"] != opp:
+            h = h2h[r["pid"]]
+            h["gp"] += 1
+            for k in ("pts", "reb", "ast"):
+                h[k] += r[k]
+    for p in players:
+        h = h2h.get(p["id"])
+        p["vs"] = {"opp": want[p["id"]], "gp": h["gp"], **{k: round(h[k] / h["gp"], 1) for k in ("pts", "reb", "ast")}} \
+            if h else {"opp": want[p["id"]], "gp": 0}
 
     teams = {}
     for tm in sorted(set(team) | set(prior["team"])):
