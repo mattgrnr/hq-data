@@ -49,7 +49,7 @@ const HTML = `<!doctype html>
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="__ORIGIN__/og.png">
-<meta name="theme-color" content="#0B0F14">
+<meta name="theme-color" content="#0A0B0E">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -308,6 +308,23 @@ body{background:
 
 #app button:focus-visible,#app select:focus-visible,#app input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#app *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* ============ ACCENT SYSTEM: shared base, one color per sport ============ */
+:root{--bg:#0A0B0E;--panel:#13151A;--panel2:#191C22;--ink:#ECEEF2;--faint:#8E949E;--fringe:#8E949E;--long:#5F6670;--accent:#7CC8FF}
+body{background:
+ radial-gradient(1100px 560px at 50% -16%, rgba(124,200,255,.16), transparent 62%),
+ radial-gradient(760px 480px at 92% 4%, rgba(124,200,255,.07), transparent 60%),
+ var(--bg);
+ background-attachment:fixed}
+#xfade{background:#08090B}
+#app header.hero{border-bottom:0;position:relative}
+#app header.hero::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+ background:linear-gradient(90deg,transparent,var(--accent) 18%,var(--accent) 82%,transparent);opacity:.8}
+#app .pos.on{box-shadow:inset 0 0 0 1px var(--accent);background:linear-gradient(180deg,rgba(124,200,255,.18),rgba(124,200,255,.04))}
+#app .track i{background:linear-gradient(90deg,rgba(124,200,255,.45),var(--accent));box-shadow:0 0 14px rgba(124,200,255,.25)}
+#app .linescore{box-shadow:inset 0 0 0 1px rgba(124,200,255,.22)}
+.ls-cell.top .v b{color:var(--accent)}
+#app .sportmenu a.cur{background:rgba(124,200,255,.10);border:1px solid var(--accent)}
+#app .spinner{border-top-color:var(--accent)}
 </style>
 </head>
 <body>

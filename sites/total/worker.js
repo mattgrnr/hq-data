@@ -144,8 +144,8 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .lane.live:focus-visible{outline:2px solid var(--open);outline-offset:-2px}
 /* live status reads as one signal, not per-sport branding */
 :root{--open:#4ADE80}
-.lane.live .bar{background:var(--open)}
-.lane.live .st{color:var(--open)}
+.lane.live .bar{background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.lane.live .st{color:var(--accent)}
 
 .lane.build .nm{color:var(--dim)}
 .lane.build .lg{color:#343941}

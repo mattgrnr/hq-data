@@ -114,7 +114,7 @@ const HTML = `<!DOCTYPE html><html lang="en"><head>
 <meta name="twitter:image" content="__ORIGIN__/og.png">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#0A0B0E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -377,6 +377,17 @@ font-family:'Space Grotesk',system-ui,sans-serif;
 #xfade{position:fixed;inset:0;background:#080B10;z-index:9999;opacity:1;pointer-events:none;transition:opacity .32s ease}
 #xfade.gone{opacity:0}
 @media (prefers-reduced-motion:reduce){#xfade{transition:none}}
+/* ============ ACCENT SYSTEM: shared base, one color per sport ============ */
+:root{--field:#0A0B0E;--panel:#13151A;--card:#191C22;--ink:#ECEEF2;--mut:#8E949E;--faint:#5F6670;--fringe:#8E949E;--long:#5F6670;--elite:#F5C451}
+body{background:
+ radial-gradient(1100px 560px at 50% -16%, rgba(255,194,75,.16), transparent 62%),
+ radial-gradient(760px 480px at 92% 4%, rgba(255,90,71,.07), transparent 60%),
+ var(--field);
+ background-attachment:fixed}
+#xfade{background:#08090B}
+#app .hero{position:relative;padding-bottom:12px;margin-bottom:12px}
+#app .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+ background:linear-gradient(90deg,transparent,var(--leather) 18%,var(--leather) 82%,transparent);opacity:.8}
 </style></head><body>
 <div id="xfade"></div>
 <div id="app">
