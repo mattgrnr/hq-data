@@ -261,7 +261,7 @@ footer{margin-top:20px;color:var(--faint);font-size:10.5px;line-height:1.6}
 --field:#0B0E1A;--panel:#121729;--card:#171D33;--line:rgba(255,255,255,.075);
 --ink:#E9ECF8;--mut:#8C97B8;--faint:#5D688A;
 --stitch:#FF5A47;--leather:#FFC24B;
---elite:#FFC24B;--strong:#4ADE80;--solid:#6BA8FF;--fringe:#8C97B8;--long:#5D688A;
+--elite:#F5C451;--strong:#4ADE80;--solid:#6BA8FF;--fringe:#8C97B8;--long:#5D688A;
 }
 body{
 background:
