@@ -66,7 +66,14 @@ jobs:
               npx --yes wrangler@4 deploy --config "sites/$site/wrangler.toml"
               echo "- **$site** deployed" >> "$GITHUB_STEP_SUMMARY"
             else
-              npx --yes wrangler@4 versions upload --config "sites/$site/wrangler.toml" --preview-alias "$alias" | tee out.txt
+              if ! npx --yes wrangler@4 versions upload --config "sites/$site/wrangler.toml" --preview-alias "$alias" 2>&1 | tee out.txt; then
+                grep -q "does not yet exist" out.txt || exit 1
+                # a brand-new site: create the Worker with no domain attached, then preview it
+                sed '/^\[\[routes\]\]/,$d' "sites/$site/wrangler.toml" > "sites/$site/wrangler.first.toml"
+                npx --yes wrangler@4 deploy --config "sites/$site/wrangler.first.toml"
+                rm "sites/$site/wrangler.first.toml"
+                npx --yes wrangler@4 versions upload --config "sites/$site/wrangler.toml" --preview-alias "$alias" | tee out.txt
+              fi
               url=$(grep -oE 'https://[^ ]+workers\.dev[^ ]*' out.txt | tail -1)
               echo "- **$site** preview: $url" >> "$GITHUB_STEP_SUMMARY"
             fi
