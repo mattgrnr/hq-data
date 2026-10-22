@@ -40,9 +40,9 @@ const HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SLAPSHOT HQ — NHL Goal Scorer Board</title>
+<title>SLAPSHOT HQ — NHL Goals &amp; Points Board</title>
 <meta name="description" content="Every skater on tonight's slate, scored 0-100 for goal likelihood, with projected shots.">
-<meta property="og:title" content="SLAPSHOT HQ — NHL Goal Scorer Board">
+<meta property="og:title" content="SLAPSHOT HQ — NHL Goals &amp; Points Board">
 <meta property="og:description" content="Every skater on tonight's slate, scored 0-100.">
 <meta property="og:image" content="__ORIGIN__/og.png">
 <meta property="og:url" content="__ORIGIN__">
@@ -301,6 +301,8 @@ body{background:
  background:var(--strong);color:#08150E;font-weight:700;font-size:9px;letter-spacing:.06em;box-shadow:0 0 14px rgba(95,208,138,.42)}
 #app .pbadge.inj-Q{color:#F5C451;border-color:rgba(245,196,81,.45);background:rgba(245,196,81,.08)}
 #app .pbadge.inj-D{color:#FF8A5B;border-color:rgba(255,138,91,.45);background:rgba(255,138,91,.08)}
+#app .controls{grid-template-columns:1fr 1fr 1fr}
+#app .ctrl.srch{grid-column:1 / -1}
 #app .spinner{border-color:rgba(255,255,255,.1);border-top-color:var(--red)}
 #app .ball.puck .num{padding-bottom:10%}
 #app .frow.stack{display:block}
@@ -356,8 +358,9 @@ function sportsMenuHTML(){
     + '</div></div>';
 }
 
-let BOARD = null, GAMES = [], ROWS = [], DAYLBL = "", SEASON = "", DEFRANK = {};
-let F = { pos:"ALL", game:"all", tier:"all", q:"" };
+let BOARD = null, GAMES = [], ROWS = [], DAYLBL = "", SEASON = "", DEFRANK = {}, POSRANK = {};
+let F = { stat:"G", pos:"ALL", game:"all", tier:"all", q:"" };
+const STATNAME = { G:"Goals", P:"Points" };
 
 async function fetchJSON(u){
   const r = await fetch(u, { headers: { "X-Slapshot":"1" } });
@@ -396,27 +399,58 @@ function defRanks(teams, lg){
   return out;
 }
 
+// Rank every defense against each position: goals allowed, and goals + assists allowed. 1 = stingiest.
+const SLOTNAME = { C:"centers", W:"wingers", D:"defensemen" };
+function slotOf(pos){ return pos === "C" ? "C" : pos === "D" ? "D" : "W"; }
+function posRanks(teams){
+  const out = {};
+  for(const sl of ["C","W","D"]){
+    out[sl] = { G:{}, P:{} };
+    for(const st of ["G","P"]){
+      const val = t => { const a = (teams[t].allow || {})[sl]; return a ? (st === "G" ? a.g : a.g + a.a) : 0; };
+      const list = Object.keys(teams).filter(t => teams[t].allow).sort((a,b)=> val(a) - val(b));
+      list.forEach(function(t,i){ out[sl][st][t] = { rank: i+1, of: list.length }; });
+    }
+  }
+  return out;
+}
+
 function scorePlayer(p, game){
   const lg = BOARD.lg, g = p.gp;
   const oppN = game.opp(p);
   const me = BOARD.teams[p.team] || {}, op = BOARD.teams[oppN] || {}, gk = BOARD.goalies[oppN] || null;
+  const sl = slotOf(p.pos);
+  const la = lg.allow && lg.allow[sl], oa = op.allow && op.allow[sl];
+  const posG = la && oa ? clamp(oa.g/la.g, 0.6, 1.5) : 1;
+  const posP = la && oa ? clamp((oa.g+oa.a)/(la.g+la.a), 0.7, 1.4) : 1;
   const volIdx   = clamp((p.sog/g)/lg.sog, 0.2, 2.5);
   const qualIdx  = clamp((p.ixg/Math.max(1,p.att))/lg.xpa, 0.4, 2.0);
   const formIdx  = clamp((p.g/g)/lg.gl, 0.1, 2.6);
   const ppIdx    = clamp((p.ppx/g)/lg.ppx, 0.1, 2.5);
   const gRatio   = gk ? gk.ratio : 1;
-  const matchIdx = clamp((op.xga/lg.xg) * gRatio, 0.6, 1.5);
+  const teamIdx  = (op.xga/lg.xg) * gRatio;
+  const matchIdx = clamp(0.6*teamIdx + 0.4*posG, 0.6, 1.5);
   const home     = p.team === game.home ? 1.03 : 0.97;
   const expG     = (me.gf * op.ga / lg.gf) * home;
   const envIdx   = clamp(expG/lg.gf, 0.6, 1.5);
   const raw = 0.24*volIdx + 0.16*qualIdx + 0.20*formIdx + 0.12*ppIdx + 0.14*matchIdx + 0.14*envIdx;
   const score = clamp(Math.round(60*raw), 4, 99);
   const projS = (p.sog/g) * (0.7 + 0.3*(op.sa/lg.sf)) * (0.9 + 0.1*envIdx);
+  // points: production first, then the ice time and power-play role that feed it
+  const ppgIdx = lg.pts && p.a != null ? clamp(((p.g+p.a)/g)/lg.pts, 0.1, 2.6) : formIdx;
+  const toiIdx = clamp((p.toi/g)/lg.toi, 0.4, 1.5);
+  const rawP = 0.34*ppgIdx + 0.16*toiIdx + 0.12*ppIdx + 0.08*volIdx + 0.16*posP + 0.14*envIdx;
+  const scoreP = clamp(Math.round(60*rawP + 2), 4, 99);
+  const projP = p.a != null ? ((p.g+p.a)/g) * (1 + 0.5*(posP-1)) * (0.6 + 0.4*envIdx) : null;
   const rk = DEFRANK[oppN] || null;
-  return { score, projS: Math.round(projS*10)/10, expG: Math.round(expG*100)/100, idx:{ vol:volIdx, qual:qualIdx, form:formIdx, pp:ppIdx, match:matchIdx, env:envIdx }, gk, op, rk, oppN };
+  const prk = POSRANK[sl] ? { G: POSRANK[sl].G[oppN] || null, P: POSRANK[sl].P[oppN] || null } : { G:null, P:null };
+  return { score, scoreP, projS: Math.round(projS*10)/10, projP: projP == null ? null : Math.round(projP*100)/100,
+           expG: Math.round(expG*100)/100, idx:{ vol:volIdx, qual:qualIdx, form:formIdx, pp:ppIdx, match:matchIdx, env:envIdx, ppg:ppgIdx, toi:toiIdx, posG, posP, team:teamIdx },
+           gk, op, rk, prk, sl, oppN };
 }
 
 function tierOf(s){ return s>=80?"ELITE":s>=68?"STRONG":s>=56?"SOLID":s>=44?"FRINGE":"LONGSHOT"; }
+function scoreOf(r){ return F.stat === "P" ? r.scoreP : r.score; }
 
 function parseSlate(bd){
   return (bd.games||[]).map(function(g,ix){ return {
@@ -437,9 +471,13 @@ function buildRows(){
   for(const p of BOARD.players){
     const gm = teamsInPlay[p.team]; if(!gm) continue;
     const s = scorePlayer(p, gm);
-    ROWS.push(Object.assign({ p, gm, tier: tierOf(s.score) }, s));
+    ROWS.push(Object.assign({ p, gm }, s));
   }
-  ROWS.sort((x,y)=> y.score - x.score || y.projS - x.projS);
+}
+function sortedRows(){
+  return F.stat === "P"
+    ? ROWS.slice().sort((x,y)=> y.scoreP - x.scoreP || (y.projP||0) - (x.projP||0))
+    : ROWS.slice().sort((x,y)=> y.score - x.score || y.projS - x.projS);
 }
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -461,29 +499,44 @@ function detailHTML(r){
   const wp = Math.round((p.w || 0)*100);
   const prev = SEASON.split("-")[0];
   const blend = p.w >= 1 ? SEASON+" only" : wp+"% "+SEASON+" · "+(100-wp)+"% "+(+prev-1)+"-"+prev.slice(2);
+  const pr = r.prk[F.stat];
+  const who = SLOTNAME[r.sl];
+  const oa = op.allow && op.allow[r.sl];
+  const bars = F.stat === "P"
+    ? bar("Points per game", i.ppg, i.ppg.toFixed(2), "Goals plus assists per game against a typical top-six forward, with this season blended against last so a hot week can’t swing it. The biggest piece of the points score.")
+      + bar("Ice time", i.toi, i.toi.toFixed(2), "Minutes a night against a typical top-six forward. More time on the ice means more chances to be on for a goal.")
+      + bar("Power play", i.pp, i.pp.toFixed(2), "Expected goals he creates on the power play per game. First-unit players pile up points here.")
+      + bar("Shot volume", i.vol, i.vol.toFixed(2), "Shots on goal per game. Shooters drive the play that creates goals and rebounds for linemates.")
+      + bar("Matchup vs " + who + (pr ? " · " + esc(oppN) + " " + ordn(pr.rank) : ""), i.posP, i.posP.toFixed(2), "Goals plus assists "+esc(oppN)+" gives up to "+who+" per game, against the league average. Above 1.00 = generous.")
+      + bar("Game environment", i.env, i.env.toFixed(2), "Goals his team should score tonight: its own scoring rate against this opponent’s goals allowed, with a small home-ice edge.")
+    : bar("Shot volume", i.vol, i.vol.toFixed(2), "Shots on goal per game. You can’t score without shooting, and volume is the steadiest predictor of goals in hockey.")
+      + bar("Chance quality", i.qual, i.qual.toFixed(2), "Expected goals per shot attempt — how dangerous his looks are. Slot and net-front shooters rate high; point shots from distance rate low.")
+      + bar("Scoring form", i.form, i.form.toFixed(2), "Goals per game, with this season blended against last so a hot week can’t swing it.")
+      + bar("Power play", i.pp, i.pp.toFixed(2), "Expected goals he creates on the power play per game. First-unit players live here; it’s where a big share of goals come from.")
+      + bar("Matchup" + (r.rk ? " · " + esc(oppN) + " " + ordn(r.rk.rank) : ""), i.match, i.match.toFixed(2), "Chances this defense gives up per game, adjusted for how its likely goalie has stopped them against expectation, blended with the goals it allows to "+who+". Above 1.00 = leaky.")
+      + bar("Game environment", i.env, i.env.toFixed(2), "Goals his team should score tonight: its own scoring rate against this opponent’s goals allowed, with a small home-ice edge.");
   return '<div class="detail">'
    + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Player bars compare him to a <b>typical top-six forward</b>; matchup and game bars compare to the <b>league average</b>. The tick in the middle is <b>1.00</b>: fill past it is above, short of it is below. Tap any bar to see what it means.</div></details>'
-   + bar("Shot volume", i.vol, i.vol.toFixed(2), "Shots on goal per game. You can’t score without shooting, and volume is the steadiest predictor of goals in hockey.")
-   + bar("Chance quality", i.qual, i.qual.toFixed(2), "Expected goals per shot attempt — how dangerous his looks are. Slot and net-front shooters rate high; point shots from distance rate low.")
-   + bar("Scoring form", i.form, i.form.toFixed(2), "Goals per game, with this season blended against last so a hot week can’t swing it.")
-   + bar("Power play", i.pp, i.pp.toFixed(2), "Expected goals he creates on the power play per game. First-unit players live here; it’s where a big share of goals come from.")
-   + bar("Matchup" + (r.rk ? " · " + esc(oppN) + " " + ordn(r.rk.rank) : ""), i.match, i.match.toFixed(2), "Chances this defense gives up per game, adjusted for how its likely goalie has stopped them against expectation. Above 1.00 = leaky.")
-   + bar("Game environment", i.env, i.env.toFixed(2), "Goals his team should score tonight: its own scoring rate against this opponent’s goals allowed, with a small home-ice edge.")
+   + bars
    + '<div class="numbers"><h4>The numbers</h4>'
    + '<div class="frow"><span>Games played ('+SEASON+')</span><b>'+sg+'</b></div>'
    + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>'
    + '<div class="frow"><span>Goals · assists ('+SEASON+')</span><b>'+(sg ? s.g+" · "+s.a : "—")+'</b></div>'
+   + '<div class="frow"><span>Points / game ('+SEASON+')</span><b>'+(sg ? ((s.g+s.a)/sg).toFixed(2) : "—")+'</b></div>'
    + '<div class="frow"><span>Power-play goals ('+SEASON+')</span><b>'+(sg ? s.ppg : "—")+'</b></div>'
    + '<div class="frow"><span>Shots / game</span><b>'+per(s.sog, 1)+'</b></div>'
    + '<div class="frow"><span>Shooting %</span><b>'+(s.sog ? (100*s.g/s.sog).toFixed(1)+"%" : "—")+'</b></div>'
    + '<div class="frow"><span>Ice time / game</span><b>'+(sg ? Math.floor(s.toi/sg)+":"+String(Math.round((s.toi/sg % 1)*60)).padStart(2,"0") : "—")+'</b></div>'
    + '<div class="frow"><span>Expected goals / game (model)</span><b>'+(p.ixg/p.gp).toFixed(2)+'</b></div>'
    + (r.rk ? '<div class="frow"><span>'+esc(oppN)+' defense</span><b>'+ordn(r.rk.rank)+' of '+r.rk.of+' <span style="color:var(--faint)">('+rankWord(r.rk.rank, r.rk.of)+')</span></b></div>' : '')
+   + (pr ? '<div class="frow"><span>'+esc(oppN)+' vs '+who+' ('+STATNAME[F.stat].toLowerCase()+')</span><b>'+ordn(pr.rank)+' of '+pr.of+' <span style="color:var(--faint)">('+rankWord(pr.rank, pr.of)+')</span></b></div>' : '')
+   + (oa ? '<div class="frow"><span>'+esc(oppN)+' allows to '+who+' / game</span><b>'+oa.g.toFixed(2)+' g · '+oa.a.toFixed(2)+' a</b></div>' : '')
    + '<div class="frow"><span>'+esc(oppN)+' goals allowed / game</span><b>'+op.ga.toFixed(2)+'</b></div>'
    + '<div class="frow"><span>'+esc(oppN)+' shots allowed / game</span><b>'+op.sa.toFixed(1)+'</b></div>'
    + (gk ? '<div class="frow stack"><span>Likely goalie</span><b>'+esc(gk.name)+(gk.sv!=null ? ' · '+gk.sv.toFixed(3).replace(/^0/,"")+' sv%' : '')+(gk.b2b ? ' · '+esc(oppN)+' played yesterday' : '')+'</b></div>' : '')
    + '<div class="frow"><span>Expected team goals</span><b>'+r.expG.toFixed(2)+' <span style="color:var(--faint)">(lg '+lg.gf.toFixed(2)+')</span></b></div>'
    + '<div class="frow"><span>Proj shots on goal</span><b>'+r.projS.toFixed(1)+'</b></div>'
+   + (r.projP != null ? '<div class="frow"><span>Proj points</span><b>'+r.projP.toFixed(2)+'</b></div>' : '')
    + '</div>'
    + '</div>';
 }
@@ -497,34 +550,37 @@ function puckSVG(){
 }
 function goalTag(p){ return p.gl ? '<span class="tdtag">GOAL'+(p.gl>1?' ×'+p.gl:'')+'</span>' : ''; }
 function rowHTML(r, n){
-  const p = r.p;
+  const p = r.p, sc = scoreOf(r), tier = tierOf(sc), pr = r.prk[F.stat];
+  const tag = pr ? '<span class="dtag '+rankClass(pr.rank,pr.of)+'">'+esc(r.oppN)+' '+ordn(pr.rank)+' vs '+r.sl+'</span>'
+            : (r.rk ? '<span class="dtag '+rankClass(r.rk.rank,r.rk.of)+'">'+esc(r.oppN)+' '+ordn(r.rk.rank)+' defense</span>' : '');
+  const proj = F.stat === "P" ? '<div class="yproj">proj pts<b>'+(r.projP != null ? r.projP.toFixed(2) : "—")+'</b></div>'
+             : '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>';
   return '<div class="row'+(p.gl?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+(POSNAME[p.pos]||p.pos)+'</span>'+goalTag(p)+'</div>'
-    + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(r.rk?'<span class="dtag '+rankClass(r.rk.rank,r.rk.of)+'">'+esc(r.oppN)+' '+ordn(r.rk.rank)+' defense</span>':'')+'</div></div>'
-    + '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>'
-    + '<div><div class="ball puck t-'+r.tier+'">'+puckSVG()+'<span class="num">'+r.score+'</span></div><span class="tierlabel">'+r.tier+'</span></div>'
+    + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+tag+'</div></div>'
+    + proj
+    + '<div><div class="ball puck t-'+tier+'">'+puckSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
     + '</div>'
     + detailHTML(r)
     + '</div>';
 }
 
-function filtered(){
+function filtered(list){
   const q = F.q.trim().toLowerCase();
-  return ROWS.filter(r=>{
+  return list.filter(r=>{
     if(F.pos==="W" && r.p.pos!=="L" && r.p.pos!=="R") return false;
     if(F.pos!=="ALL" && F.pos!=="W" && r.p.pos!==F.pos) return false;
     if(F.game!=="all" && r.gm.id!==F.game) return false;
-    if(F.tier!=="all" && r.tier!==F.tier) return false;
+    if(F.tier!=="all" && tierOf(scoreOf(r))!==F.tier) return false;
     if(q && !(r.p.name.toLowerCase().includes(q) || r.p.team.toLowerCase().includes(q) || r.gm.short.toLowerCase().includes(q))) return false;
     return true;
   });
 }
 
 function render(banner){
-  const rows = filtered();
-  const top = ROWS[0];
+  const all = sortedRows(), rows = filtered(all), top = all[0];
   let h = '<header class="hero"><div class="topbar"><div>'
     + '<div class="brand">SLAPSHOT <b>HQ</b></div>'
     + '<div class="sub">'+esc(DAYLBL)+'</div></div>'
@@ -533,20 +589,24 @@ function render(banner){
   h += '<div class="linescore">'
     + '<div class="ls-cell"><div class="k">Games</div><div class="v">'+GAMES.length+'</div></div>'
     + '<div class="ls-cell"><div class="k">Skaters</div><div class="v">'+ROWS.length+'</div></div>'
-    + '<div class="ls-cell top"><div class="k">Top pick</div><div class="v">'+(top? esc(top.p.name.split(" ").slice(-1)[0])+' <b>'+top.score+'</b>' : "—")+'</div></div></div>';
-  h += '<div class="posrow">'+["ALL","C","W","D"].map(x=>'<div class="pos'+(F.pos===x?" on":"")+'" data-pos="'+x+'">'+x+'</div>').join("")+'</div>';
+    + '<div class="ls-cell top"><div class="k">Top pick · '+STATNAME[F.stat].toLowerCase()+'</div><div class="v">'+(top? esc(top.p.name.split(" ").slice(-1)[0])+' <b>'+scoreOf(top)+'</b>' : "—")+'</div></div></div>';
+  h += '<div class="posrow">'+[["G","GOALS"],["P","POINTS"]].map(x=>'<div class="pos'+(F.stat===x[0]?" on":"")+'" data-stat="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
   h += '<div class="controls">'
     + '<div class="ctrl srch"><label>Search</label><input id="f-q" type="text" autocapitalize="none" autocorrect="off" placeholder="player, team, or game…" value="'+esc(F.q)+'"><span id="f-qx" class="qx">✕</span></div>'
     + '<div class="ctrl"><label>Game</label><select id="f-game"><option value="all">All games</option>'
     + GAMES.map(g=>'<option value="'+g.id+'"'+(F.game===g.id?" selected":"")+'>'+esc(g.short)+'</option>').join("")+'</select></div>'
+    + '<div class="ctrl"><label>Position</label><select id="f-pos">'
+    + [["ALL","All"],["C","Centers"],["W","Wingers"],["D","Defense"]].map(o=>'<option value="'+o[0]+'"'+(F.pos===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Tier</label><select id="f-tier"><option value="all">All</option>'
     + ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"].map(t=>'<option'+(F.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'
     + '</div>';
-  h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>Goal Score</div></div>';
+  h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+(F.stat==="P"?"Points":"Goal")+' Score</div></div>';
   h += rows.length ? rows.map((r,i)=>rowHTML(r,i)).join("")
      : '<div class="status"><div class="big">🏒</div><h2>No players match</h2><p>Loosen the filters to see the board.</p></div>';
   h += '<details class="method"><summary>How the model works</summary>'
-    + '<p>Six inputs, each an index where <b style="color:var(--ink)">1.00 = a typical top-six forward</b> (matchup and game environment: <b style="color:var(--ink)">1.00 = league average</b>): shot volume, chance quality, scoring form, power-play role, the opponent’s defense and likely goalie, and how many goals his team should score tonight. The <b style="color:var(--ink)">Goal Score (0–100)</b> is these six, weighted and scaled. This season is blended with last so early-season streaks can’t swing it. Projected shots blend his shot rate with how many shots the opponent allows.</p></details>';
+    + '<p><b style="color:var(--ink)">Goals:</b> six inputs, each an index where <b style="color:var(--ink)">1.00 = a typical top-six forward</b> (matchup and game environment: <b style="color:var(--ink)">1.00 = league average</b>): shot volume, chance quality, scoring form, power-play role, the opponent’s defense, likely goalie and what it allows to his position, and how many goals his team should score tonight.</p>'
+    + '<p><b style="color:var(--ink)">Points:</b> built on <b style="color:var(--ink)">points per game</b>, then ice time, power-play role, shot volume, the goals and assists the opponent gives up to his position, and the game environment.</p>'
+    + '<p>Each score (0–100) is its inputs, weighted and scaled. This season is blended with last so early-season streaks can’t swing it.</p></details>';
   app.innerHTML = h;
   wire();
 }
@@ -558,12 +618,13 @@ function wire(){
     sb.onclick = (e)=>{ e.stopPropagation(); sm.classList.toggle("open"); };
     document.addEventListener("click", ()=>sm.classList.remove("open"));
   }
-  document.querySelectorAll(".pos").forEach(el=> el.onclick = ()=>{ F.pos = el.dataset.pos; render(); });
+  document.querySelectorAll(".pos").forEach(el=> el.onclick = ()=>{ F.stat = el.dataset.stat; render(); });
   const q = document.getElementById("f-q"), qx = document.getElementById("f-qx");
   q.oninput = ()=>{ F.q = q.value; qx.style.display = F.q? "block":"none"; renderRowsOnly(); };
   qx.onclick = ()=>{ F.q=""; render(); };
   qx.style.display = F.q? "block":"none";
   document.getElementById("f-game").onchange = e=>{ F.game=e.target.value; render(); };
+  document.getElementById("f-pos").onchange = e=>{ F.pos=e.target.value; render(); };
   document.getElementById("f-tier").onchange = e=>{ F.tier=e.target.value; render(); };
 }
 function renderRowsOnly(){ render(); const q=document.getElementById("f-q"); q.focus(); const v=q.value; q.value=""; q.value=v; }
@@ -647,6 +708,7 @@ async function boot(force){
     SEASON = bd.season;
     DAYLBL = bd.label + " · " + bd.season;
     DEFRANK = defRanks(bd.teams, bd.lg);
+    POSRANK = posRanks(bd.teams);
     GAMES = parseSlate(bd);
     if(!GAMES.length){
       app.innerHTML = '<div class="status"><div class="big">🏒</div><h2>No games tonight</h2><p>Check back tomorrow for the next slate.</p><p style="margin-top:14px"><button class="navbtn" id="btn-refresh">↻ Refresh</button></p></div>';
