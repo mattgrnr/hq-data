@@ -511,6 +511,25 @@ function bar(label, idx, val, expl){
     + '<div class="bexp">'+expl+'</div></div>';
 }
 
+// head to head: how he's done against tonight's opponent over the last three seasons and this one
+function histVal(v, k){ return k === "pra" ? v.pts + v.reb + v.ast : v[k]; }
+function histBar(r, k, st){
+  const v = r.p.vs;
+  if(!v || !v.gp) return "";
+  const exp = baseOf(r.p, k);
+  const idx = exp > 0 ? clamp(histVal(v, k) / exp, 0, 2) : 1;
+  return bar("vs " + esc(v.opp) + " · " + v.gp + " GP", idx, histVal(v, k).toFixed(1),
+    WORD[st] + " per game in his " + v.gp + " game" + (v.gp === 1 ? "" : "s") + " against " + esc(v.opp) + " over the last three seasons and this one, playoffs included, against what he’d normally put up in his minutes. Shown for context; small samples, so it isn’t part of the score.");
+}
+function histRows(p){
+  const v = p.vs;
+  if(!v) return "";
+  if(!v.gp) return '<div class="frow"><span>Career vs '+esc(v.opp)+'</span><b>No games yet</b></div>';
+  return '<div class="frow stack"><span>Career vs '+esc(v.opp)+' · last 3 seasons + this</span><b>'
+    + v.gp+' GP · '+v.pts.toFixed(1)+' pts · '+v.reb.toFixed(1)+' reb · '+v.ast.toFixed(1)+' ast</b></div>'
+    + '<div class="frow"><span>PRA vs '+esc(v.opp)+'</span><b>'+(v.pts+v.reb+v.ast).toFixed(1)+'</b></div>';
+}
+
 function detailHTML(r){
   const p=r.p, s=p.s || {}, sg=p.sg || 0, k=KEY[F.stat], st=F.stat;
   const oppN = r.oppN, op = r.op, lg = BOARD.lg;
@@ -530,6 +549,7 @@ function detailHTML(r){
    + bar("Matchup" + (rk ? " · " + esc(oppN) + " " + ordn(rk.rank) : ""), r.match[k], r.match[k].toFixed(2), esc(oppN)+"’s defense against his position: "+WORD[st].toLowerCase()+" it gives up to "+({G:"guards",F:"forwards",C:"centers"}[p.pos])+" a night. Above 1.00 = generous.")
    + bar("Pace", r.paceIdx, r.paceIdx.toFixed(2), "Possessions both teams play, against the league average. More trips down the floor means more chances at everything.")
    + (boost ? bar("Teammates out", r.boost[k], "+"+Math.round((r.boost[k]-1)*100)+"%", "Ruled out tonight: "+esc(r.boost.out.join(", "))+". Their share of the "+WORD[st].toLowerCase()+" gets spread across the players who are left.") : '')
+   + histBar(r, k, st)
    + '<div class="numbers"><h4>The numbers</h4>'
    + '<div class="frow"><span>Games played ('+SEASON+')</span><b>'+sg+'</b></div>'
    + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>'
@@ -542,6 +562,7 @@ function detailHTML(r){
    + '<div class="frow"><span>Game pace</span><b>'+(lg.pace*r.paceIdx).toFixed(1)+' <span style="color:var(--faint)">(lg '+lg.pace.toFixed(1)+')</span></b></div>'
    + '<div class="frow"><span>Proj pts · reb · ast</span><b>'+r.proj.pts.toFixed(1)+' · '+r.proj.reb.toFixed(1)+' · '+r.proj.ast.toFixed(1)+'</b></div>'
    + '<div class="frow"><span>Proj PRA</span><b>'+r.proj.pra.toFixed(1)+'</b></div>'
+   + histRows(p)
    + '</div>'
    + '</div>';
 }
