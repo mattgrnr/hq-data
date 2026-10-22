@@ -3,6 +3,7 @@
 // Data: board.json built daily in mattgrnr/hq-data; injuries and game status from ESPN.
 
 const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/board.json";
+const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/card.png";
 const LIVE_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=";
 const INJ_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
 
@@ -748,6 +749,13 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // dated links from posts preview that day's top picks
+    const day = url.searchParams.get("d") || "";
+    if (path === "/og.png" && /^\d{4}$/.test(day)) {
+      const res = await fetch(CARD_URL + "?d=" + day, { cf: { cacheTtlByStatus: { "200-299": 300, "404": 0, "500-599": 0 }, cacheEverything: true } });
+      if (res.ok) return new Response(res.body, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600" } });
+    }
+
     const asset = serveAsset(path);
     if (asset) return asset;
 
@@ -783,6 +791,7 @@ export default {
       return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
     }
 
-    return new Response(HTML.split("__ORIGIN__").join(url.origin), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    const og = url.origin + "/og.png" + (/^\d{4}$/.test(day) ? "?d=" + day : "");
+    return new Response(HTML.split("__ORIGIN__/og.png").join(og).split("__ORIGIN__").join(url.origin), { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
 };

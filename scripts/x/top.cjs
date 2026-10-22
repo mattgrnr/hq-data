@@ -20,7 +20,8 @@ const SITES = {
   const out = await page.evaluate((count) => {
     const txt = (el, sel) => { const e = el.querySelector(sel); return e ? e.textContent.trim() : ""; };
     const rows = [...document.querySelectorAll(".row")].slice(0, count).map((r) => {
-      const meta = txt(r, ".meta");
+      const m = r.querySelector(".meta");
+      const meta = m && m.firstChild ? m.firstChild.textContent.trim() : "";   // "OKC · DEN @ OKC", before the game-time tag
       const team = meta.split("·")[0].trim();
       const g = meta.match(/([A-Z]{2,4}) @ ([A-Z]{2,4})/);
       const opp = g ? (g[1] === team ? g[2] : g[1]) : "";

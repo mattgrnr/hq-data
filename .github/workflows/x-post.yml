@@ -1,0 +1,55 @@
+name: X post
+
+on:
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: "nba, nhl or nfl"
+        required: true
+      dry_run:
+        description: "Build the card and text without posting"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: x-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: |
+          npm install --no-save --prefix scripts/x playwright@1.56.0
+          npx --prefix scripts/x playwright install --with-deps chromium
+          pip install pillow requests-oauthlib
+
+      - name: Build and post
+        env:
+          NODE_PATH: scripts/x/node_modules
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python scripts/x/post.py "${{ inputs.sport }}"

@@ -4,6 +4,7 @@
 // Falls back to the embedded 2025 profiles and the nflverse schedule feed.
 
 const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/board.json";
+const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/card.png";
 const LIVE_URL = "https://api.sleeper.app/v1/stats/nfl/regular/";
 
 const SITE_ORIGINS = [
@@ -42,6 +43,13 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // dated links from posts preview that day's top picks
+    const day = url.searchParams.get("d") || "";
+    if (path === "/og.png" && /^\d{4}$/.test(day)) {
+      const res = await fetch(CARD_URL + "?d=" + day, { cf: { cacheTtlByStatus: { "200-299": 300, "404": 0, "500-599": 0 }, cacheEverything: true } });
+      if (res.ok) return new Response(res.body, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600" } });
+    }
 
     const asset = serveAsset(path);
     if (asset) return asset;
@@ -104,7 +112,8 @@ export default {
       return new Response(JSON.stringify(PROFILES), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400" } });
     }
 
-    return new Response(HTML.split("__ORIGIN__").join(url.origin), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    const og = url.origin + "/og.png" + (/^\d{4}$/.test(day) ? "?d=" + day : "");
+    return new Response(HTML.split("__ORIGIN__/og.png").join(og).split("__ORIGIN__").join(url.origin), { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
 };
 
