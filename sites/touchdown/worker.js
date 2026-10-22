@@ -409,7 +409,8 @@ const app = document.getElementById("app");
 const SPORTS = [
   { icon:"\\u26be", name:"Moonshot HQ", tag:"MLB", url:"https://moonshot-hq.com" },
   { icon:"\\ud83c\\udfc8", name:"Touchdown HQ", tag:"NFL", url:"", cur:true },
-  { icon:"\\ud83c\\udfd2", name:"Slapshot HQ", tag:"NHL", url:"https://slapshot-hq.com" }
+  { icon:"\\ud83c\\udfd2", name:"Slapshot HQ", tag:"NHL", url:"https://slapshot-hq.com" },
+  { icon:"\\ud83c\\udfc0", name:"Slam HQ", tag:"NBA", url:"https://slam-hq.com" }
 ];
 function sportsMenuHTML(){
   return '<div class="sportwrap">'
