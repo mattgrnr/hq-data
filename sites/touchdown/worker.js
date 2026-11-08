@@ -384,6 +384,9 @@ body{background:
 #app .pbadge.inj-Q{color:#F5C451;border-color:rgba(245,196,81,.45);background:rgba(245,196,81,.08)}
 #app .pbadge.inj-D{color:#FF8A5B;border-color:rgba(255,138,91,.45);background:rgba(255,138,91,.08)}
 #app .spinner{border-color:rgba(255,255,255,.1);border-top-color:var(--red)}
+#app .controls{grid-template-columns:1fr 1fr 1fr}
+#app .posrow{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+#app .posrow .pos{grid-column:span 2}
 
 #app button:focus-visible,#app select:focus-visible,#app input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#app *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -445,7 +448,145 @@ function dayLabel(iso, time){
 }
 
 let PRO = null, GAMES = [], ROWS = [], WEEKLBL = "", AVG = null, WEEKNO = 1, DVPBASE = null, DVPRANK = null, SEASON = null;
-let F = { pos:"ALL", game:"all", tier:"all", q:"" };
+let F = { stat:"TD", pos:"ALL", game:"all", tier:"all", q:"" };
+// stat tabs beyond touchdowns: each has its own stat, eligible positions, and defense-vs-position column
+const TABS = [["TD","TD"],["CYD","REC YDS"],["RYD","RUSH YDS"],["REC","REC"],["PYD","PASS YDS"],["PTD","PASS TD"]];
+const TABINFO = {
+  CYD: { field:"cyd", role:"tgt", pos:["WR","TE","RB"], word:"Receiving yards", unit:"yds", roleWord:"Targets" },
+  RYD: { field:"ryd", role:"car", pos:["RB","QB"], word:"Rushing yards", unit:"yds", roleWord:"Carries" },
+  REC: { field:"rec", role:"tgt", pos:["WR","TE","RB"], word:"Receptions", unit:"rec", roleWord:"Targets" },
+  PYD: { field:"pyd", role:null, pos:["QB"], word:"Passing yards", unit:"yds", roleWord:"" },
+  PTD: { field:"ptd", role:"rz", pos:["QB"], word:"Passing TDs", unit:"td", roleWord:"Red-zone looks" }
+};
+const TDPOS = ["QB","RB","WR","TE"];
+let TBASE = null, TDBASE = null, TRANK = null;
+
+function posOf(tab){ return tab === "TD" ? TDPOS : TABINFO[tab].pos; }
+
+// what a defense allows to a position for this tab, per 17 games (null on an older board)
+function dvpTab(v, tab, pos){
+  if(!v || v[5] == null) return null;
+  if(tab === "RYD") return v[5];
+  if(tab === "CYD") return v[6];
+  if(tab === "REC") return v[7];
+  if(tab === "PTD") return pos === "QB" ? v[0] : null;
+  return pos === "QB" ? v[1] - v[5] : null;
+}
+
+// volume and role baselines: the per-game average of the top 32 players at the stat
+function tabBases(players){
+  const out = {};
+  for(const tab in TABINFO){
+    const t = TABINFO[tab];
+    const list = players.filter(p => t.pos.includes(p.pos) && p.g > 0)
+      .map(p => ({ s: p[t.field]/p.g, r: t.role ? p[t.role]/p.g : 0 }))
+      .sort((a,b)=> b.s - a.s).slice(0, tab === "PYD" || tab === "PTD" ? 16 : 32);
+    out[tab] = { stat: list.reduce((a,x)=>a+x.s,0)/Math.max(1,list.length), role: list.reduce((a,x)=>a+x.r,0)/Math.max(1,list.length) };
+  }
+  return out;
+}
+function tabDvpBases(dvp){
+  const out = {};
+  for(const tab in TABINFO){
+    out[tab] = {};
+    for(const pos of TABINFO[tab].pos){
+      let sum = 0, n = 0;
+      for(const t in dvp){ const x = dvpTab(dvp[t][pos], tab, pos); if(x != null){ sum += x; n++; } }
+      out[tab][pos] = n ? sum/n : null;
+    }
+  }
+  return out;
+}
+function tabRanks(dvp){
+  const out = {};
+  for(const tab in TABINFO){
+    out[tab] = {};
+    for(const pos of TABINFO[tab].pos){
+      const list = Object.keys(dvp).filter(t => dvpTab(dvp[t][pos], tab, pos) != null)
+        .sort((a,b)=> dvpTab(dvp[a][pos], tab, pos) - dvpTab(dvp[b][pos], tab, pos));
+      out[tab][pos] = {};
+      list.forEach(function(t,i){ out[tab][pos][t] = { rank: i+1, of: list.length }; });
+    }
+  }
+  return out;
+}
+
+function scoreTab(p, game, tab, imp){
+  const t = TABINFO[tab], g = p.g;
+  const per = p[t.field]/g;
+  const oppN = game.opp(p);
+  const dv = (PRO.dvp[oppN]||{})[p.pos];
+  const allow = dvpTab(dv, tab, p.pos), lb = TDBASE[tab][p.pos];
+  const K = 0.6;
+  const match = allow != null && lb ? clamp((allow + K*lb) / (lb*(1+K)), 0.72, 1.38) : 1;
+  const env = tab === "PTD" ? clamp(imp/21.5, 0.6, 1.5) : clamp(imp/21.5, 0.75, 1.3);
+  const proj = per * (0.65 + 0.35*match) * (0.85 + 0.15*env);
+  const base = TBASE[tab];
+  const vol = proj / (base.stat || 1);
+  // starting QBs sit close together on passing yards, so stretch the gaps
+  const vs = tab === "PYD" ? clamp(1 + 2.4*(vol - 1), 0.15, 1.6) : tab === "PTD" ? clamp(1 + 1.6*(vol - 1), 0.15, 1.6) : vol;
+  const v = vs <= 1 ? vs : 1 + 0.55*Math.log(vs);
+  const role = t.role ? clamp((p[t.role]/g)/(base.role || 1), 0.3, 2.0) : 1;
+  const szn = p.s && p.sg >= 3 ? p.s[t.field]/p.sg : null;
+  const form = szn != null && per > 0 ? clamp(szn/per, 0.7, 1.35) : 1;
+  // passing TDs lean on the game script: points expected matter more than for yards
+  const raw = tab === "PTD" ? 0.42*v + 0.14*role + 0.10*form + 0.16*match + 0.18*env
+            : t.role ? 0.50*v + 0.15*role + 0.10*form + 0.15*match + 0.10*env
+                     : 0.62*v + 0.10*form + 0.16*match + 0.12*env;
+  const score = clamp(Math.round(78*raw - 4), 4, 99);
+  const rk = TRANK && TRANK[tab][p.pos] ? TRANK[tab][p.pos][oppN] || null : null;
+  return { score, tier: tierOf(score), proj, per, szn, vol, role, form, match, env, allow, rk };
+}
+function scoreTabs(p, game, imp){
+  const out = {};
+  for(const tab in TABINFO) if(TABINFO[tab].pos.includes(p.pos)) out[tab] = scoreTab(p, game, tab, imp);
+  return out;
+}
+// the selected tab's score, tier and projection for a row
+function cur(r){
+  if(F.stat === "TD") return { score:r.score, tier:r.tier, proj:r.projY, unit:"yds", rk:r.rk };
+  const x = r.tab[F.stat];
+  const dec = TABINFO[F.stat].unit !== "yds";
+  return { score:x.score, tier:x.tier, proj: dec ? Math.round(x.proj*10)/10 : Math.round(x.proj), unit:TABINFO[F.stat].unit, rk:x.rk };
+}
+function tabRows(){
+  const pos = posOf(F.stat);
+  const list = ROWS.filter(r => pos.includes(r.p.pos) && (F.stat === "TD" || r.tab[F.stat]));
+  return F.stat === "TD" ? list : list.slice().sort((x,y)=> y.tab[F.stat].score - x.tab[F.stat].score || y.tab[F.stat].proj - x.tab[F.stat].proj);
+}
+
+function lw(t){ return t.word.toLowerCase().replace("tds", "TDs"); }
+function tabDetailHTML(r){
+  const p = r.p, tab = F.stat, t = TABINFO[tab], x = r.tab[tab];
+  const oppN = r.gm.opp(p), live = p.w != null;
+  const wp = Math.round((p.w || 0)*100);
+  const blend = p.w >= 1 ? SEASON+" only" : wp+"% "+SEASON+" \\u00b7 "+(100-wp)+"% "+(SEASON-1);
+  const posWord = {QB:"QBs",RB:"RBs",WR:"WRs",TE:"TEs"}[p.pos];
+  const fmt = v => t.unit === "yds" ? String(Math.round(v)) : v.toFixed(1);
+  return '<div class="detail">'
+   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and role compare him to the <b>top players at this stat</b>; matchup and game environment compare to the <b>league average</b>. The tick in the middle is <b>1.00</b>. Tap any bar to see what it means.</div></details>'
+   + bar("Volume", x.vol, x.vol.toFixed(2), "Projected "+lw(t)+" this week against the top players at it. The biggest piece of the score.")
+   + (t.role ? bar(t.roleWord, x.role, x.role.toFixed(2), t.roleWord+" per game against the top players \\u2014 opportunity is the steadiest predictor in football.") : '')
+   + bar("Recent form", x.form, x.szn != null ? x.form.toFixed(2) : "\\u2014", "This season\\u2019s per-game number against his blended rate. Capped so one big game can\\u2019t swing it; needs three games.")
+   + bar("Matchup" + (x.rk ? " \\u00b7 " + ordn(x.rk.rank) : ""), x.match, x.match.toFixed(2), esc(oppN)+"\\u2019s defense against "+posWord+": "+lw(t)+" it gives up per game, steadied toward the league average. Above 1.00 = generous.")
+   + bar("Game environment", x.env, x.env.toFixed(2), "Vegas-implied team total. More expected points usually means more plays and more yards.")
+   + '<div class="numbers"><h4>'+t.word+'</h4>'
+   + '<div class="frow"><span>'+t.word+' / game ('+(live ? SEASON : "szn")+')</span><b>'+(x.szn != null ? fmt(x.szn) : "\\u2014")+'</b></div>'
+   + '<div class="frow"><span>Model baseline / game</span><b>'+fmt(x.per)+'</b></div>'
+   + (t.role ? '<div class="frow"><span>'+t.roleWord+' / game (model)</span><b>'+(p[t.role]/p.g).toFixed(1)+'</b></div>' : '')
+   + (x.rk ? '<div class="frow"><span>'+esc(oppN)+' vs '+posWord+'</span><b>'+ordn(x.rk.rank)+' of '+x.rk.of+' <span style="color:var(--faint)">('+rankWord(x.rk.rank, x.rk.of)+')</span></b></div>' : '')
+   + (x.allow != null ? '<div class="frow"><span>'+esc(oppN)+' allows to '+posWord+' / game</span><b>'+fmt(x.allow/17)+'</b></div>' : '')
+   + '<div class="frow"><span>Proj '+lw(t)+' this week</span><b>'+fmt(x.proj)+'</b></div>'
+   + (tab === "PYD" && r.tab.PTD ? '<div class="frow"><span>Proj passing TDs this week</span><b>'+r.tab.PTD.proj.toFixed(1)+'</b></div>' : '')
+   + '<h4 style="margin-top:14px">The rest</h4>'
+   + (live ? '<div class="frow"><span>Games played ('+SEASON+')</span><b>'+(p.sg || 0)+'</b></div>'
+        + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>' : '')
+   + '<div class="frow"><span>Implied team total</span><b>'+r.imp+'</b></div>'
+   + '<div class="frow"><span>Weather</span><b>'+esc(r.wxNote||"\\u2014")+'</b></div>'
+   + '</div>'
+   + '</div>';
+}
+
 
 async function fetchJSON(u){
   const r = await fetch(u, { headers: { "X-Touchdown":"1" } });
@@ -590,6 +731,7 @@ function buildRows(){
   for(const p of PRO.players){
     const gm = teamsInPlay[p.team]; if(!gm) continue;
     const s = scorePlayer(p, gm);
+    s.tab = scoreTabs(p, gm, s.imp);
     ROWS.push(Object.assign({ p, gm, tier: tierOf(s.score) }, s));
   }
   ROWS.sort((x,y)=> y.score - x.score || y.projY - x.projY);
@@ -605,7 +747,8 @@ function bar(label, idx, val, expl){
     + '<div class="bexp">'+expl+'</div></div>';
 }
 
-function detailHTML(r){
+function detailHTML(r){ return F.stat === "TD" ? tdDetailHTML(r) : tabDetailHTML(r); }
+function tdDetailHTML(r){
   const p=r.p, i=r.idx, g=r.g;
   const oppN = r.gm.opp(p);
   const live = p.w != null;
@@ -661,14 +804,14 @@ function ballSVG(){
 }
 function tdTag(p){ return p.td ? '<span class="tdtag">TD'+(p.td>1?' \\u00d7'+p.td:'')+'</span>' : ''; }
 function rowHTML(r, n){
-  const p = r.p;
+  const p = r.p, c = cur(r);
   return '<div class="row'+(p.td?' scored':'')+'" data-i="'+n+'" data-pid="'+esc(p.id)+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+p.pos+'</span>'+(p.st?'<span class="pbadge inj-'+p.st+'">'+p.st+'</span>':'')+tdTag(p)+'</div>'
-    + '<div class="meta">'+esc(p.team)+((p.newteam && WEEKNO<=4)?' <span class="pbadge" style="color:#e3b341;border-color:#5c4a1f">NEW</span>':'')+' \\u00b7 '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(r.rk?'<span class="dtag '+rankClass(r.rk.rank,r.rk.of)+'">'+esc(r.oppN)+' '+ordn(r.rk.rank)+' vs '+p.pos+'</span>':'')+'</div></div>'
-    + '<div class="yproj">proj yds<b>'+r.projY+'</b></div>'
-    + '<div><div class="ball t-'+r.tier+'">'+ballSVG()+'<span class="num">'+r.score+'</span></div><span class="tierlabel">'+r.tier+'</span></div>'
+    + '<div class="meta">'+esc(p.team)+((p.newteam && WEEKNO<=4)?' <span class="pbadge" style="color:#e3b341;border-color:#5c4a1f">NEW</span>':'')+' \\u00b7 '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(c.rk?'<span class="dtag '+rankClass(c.rk.rank,c.rk.of)+'">'+esc(r.oppN)+' '+ordn(c.rk.rank)+' vs '+p.pos+'</span>':'')+'</div></div>'
+    + '<div class="yproj">proj '+(F.stat==="REC" ? "rec" : F.stat==="PTD" ? "td" : "yds")+'<b>'+c.proj+'</b></div>'
+    + '<div><div class="ball t-'+c.tier+'">'+ballSVG()+'<span class="num">'+c.score+'</span></div><span class="tierlabel">'+c.tier+'</span></div>'
     + '</div>'
     + detailHTML(r)
     + '</div>';
@@ -676,10 +819,10 @@ function rowHTML(r, n){
 
 function filtered(){
   const q = F.q.trim().toLowerCase();
-  return ROWS.filter(r=>{
+  return tabRows().filter(r=>{
     if(F.pos!=="ALL" && r.p.pos!==F.pos) return false;
     if(F.game!=="all" && r.gm.id!==F.game) return false;
-    if(F.tier!=="all" && r.tier!==F.tier) return false;
+    if(F.tier!=="all" && cur(r).tier!==F.tier) return false;
     if(q && !(r.p.name.toLowerCase().includes(q) || r.p.team.toLowerCase().includes(q) || r.gm.short.toLowerCase().includes(q))) return false;
     return true;
   });
@@ -687,7 +830,7 @@ function filtered(){
 
 function render(banner){
   const rows = filtered();
-  const top = ROWS[0];
+  const all = tabRows(), top = all[0];
   let h = '<header class="hero"><div class="topbar"><div>'
     + '<div class="brand">TOUCHDOWN <b>HQ</b></div>'
     + '<div class="sub">'+esc(WEEKLBL)+'</div></div>'
@@ -695,17 +838,19 @@ function render(banner){
   if(banner) h += '<div class="banner">'+esc(banner)+'</div>';
   h += '<div class="linescore">'
     + '<div class="ls-cell"><div class="k">Games</div><div class="v">'+GAMES.length+'</div></div>'
-    + '<div class="ls-cell"><div class="k">Players</div><div class="v">'+ROWS.length+'</div></div>'
-    + '<div class="ls-cell top"><div class="k">Top pick</div><div class="v">'+(top? esc(top.p.name.split(" ").slice(-1)[0])+' <b>'+top.score+'</b>' : "\\u2014")+'</div></div></div>';
-  h += '<div class="posrow">'+["ALL","QB","RB","WR","TE"].map(x=>'<div class="pos'+(F.pos===x?" on":"")+'" data-pos="'+x+'">'+x+'</div>').join("")+'</div>';
+    + '<div class="ls-cell"><div class="k">Players</div><div class="v">'+all.length+'</div></div>'
+    + '<div class="ls-cell top"><div class="k">Top pick \\u00b7 '+TABS.find(t=>t[0]===F.stat)[1].toLowerCase()+'</div><div class="v">'+(top? esc(top.p.name.split(" ").slice(-1)[0])+' <b>'+cur(top).score+'</b>' : "\\u2014")+'</div></div></div>';
+  h += '<div class="posrow">'+TABS.map(x=>'<div class="pos'+(F.stat===x[0]?" on":"")+'" data-stat="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
   h += '<div class="controls">'
     + '<div class="ctrl srch"><label>Search</label><input id="f-q" type="text" autocapitalize="none" autocorrect="off" placeholder="player, team, or game\\u2026" value="'+esc(F.q)+'"><span id="f-qx" class="qx">\\u2715</span></div>'
     + '<div class="ctrl"><label>Game</label><select id="f-game"><option value="all">All games</option>'
     + GAMES.map(g=>'<option value="'+g.id+'"'+(F.game===g.id?" selected":"")+'>'+esc(g.short)+'</option>').join("")+'</select></div>'
+    + '<div class="ctrl"><label>Position</label><select id="f-pos"><option value="ALL">All</option>'
+    + posOf(F.stat).map(x=>'<option'+(F.pos===x?" selected":"")+'>'+x+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Tier</label><select id="f-tier"><option value="all">All</option>'
     + ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"].map(t=>'<option'+(F.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'
     + '</div>';
-  h += '<div class="board-head"><div>Rank \\u00b7 Player \\u00b7 Matchup</div><div>TD Score</div></div>';
+  h += '<div class="board-head"><div>Rank \\u00b7 Player \\u00b7 Matchup</div><div>'+(F.stat==="TD" ? "TD" : TABS.find(t=>t[0]===F.stat)[1])+' Score</div></div>';
   h += rows.length ? rows.map((r,i)=>rowHTML(r,i)).join("")
      : '<div class="status"><div class="big">\\ud83c\\udfc8</div><h2>No players match</h2><p>Loosen the filters to see the board.</p></div>';
   h += '<details class="method"><summary>How the model works</summary>'
@@ -722,7 +867,8 @@ function wire(){
     sb.onclick = (e)=>{ e.stopPropagation(); sm.classList.toggle("open"); };
     document.addEventListener("click", ()=>sm.classList.remove("open"));
   }
-  document.querySelectorAll(".pos").forEach(el=> el.onclick = ()=>{ F.pos = el.dataset.pos; render(); });
+  document.querySelectorAll(".pos").forEach(el=> el.onclick = ()=>{ F.stat = el.dataset.stat; if(F.pos!=="ALL" && !posOf(F.stat).includes(F.pos)) F.pos = "ALL"; render(); });
+  document.getElementById("f-pos").onchange = e=>{ F.pos=e.target.value; render(); };
   const q = document.getElementById("f-q"), qx = document.getElementById("f-qx");
   q.oninput = ()=>{ F.q = q.value; qx.style.display = F.q? "block":"none"; renderRowsOnly(); };
   qx.onclick = ()=>{ F.q=""; render(); };
@@ -820,6 +966,7 @@ async function boot(force){
       AVG = computeAverages(PRO.players);
       DVPBASE = dvpBaselines(PRO.dvp);
       DVPRANK = dvpRanks(PRO.dvp, DVPBASE);
+      TBASE = tabBases(PRO.players); TDBASE = tabDvpBases(PRO.dvp); TRANK = tabRanks(PRO.dvp);
       GAMES = parseSlate(bd);
       SEASON = bd.season;
       WEEKNO = bd.week || 1;
@@ -834,6 +981,7 @@ async function boot(force){
       AVG = computeAverages(PRO.players);
       DVPBASE = dvpBaselines(PRO.dvp);
       DVPRANK = dvpRanks(PRO.dvp, DVPBASE);
+      TBASE = tabBases(PRO.players); TDBASE = tabDvpBases(PRO.dvp); TRANK = tabRanks(PRO.dvp);
       showStatus("Reading the slate & the lines\\u2026");
       const sb = await fetchJSON("/slate");
       GAMES = parseSlate(sb);
