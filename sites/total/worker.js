@@ -147,6 +147,9 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .lane.live .bar{background:var(--open)}
 .lane.live .st{color:var(--open)}
 
+.lane.live.off .bar{background:var(--dim);opacity:.6}
+.lane.live.off .st{color:var(--dim)}
+.lane.live.off .nm{color:var(--dim)}
 .lane.build .nm{color:var(--dim)}
 .lane.build .lg{color:#343941}
 
@@ -219,16 +222,34 @@ var BOARDS = [{"key":"mlb","league":"MLB","name":"Moonshot HQ","word":"Moonshot"
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 
+// each board's season (month, day): in the offseason it rests at the bottom, still one tap away
+var SEASONS = {
+  mlb: { from:[3, 20], to:[11, 5],  back:"Back for Opening Day" },
+  nfl: { from:[9, 1],  to:[2, 15],  back:"Back in September" },
+  nhl: { from:[10, 1], to:[6, 25],  back:"Back in October" },
+  nba: { from:[10, 15], to:[6, 25], back:"Back in October" }
+};
+function inSeason(key, d){
+  var s = SEASONS[key];
+  if(!s) return true;
+  var md = (d.getMonth() + 1) * 100 + d.getDate();
+  var from = s.from[0] * 100 + s.from[1], to = s.to[0] * 100 + s.to[1];
+  return from <= to ? (md >= from && md <= to) : (md >= from || md <= to);
+}
+var NOW = new Date();
+BOARDS.forEach(function(b){ b.off = b.status === "live" && !inSeason(b.key, NOW); });
+BOARDS.sort(function(x, y){ return (x.off ? 1 : 0) - (y.off ? 1 : 0); });
+
 function laneHTML(b, i){
   var live = b.status === "live";
   var tag  = live ? 'a href="' + esc(b.url) + '"' : 'div';
   var end  = live ? 'a' : 'div';
-  return '<' + tag + ' class="lane ' + (live ? 'live' : 'build') + '"'
+  return '<' + tag + ' class="lane ' + (live ? 'live' : 'build') + (b.off ? ' off' : '') + '"'
     + ' style="--accent:' + esc(b.accent) + ';animation-delay:' + (i * 55) + 'ms">'
     + '<span class="bar"></span>'
     + '<span class="lg">' + esc(b.league) + '</span>'
-    + '<span class="nm">' + esc(b.word) + ' HQ <em>' + esc(b.cadence) + '</em></span>'
-    + '<span class="st">' + (live ? 'Open <span class="arw">→</span>' : 'In build') + '</span>'
+    + '<span class="nm">' + esc(b.word) + ' HQ <em>' + esc(b.off ? SEASONS[b.key].back : b.cadence) + '</em></span>'
+    + '<span class="st">' + (b.off ? 'Offseason' : live ? 'Open <span class="arw">→</span>' : 'In build') + '</span>'
     + '</' + end + '>';
 }
 
