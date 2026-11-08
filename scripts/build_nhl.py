@@ -97,10 +97,10 @@ def season_totals(season):
     sk = defaultdict(lambda: {"gp": 0, "g": 0, "a": 0, "sog": 0, "ppg": 0, "toi": 0.0, "ixg": 0.0, "att": 0, "ppx": 0.0})
     info, games_of = {}, defaultdict(list)
     team = defaultdict(lambda: {"gp": 0, "gf": 0, "ga": 0, "sf": 0, "sa": 0, "xgf": 0.0, "xga": 0.0,
-                                "allow": {sl: {"g": 0, "a": 0} for sl in SLOTS}})
+                                "allow": {sl: {"g": 0, "a": 0, "s": 0} for sl in SLOTS}})
     goalie = defaultdict(lambda: {"starts": 0, "sa": 0, "ga": 0, "xga": 0.0})
     game_teams, team_goals, team_shots, starters = defaultdict(set), defaultdict(int), defaultdict(int), {}
-    by_slot = defaultdict(lambda: {sl: {"g": 0, "a": 0} for sl in SLOTS})
+    by_slot = defaultdict(lambda: {sl: {"g": 0, "a": 0, "s": 0} for sl in SLOTS})
 
     for r in box:
         gid, tm, pid = int(r["game_id"]), r["team_abbrev"], int(r["player_id"])
@@ -132,6 +132,7 @@ def season_totals(season):
         sl = by_slot[(gid, tm)][slot(r["position"])]
         sl["g"] += int(num(r["goals"]))
         sl["a"] += int(num(r["assists"]))
+        sl["s"] += int(num(r["shots_on_goal"]))
 
     for gid, tms in game_teams.items():
         if len(tms) != 2:
@@ -145,7 +146,7 @@ def season_totals(season):
             t["sf"] += team_shots[(gid, me)]
             t["sa"] += team_shots[(gid, op)]
             for sl in SLOTS:
-                for k in ("g", "a"):
+                for k in ("g", "a", "s"):
                     t["allow"][sl][k] += by_slot[(gid, op)][sl][k]
 
     full = {}
@@ -184,7 +185,7 @@ def prior_profile(season):
     path = ROOT / f"prior_{season}.json"
     if path.exists():
         cached = json.loads(path.read_text())
-        if all("allow" in t for t in cached["team"].values()):
+        if all("allow" in t and "s" in t["allow"]["C"] for t in cached["team"].values()):
             return cached
     t = season_totals(season)
     if not t["sk"]:
@@ -234,7 +235,7 @@ def main():
             for k in ("gp", "gf", "xgf", "sf"):
                 tt[k] += t[k]
             for sl in SLOTS:
-                for k in ("g", "a"):
+                for k in ("g", "a", "s"):
                     tt[sl + k] += t["allow"][sl][k]
     lg = {
         "sog": tot["sog"] / tot["gp"], "ixg": tot["ixg"] / tot["gp"], "gl": tot["g"] / tot["gp"],
@@ -242,7 +243,7 @@ def main():
         "gf": tt["gf"] / tt["gp"], "xg": tt["xgf"] / tt["gp"], "sf": tt["sf"] / tt["gp"],
         "pts": (tot["g"] + tot["a"]) / tot["gp"],
     }
-    lg_allow = {sl: {k: tt[sl + k] / tt["gp"] for k in ("g", "a")} for sl in SLOTS}
+    lg_allow = {sl: {k: tt[sl + k] / tt["gp"] for k in ("g", "a", "s")} for sl in SLOTS}
 
     # who dressed in each team's latest game
     last_game = {}
@@ -283,7 +284,7 @@ def main():
     teams = {}
     for tm in sorted(set(team) | set(prior["team"])):
         c, pr = team.get(tm, {"gp": 0, "gf": 0, "ga": 0, "sf": 0, "sa": 0, "xgf": 0.0, "xga": 0.0,
-                              "allow": {sl: {"g": 0, "a": 0} for sl in SLOTS}}), prior["team"].get(tm)
+                              "allow": {sl: {"g": 0, "a": 0, "s": 0} for sl in SLOTS}}), prior["team"].get(tm)
         out = {}
         for f in ("gf", "ga", "sf", "sa", "xgf", "xga"):
             base = pr[f] / pr["gp"] if pr and pr["gp"] else {"gf": lg["gf"], "ga": lg["gf"], "sf": lg["sf"], "sa": lg["sf"], "xgf": lg["xg"], "xga": lg["xg"]}[f]
@@ -291,7 +292,7 @@ def main():
         out["allow"] = {}
         for sl in SLOTS:
             out["allow"][sl] = {}
-            for k in ("g", "a"):
+            for k in ("g", "a", "s"):
                 base = pr["allow"][sl][k] / pr["gp"] if pr and pr["gp"] else lg_allow[sl][k]
                 out["allow"][sl][k] = round((c["allow"][sl][k] + K_TEAM * base) / (c["gp"] + K_TEAM), 3)
         out["gp"] = c["gp"]
