@@ -297,6 +297,13 @@ body{background:
 #app .pbadge.inj-Q{color:#F5C451;border-color:rgba(245,196,81,.45);background:rgba(245,196,81,.08)}
 #app .pbadge.inj-D{color:#FF8A5B;border-color:rgba(255,138,91,.45);background:rgba(255,138,91,.08)}
 #app .controls{grid-template-columns:1fr 1fr 1fr}
+#app .posrow{display:grid;grid-template-columns:repeat(12,1fr);gap:6px}
+#app .posrow .pos{grid-column:span 3}
+#app .posrow .pos:nth-child(n+5){grid-column:span 4}
+#app .sline{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--faint);margin-top:4px;letter-spacing:-.01em;word-spacing:-2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#app .h2h-c.on .h2h-k{color:var(--ink)}
+#app .h2h-c.on .h2h-v{color:var(--red)}
+#app .h2h-g.h2h-g3{grid-template-columns:repeat(3,1fr);margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}
 #app .h2h{margin-top:14px;border-radius:12px;padding:10px 12px 12px;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
 #app .h2h-t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;letter-spacing:.13em;font-size:12px;text-transform:uppercase;color:var(--faint);text-align:center;margin-bottom:8px}
 #app .h2h-g{display:grid;grid-template-columns:repeat(5,1fr);text-align:center}
@@ -359,9 +366,15 @@ function sportsMenuHTML(){
     + '</div></div>';
 }
 
-const STATS = ["PTS","REB","AST","PRA"];
-const KEY = { PTS:"pts", REB:"reb", AST:"ast", PRA:"pra" };
-const WORD = { PTS:"Points", REB:"Rebounds", AST:"Assists", PRA:"Pts+Reb+Ast" };
+const STATS = ["PTS","PRA","REB","AST","3PM","BLK","STL"];
+const KEY = { PTS:"pts", PRA:"pra", REB:"reb", AST:"ast", "3PM":"fg3m", BLK:"blk", STL:"stl" };
+const WORD = { PTS:"Points", PRA:"Pts+Reb+Ast", REB:"Rebounds", AST:"Assists", "3PM":"Threes", BLK:"Blocks", STL:"Steals" };
+const BASE = ["pts","reb","ast","fg3m","stl","blk"];
+const ALL = BASE.concat(["pra"]);
+// low-count stats swing more game to game, so matchup and form count for less
+const RARE = { fg3m:true, stl:true, blk:true };
+// volume for threes, blocks and steals is measured against the guys who do it most, not a typical starter
+const VOLSCALE = { fg3m:1.4, blk:1.9, stl:1.3 };
 const POSNAME = { G:"G", F:"F", C:"C" };
 
 let BOARD = null, GAMES = [], ROWS = [], DAYLBL = "", SEASON = "", INJ = {}, BOOST = {}, DEFRANK = {};
@@ -393,13 +406,15 @@ function rankWord(rank, of){
   return "very soft";
 }
 
+function allowOf(a, k){ return k === "pra" ? a.pts + a.reb + a.ast : (a[k] || 0); }
+
 // Rank every defense 1-30 by what it allows to each position, per stat. 1 = stingiest.
 function defRanks(teams){
   const out = {};
   for(const g of ["G","F","C"]){
     out[g] = {};
-    for(const k of ["pts","reb","ast","pra"]){
-      const val = t => k === "pra" ? teams[t].allow[g].pts + teams[t].allow[g].reb + teams[t].allow[g].ast : teams[t].allow[g][k];
+    for(const k of ALL){
+      const val = t => allowOf(teams[t].allow[g], k);
       const list = Object.keys(teams).sort((a,b)=> val(a) - val(b));
       out[g][k] = {};
       list.forEach(function(t,i){ out[g][k][t] = { rank: i+1, of: list.length }; });
@@ -421,7 +436,8 @@ function injBadge(p){
   return "";
 }
 
-function baseOf(p, k){ return k === "pra" ? p.mpg*(p.r.pts+p.r.reb+p.r.ast) : p.mpg*p.r[k]; }
+function rateOf(p, k){ return k === "pra" ? p.r.pts+p.r.reb+p.r.ast : (p.r[k] || 0); }
+function baseOf(p, k){ return p.mpg*rateOf(p, k); }
 
 // Teammates ruled out free up shots, boards and touches. Only fresh absences count:
 // once a player has been out a while, this season's numbers already reflect it.
@@ -432,8 +448,8 @@ function buildBoost(){
   for(const p of BOARD.players){ (by[p.team] = by[p.team] || []).push(p); }
   for(const t in by){
     const early = ((BOARD.teams[t] || {}).gp || 0) < 5;
-    BOOST[t] = { pts:1, reb:1, ast:1, pra:1, out:[] };
-    for(const k of ["pts","reb","ast","pra"]){
+    BOOST[t] = { out:[] };
+    for(const k of ALL){
       let lost = 0, avail = 0;
       for(const p of by[t]){
         if(isOut(p)){
@@ -451,32 +467,36 @@ function project(p, game){
   const me = BOARD.teams[p.team] || {}, op = BOARD.teams[oppN] || {};
   const paceIdx = clamp(((me.pace || lg.pace) + (op.pace || lg.pace))/2 / lg.pace, 0.9, 1.1);
   const home = p.team === game.home ? 1.01 : 0.99;
-  const bst = BOOST[p.team] || { pts:1, reb:1, ast:1, pra:1, out:[] };
+  const bst = BOOST[p.team] || { out:[] };
   const proj = {}, match = {}, form = {};
-  let praAllow = 0, praLg = 0;
-  for(const k of ["pts","reb","ast"]){
-    const al = op.allow ? op.allow[p.pos][k] : lg.allow[p.pos][k];
-    match[k] = clamp(al / lg.allow[p.pos][k], 0.7, 1.3);
-    proj[k] = baseOf(p, k) * paceIdx * (1 + 0.5*(match[k]-1)) * home * bst[k];
-    praAllow += al; praLg += lg.allow[p.pos][k];
+  for(const k of BASE){
+    const lgA = lg.allow[p.pos][k] || 1;
+    const al = op.allow && op.allow[p.pos][k] != null ? op.allow[p.pos][k] : lgA;
+    match[k] = clamp(al / lgA, 0.7, 1.3);
+    const damp = RARE[k] ? 0.35 : 0.5;
+    proj[k] = baseOf(p, k) * paceIdx * (1 + damp*(match[k]-1)) * home * (bst[k] || 1);
   }
   proj.pra = proj.pts + proj.reb + proj.ast;
-  match.pra = clamp(praAllow / praLg, 0.7, 1.3);
+  match.pra = clamp(allowOf(op.allow ? op.allow[p.pos] : lg.allow[p.pos], "pra") / allowOf(lg.allow[p.pos], "pra"), 0.7, 1.3);
   const l5 = p.l5;
-  for(const k of ["pts","reb","ast","pra"]){
-    const rate = k === "pra" ? p.r.pts+p.r.reb+p.r.ast : p.r[k];
-    const recent = l5 && l5.n >= 3 && l5.min > 0 ? (k === "pra" ? l5.pts+l5.reb+l5.ast : l5[k]) / l5.min : null;
-    form[k] = recent !== null && rate > 0 ? clamp(recent/rate, 0.6, 1.5) : 1;
+  for(const k of ALL){
+    const rate = rateOf(p, k);
+    const have = l5 && l5.n >= 3 && l5.min > 0 && (k === "pra" || l5[k] != null);
+    const recent = have ? (k === "pra" ? l5.pts+l5.reb+l5.ast : l5[k]) / l5.min : null;
+    form[k] = recent !== null && rate > 0 ? clamp(recent/rate, RARE[k] ? 0.7 : 0.6, RARE[k] ? 1.35 : 1.5) : 1;
   }
   const minIdx = clamp(p.mpg / lg.star.min, 0.3, 1.25);
   const score = {}, vol = {};
-  for(const k of ["pts","reb","ast","pra"]){
-    vol[k] = proj[k] / lg.star[k];
+  for(const k of ALL){
+    vol[k] = proj[k] / (lg.star[k] * (VOLSCALE[k] || 1));
     const v = vol[k] <= 1 ? vol[k] : 1 + 0.55*Math.log(vol[k]);
-    const raw = 0.52*v + 0.12*form[k] + 0.16*match[k] + 0.08*paceIdx + 0.12*minIdx;
-    score[k] = clamp(Math.round(78*raw - 4), 4, 99);
+    const raw = RARE[k]
+      ? 0.58*v + 0.08*form[k] + 0.08*match[k] + 0.04*paceIdx + 0.22*minIdx
+      : 0.52*v + 0.12*form[k] + 0.16*match[k] + 0.08*paceIdx + 0.12*minIdx;
+    score[k] = clamp(Math.round(78*raw - 4), 4, RARE[k] ? 95 : 99);
   }
-  const rk = DEFRANK[p.pos] ? { pts:DEFRANK[p.pos].pts[oppN], reb:DEFRANK[p.pos].reb[oppN], ast:DEFRANK[p.pos].ast[oppN], pra:DEFRANK[p.pos].pra[oppN] } : {};
+  const rk = {};
+  if(DEFRANK[p.pos]) for(const k of ALL) rk[k] = DEFRANK[p.pos][k][oppN];
   return { proj, score, vol, match, form, paceIdx, minIdx, boost:bst, op, oppN, rk };
 }
 
@@ -520,6 +540,17 @@ function bar(label, idx, val, expl){
 }
 
 // head to head: how he's done against tonight's opponent over the last three seasons and this one
+// the selected stat, per game: this season, last five, and against tonight's opponent
+function sgVal(p, k){ const s = p.s || {}; return p.sg ? (k === "pra" ? s.pts+s.reb+s.ast : s[k]) / p.sg : null; }
+function l5Val(p, k){ const l = p.l5; if(!l || (k !== "pra" && l[k] == null)) return null; return k === "pra" ? l.pts+l.reb+l.ast : l[k]; }
+function vsVal(p, k){ const v = p.vs; if(!v || !v.gp || (k !== "pra" && v[k] == null)) return null; return histVal(v, k); }
+function statLine(r, k){
+  const p = r.p, parts = [], a = sgVal(p, k), b = l5Val(p, k), c = vsVal(p, k);
+  if(a != null) parts.push("szn " + a.toFixed(1));
+  if(b != null) parts.push("L" + p.l5.n + " " + b.toFixed(1));
+  if(c != null) parts.push("H2H " + c.toFixed(1));
+  return parts.length ? '<div class="sline">' + parts.join(" · ") + '</div>' : '';
+}
 function histVal(v, k){ return k === "pra" ? v.pts + v.reb + v.ast : v[k]; }
 function histBar(r, k, st){
   const v = r.p.vs;
@@ -529,14 +560,15 @@ function histBar(r, k, st){
   return bar("vs " + esc(v.opp) + " · " + v.gp + " GP", idx, histVal(v, k).toFixed(1),
     WORD[st] + " per game in his " + v.gp + " game" + (v.gp === 1 ? "" : "s") + " against " + esc(v.opp) + " over the last three seasons and this one, playoffs included, against what he’d normally put up in his minutes. Shown for context; small samples, so it isn’t part of the score.");
 }
-function histRows(p){
+function histRows(p, sel){
   const v = p.vs;
   if(!v) return "";
   if(!v.gp) return '<div class="h2h"><div class="h2h-t">vs '+esc(v.opp)+'</div><div class="h2h-none">No games in the last 3 seasons</div></div>';
-  const cell = (k, val) => '<div class="h2h-c"><div class="h2h-k">'+k+'</div><div class="h2h-v">'+val+'</div></div>';
+  const cell = (k, val) => '<div class="h2h-c'+(KEY[k] === sel ? ' on' : '')+'"><div class="h2h-k">'+k+'</div><div class="h2h-v">'+val+'</div></div>';
   return '<div class="h2h"><div class="h2h-t">vs '+esc(v.opp)+' · last 3 seasons + this</div><div class="h2h-g">'
     + cell("GP", v.gp) + cell("PTS", v.pts.toFixed(1)) + cell("REB", v.reb.toFixed(1)) + cell("AST", v.ast.toFixed(1)) + cell("PRA", (v.pts+v.reb+v.ast).toFixed(1))
-    + '</div></div>';
+    + '</div>' + (v.stl != null ? '<div class="h2h-g h2h-g3">' + cell("3PM", v.fg3m.toFixed(1)) + cell("STL", v.stl.toFixed(1)) + cell("BLK", v.blk.toFixed(1)) + '</div>' : '')
+    + '</div>';
 }
 
 function detailHTML(r){
@@ -547,31 +579,33 @@ function detailHTML(r){
   const prev = SEASON.split("-")[0];
   const blend = p.w >= 1 ? SEASON+" only" : wp+"% "+SEASON+" · "+(100-wp)+"% "+(+prev-1)+"-"+prev.slice(2);
   const rk = r.rk[k];
-  const allowed = op.allow ? (k === "pra" ? op.allow[p.pos].pts+op.allow[p.pos].reb+op.allow[p.pos].ast : op.allow[p.pos][k]) : null;
+  const allowed = op.allow && (k === "pra" || op.allow[p.pos][k] != null) ? allowOf(op.allow[p.pos], k) : null;
+  const rare = RARE[k];
   const l5 = p.l5;
   const boost = r.boost[k] > 1.001;
   return '<div class="detail">'
    + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and minutes compare him to a <b>typical 30-minute starter</b>; matchup and pace compare to the <b>league average</b>. The tick in the middle is <b>1.00</b>: fill past it is above, short of it is below. Tap any bar to see what it means.</div></details>'
-   + bar("Volume", r.vol[k], r.vol[k].toFixed(2), "Projected "+WORD[st].toLowerCase()+" tonight against what a typical 30-minute starter puts up. The biggest piece of the score.")
+   + bar("Volume", r.vol[k], r.vol[k].toFixed(2), "Projected "+WORD[st].toLowerCase()+" tonight against "+(rare ? "the players who rack them up most" : "what a typical 30-minute starter puts up")+". The biggest piece of the score.")
    + bar("Minutes", r.minIdx, p.mpg.toFixed(1), "Minutes a night, blended toward this season’s role. In the NBA, opportunity starts with time on the floor.")
    + bar("Recent form", r.form[k], l5 && l5.n >= 3 ? r.form[k].toFixed(2) : "—", "His last five games per minute against his blended rate. Capped so one hot week can’t swing it; needs three games to count.")
    + bar("Matchup" + (rk ? " · " + esc(oppN) + " " + ordn(rk.rank) : ""), r.match[k], r.match[k].toFixed(2), esc(oppN)+"’s defense against his position: "+WORD[st].toLowerCase()+" it gives up to "+({G:"guards",F:"forwards",C:"centers"}[p.pos])+" a night. Above 1.00 = generous.")
    + bar("Pace", r.paceIdx, r.paceIdx.toFixed(2), "Possessions both teams play, against the league average. More trips down the floor means more chances at everything.")
    + (boost ? bar("Teammates out", r.boost[k], "+"+Math.round((r.boost[k]-1)*100)+"%", "Ruled out tonight: "+esc(r.boost.out.join(", "))+". Their share of the "+WORD[st].toLowerCase()+" gets spread across the players who are left.") : '')
    + histBar(r, k, st)
-   + '<div class="numbers"><h4>The numbers</h4>'
+   + '<div class="numbers"><h4>'+WORD[st]+'</h4>'
+   + '<div class="frow"><span>'+WORD[st]+' / game ('+SEASON+')</span><b>'+(sgVal(p, k) != null ? sgVal(p, k).toFixed(1) : "—")+'</b></div>'
+   + '<div class="frow"><span>'+(l5 && l5.n === 1 ? 'Last game' : 'Last '+(l5 ? l5.n : 5)+' games')+'</span><b>'+(l5Val(p, k) != null ? l5Val(p, k).toFixed(1) : "—")+'</b></div>'
+   + '<div class="frow"><span>Model baseline / game</span><b>'+baseOf(p, k).toFixed(1)+'</b></div>'
+   + '<div class="frow"><span>vs '+esc(oppN)+(p.vs && p.vs.gp ? ' ('+p.vs.gp+' GP, 3 seasons + this)' : '')+'</span><b>'+(vsVal(p, k) != null ? vsVal(p, k).toFixed(1) : "No games yet")+'</b></div>'
+   + (rk ? '<div class="frow"><span>'+esc(oppN)+' vs '+({G:"guards",F:"forwards",C:"centers"}[p.pos])+'</span><b>'+ordn(rk.rank)+' of '+rk.of+' <span style="color:var(--faint)">('+rankWord(rk.rank, rk.of)+')</span></b></div>' : '')
+   + (allowed !== null ? '<div class="frow"><span>'+esc(oppN)+' allows to '+({G:"guards",F:"forwards",C:"centers"}[p.pos])+' / game</span><b>'+allowed.toFixed(1)+'</b></div>' : '')
+   + '<div class="frow"><span>Proj '+st+' tonight</span><b>'+r.proj[k].toFixed(1)+'</b></div>'
+   + '<h4 style="margin-top:14px">The rest</h4>'
    + '<div class="frow"><span>Games played ('+SEASON+')</span><b>'+sg+'</b></div>'
    + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>'
-   + '<div class="frow"><span>Pts · reb · ast / game ('+SEASON+')</span><b>'+(sg ? per(s.pts,1)+" · "+per(s.reb,1)+" · "+per(s.ast,1) : "—")+'</b></div>'
-   + '<div class="frow"><span>'+(l5 && l5.n === 1 ? 'Last game' : 'Last '+(l5 ? l5.n : 5)+' games')+'</span><b>'+(l5 ? l5.pts.toFixed(1)+" · "+l5.reb.toFixed(1)+" · "+l5.ast.toFixed(1) : "—")+'</b></div>'
-   + '<div class="frow"><span>Threes / game ('+SEASON+')</span><b>'+per(s.fg3m,1)+'</b></div>'
    + '<div class="frow"><span>Minutes / game (model)</span><b>'+p.mpg.toFixed(1)+'</b></div>'
-   + (rk ? '<div class="frow"><span>'+esc(oppN)+' vs '+({G:"guards",F:"forwards",C:"centers"}[p.pos])+' ('+st+')</span><b>'+ordn(rk.rank)+' of '+rk.of+' <span style="color:var(--faint)">('+rankWord(rk.rank, rk.of)+')</span></b></div>' : '')
-   + (allowed !== null ? '<div class="frow"><span>'+esc(oppN)+' allows to '+({G:"guards",F:"forwards",C:"centers"}[p.pos])+' / game</span><b>'+allowed.toFixed(1)+' '+st.toLowerCase()+'</b></div>' : '')
    + '<div class="frow"><span>Game pace</span><b>'+(lg.pace*r.paceIdx).toFixed(1)+' <span style="color:var(--faint)">(lg '+lg.pace.toFixed(1)+')</span></b></div>'
-   + '<div class="frow"><span>Proj pts · reb · ast</span><b>'+r.proj.pts.toFixed(1)+' · '+r.proj.reb.toFixed(1)+' · '+r.proj.ast.toFixed(1)+'</b></div>'
-   + '<div class="frow"><span>Proj PRA</span><b>'+r.proj.pra.toFixed(1)+'</b></div>'
-   + histRows(p)
+   + histRows(p, k)
    + '</div>'
    + '</div>';
 }
@@ -590,7 +624,7 @@ function rowHTML(r, n){
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+(POSNAME[p.pos]||p.pos)+'</span>'+injBadge(p)+'</div>'
-    + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(rk?'<span class="dtag '+rankClass(rk.rank,rk.of)+'">'+esc(r.oppN)+' '+ordn(rk.rank)+' vs '+p.pos+'</span>':'')+'</div></div>'
+    + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(rk?'<span class="dtag '+rankClass(rk.rank,rk.of)+'">'+esc(r.oppN)+' '+ordn(rk.rank)+' vs '+p.pos+'</span>':'')+'</div>'+statLine(r, k)+'</div>'
     + '<div class="yproj">proj '+F.stat.toLowerCase()+'<b>'+r.proj[k].toFixed(1)+'</b></div>'
     + '<div><div class="ball t-'+tier+'">'+ballSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
     + '</div>'
