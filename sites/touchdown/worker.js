@@ -235,15 +235,15 @@ footer{display:block;color:#6e7681;font-size:11.5px;line-height:1.5;margin-top:2
 
 /* ============ STADIUM LIGHT SKIN ============ */
 :root{
---bg:#0C1110;--panel:#131A18;--panel2:#18211E;--line:rgba(255,255,255,.075);
---ink:#E8EFEA;--faint:#8A9A93;
+--bg:#0B0F14;--panel:#121821;--panel2:#171E28;--line:rgba(255,255,255,.075);
+--ink:#E8EEF5;--faint:#8C99A8;
 --red:#FF4D3D;--gold:#F5C451;--turf:#4ADE80;
---elite:#F5C451;--strong:#4ADE80;--solid:#6BA8FF;--fringe:#8A9A93;--long:#5E6E68;
+--elite:#F5C451;--strong:#4ADE80;--solid:#6BA8FF;--fringe:#8C99A8;--long:#5E6A78;
 }
 body{background:
  radial-gradient(1250px 640px at 50% -14%, rgba(224,238,255,.09), transparent 62%),
  radial-gradient(900px 520px at 86% 6%, rgba(255,77,61,.06), transparent 60%),
- radial-gradient(820px 600px at 6% 98%, rgba(74,222,128,.05), transparent 60%),
+ radial-gradient(820px 600px at 6% 98%, rgba(125,200,255,.07), transparent 60%),
  var(--bg);
  background-attachment:fixed;
  font-family:'Space Grotesk',system-ui,sans-serif}
@@ -655,8 +655,8 @@ function detailHTML(r){
 
 function ballSVG(){
   return '<svg viewBox="0 0 52 52" aria-hidden="true">'+
-    '<ellipse cx="26" cy="26" rx="24" ry="15.5" fill="#7A4321" stroke="currentColor" stroke-width="2"/>'+
-    '<ellipse cx="26" cy="26" rx="20.5" ry="12" fill="none" stroke="rgba(0,0,0,.30)" stroke-width="1"/>'+
+    '<ellipse cx="26" cy="26" rx="24" ry="15.5" fill="#1A1E24" stroke="currentColor" stroke-width="2"/>'+
+    '<ellipse cx="26" cy="26" rx="20.5" ry="12" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1"/>'+
     '</svg>';
 }
 function tdTag(p){ return p.td ? '<span class="tdtag">TD'+(p.td>1?' \\u00d7'+p.td:'')+'</span>' : ''; }
