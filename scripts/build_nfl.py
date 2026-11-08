@@ -112,7 +112,8 @@ def qb_depth(text, today):
 
 def scan_pbp(text, pos_of):
     rz = defaultdict(lambda: [0, 0])                     # player -> [inside 20, inside 5]
-    dvp = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0, 0.0, 0.0]))  # def -> pos -> [td, yds, rz plays, rz tds]
+    # def -> pos -> [td, yds, rz plays, rz tds, rush yds, rec yds, receptions]
+    dvp = defaultdict(lambda: defaultdict(lambda: [0.0] * 7))
     def_games = defaultdict(set)
     if not text:
         return rz, dvp, def_games
@@ -121,7 +122,8 @@ def scan_pbp(text, pos_of):
     hdr = next(reader)
     c = {h: i for i, h in enumerate(hdr)}
     need = ("play_type", "yardline_100", "yards_gained", "defteam", "game_id", "rusher_player_id",
-            "receiver_player_id", "passer_player_id", "rush_touchdown", "pass_touchdown", "two_point_attempt")
+            "receiver_player_id", "passer_player_id", "rush_touchdown", "pass_touchdown", "two_point_attempt",
+            "complete_pass")
     ix = {k: c[k] for k in need}
 
     for f in reader:
@@ -150,6 +152,11 @@ def scan_pbp(text, pos_of):
                 if in20:
                     cell[2] += 1
                     cell[3] += scored
+                if pt == "run":
+                    cell[4] += yds
+                elif f[ix["complete_pass"]] == "1":
+                    cell[5] += yds
+                    cell[6] += 1
 
         if pt == "pass":
             qb = f[ix["passer_player_id"]]
@@ -398,14 +405,16 @@ def main():
         pg_prior, pg_cur = len(dg_prior.get(d, ())), len(dg_cur.get(d, ()))
         dvp[d] = {}
         for pos in POS:
-            pv = dvp_prior[d][pos] if d in dvp_prior else [0.0] * 4
-            cv = dvp_cur[d][pos] if d in dvp_cur else [0.0] * 4
+            pv = dvp_prior[d][pos] if d in dvp_prior else [0.0] * 7
+            cv = dvp_cur[d][pos] if d in dvp_cur else [0.0] * 7
             vals = []
-            for i in range(4):
+            for i in range(7):
                 base = pv[i] / pg_prior if pg_prior else 0.0
                 rate = (cv[i] + K_DEF * base) / (pg_cur + K_DEF) if (pg_cur or pg_prior) else 0.0
                 vals.append(rate * 17)
-            dvp[d][pos] = [round(vals[0], 2), int(round(vals[1])), 17, round(vals[2], 1), round(vals[3], 1)]
+            # [td, yds, 17, rz plays, rz tds, rush yds, rec yds, receptions], all per 17 games
+            dvp[d][pos] = [round(vals[0], 2), int(round(vals[1])), 17, round(vals[2], 1), round(vals[3], 1),
+                           int(round(vals[4])), int(round(vals[5])), round(vals[6], 1)]
 
     def line(v):
         return None if v in ("", "NA") else float(v)
