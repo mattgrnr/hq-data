@@ -14,7 +14,7 @@ TIER = {"ELITE": (245, 196, 81), "STRONG": (74, 222, 128), "SOLID": (107, 168, 2
 LOOK = {
     "nba": {"bg": (11, 15, 20), "accent": (255, 138, 61), "unit": "PROJ PTS"},
     "nhl": {"bg": (11, 15, 20), "accent": (124, 200, 255), "unit": "PROJ SOG"},
-    "nfl": {"bg": (12, 17, 16), "accent": (255, 77, 61), "unit": "PROJ YDS"},
+    "nfl": {"bg": (11, 15, 20), "accent": (255, 77, 61), "unit": "PROJ YDS"},
 }
 HANDLE = "@yaboitroy247"
 
