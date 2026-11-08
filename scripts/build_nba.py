@@ -28,7 +28,7 @@ K_MIN = 10      # minutes follow this season's role faster than scoring rates do
 K_TEAM = 20
 MIN_MPG = 10    # below this a player isn't in the rotation
 HIST_SEASONS = 3  # head-to-head history: this many past seasons plus the current one
-STATS = ("pts", "reb", "ast", "fg3m")
+STATS = ("pts", "reb", "ast", "fg3m", "stl", "blk")
 GROUPS = ("G", "F", "C")
 
 
@@ -91,7 +91,7 @@ def group(pos):
 # ---------- player-game rows ----------
 
 BOX_COLS = ["game_id", "season_type", "game_date", "athlete_id", "athlete_display_name", "athlete_position_abbreviation",
-            "team_abbreviation", "minutes", "points", "rebounds", "assists", "three_point_field_goals_made",
+            "team_abbreviation", "minutes", "points", "rebounds", "assists", "three_point_field_goals_made", "steals", "blocks",
             "field_goals_attempted", "free_throws_attempted", "offensive_rebounds", "turnovers", "did_not_play"]
 
 
@@ -104,7 +104,8 @@ def box_rows(season, teams, types=(2,)):
             "gid": int(r["game_id"]), "date": str(r["game_date"])[:10], "pid": int(r["athlete_id"]),
             "name": r["athlete_display_name"], "pos": r["athlete_position_abbreviation"], "team": r["team_abbreviation"],
             "min": num(r["minutes"]), "pts": num(r["points"]), "reb": num(r["rebounds"]), "ast": num(r["assists"]),
-            "fg3m": num(r["three_point_field_goals_made"]), "fga": num(r["field_goals_attempted"]),
+            "fg3m": num(r["three_point_field_goals_made"]), "stl": num(r["steals"]), "blk": num(r["blocks"]),
+            "fga": num(r["field_goals_attempted"]),
             "fta": num(r["free_throws_attempted"]), "oreb": num(r["offensive_rebounds"]), "tov": num(r["turnovers"]),
         })
     return out
@@ -140,7 +141,8 @@ def summary_rows(gid, date):
                 "gid": int(gid), "date": date, "pid": int(ath["id"]), "name": ath["displayName"],
                 "pos": (ath.get("position") or {}).get("abbreviation", ""), "team": tm,
                 "min": mins, "pts": num(v.get("points")), "reb": num(v.get("rebounds")), "ast": num(v.get("assists")),
-                "fg3m": num(tp[0]), "fga": num(fg[-1]), "fta": num(ft[-1]),
+                "fg3m": num(tp[0]), "stl": num(v.get("steals")), "blk": num(v.get("blocks")),
+                "fga": num(fg[-1]), "fta": num(ft[-1]),
                 "oreb": num(v.get("offensiveRebounds")), "tov": num(v.get("turnovers")),
             })
     return out
@@ -162,16 +164,16 @@ def season_totals(rows):
         for k in STATS:
             s[k] += r[k]
         info[pid] = {"name": r["name"], "pos": group(r["pos"]) if r["pos"] else info.get(pid, {}).get("pos", "F"), "team": tm}
-        games_of[pid].append((r["date"], gid, tm, r["min"], r["pts"], r["reb"], r["ast"]))
+        games_of[pid].append((r["date"], gid, tm, r["min"], r["pts"], r["reb"], r["ast"], r["fg3m"], r["stl"], r["blk"]))
         t = tg[(gid, tm)]
         t["poss"] += r["fga"] + 0.44 * r["fta"] - r["oreb"] + r["tov"]
         t["min"] += r["min"]
         g = t["grp"][group(r["pos"])]
-        for k in ("pts", "reb", "ast"):
+        for k in STATS:
             g[k] += r[k]
         game_teams[gid].add(tm)
 
-    team = defaultdict(lambda: {"gp": 0, "pace": 0.0, "allow": {g: {k: 0.0 for k in ("pts", "reb", "ast")} for g in GROUPS}})
+    team = defaultdict(lambda: {"gp": 0, "pace": 0.0, "allow": {g: {k: 0.0 for k in STATS} for g in GROUPS}})
     for gid, tms in game_teams.items():
         if len(tms) != 2:
             continue
@@ -185,7 +187,7 @@ def season_totals(rows):
             t["gp"] += 1
             t["pace"] += pace
             for g in GROUPS:
-                for k in ("pts", "reb", "ast"):
+                for k in STATS:
                     t["allow"][g][k] += tg[(gid, op)]["grp"][g][k]
     return {"pl": pl, "info": info, "games_of": games_of, "team": team}
 
@@ -194,7 +196,9 @@ def prior_profile(season, teams):
     """Season totals from a finished season, cached in the repo since they never change."""
     path = ROOT / f"prior_{season}.json"
     if path.exists():
-        return json.loads(path.read_text())
+        cached = json.loads(path.read_text())
+        if all("stl" in t["allow"]["G"] for t in cached["team"].values()):
+            return cached
     t = season_totals(box_rows(season, teams))
     if not t["pl"]:
         return {"pl": {}, "team": {}}
@@ -252,12 +256,12 @@ def main():
             tt["gp"] += t["gp"]
             tt["pace"] += t["pace"]
             for g in GROUPS:
-                for k in ("pts", "reb", "ast"):
+                for k in STATS:
                     tt["allow"][g][k] += t["allow"][g][k]
     lg = {
         "pace": tt["pace"] / tt["gp"],
         "star": {k: star[k] / nstar for k in ("min", *STATS)},
-        "allow": {g: {k: tt["allow"][g][k] / tt["gp"] for k in ("pts", "reb", "ast")} for g in GROUPS},
+        "allow": {g: {k: tt["allow"][g][k] / tt["gp"] for k in STATS} for g in GROUPS},
     }
     lg["star"]["pra"] = lg["star"]["pts"] + lg["star"]["reb"] + lg["star"]["ast"]
 
@@ -310,7 +314,7 @@ def main():
             "id": pid, "name": ro["name"] or info.get(pid, {}).get("name", ""), "pos": pos, "team": ro["team"],
             "mpg": round(mpg, 1), "r": rate, "sg": c["gp"], "w": round(c["gp"] / (c["gp"] + k), 2),
             "s": {f: round(c[f], 1) for f in ("min", *STATS)},
-            "l5": {"n": n5, **{f: round(sum(x[j] for x in gl) / n5, 1) for f, j in (("min", 3), ("pts", 4), ("reb", 5), ("ast", 6))}} if n5 else None,
+            "l5": {"n": n5, **{f: round(sum(x[j] for x in gl) / n5, 1) for f, j in (("min", 3), ("pts", 4), ("reb", 5), ("ast", 6), ("fg3m", 7), ("stl", 8), ("blk", 9))}} if n5 else None,
             "last": played[-1][0] if played else "",
             "inj": ro["inj"],
         }
@@ -330,17 +334,17 @@ def main():
     sides = defaultdict(set)
     for r in hist:
         sides[r["gid"]].add(r["team"])
-    h2h = defaultdict(lambda: {"gp": 0, "pts": 0.0, "reb": 0.0, "ast": 0.0})
+    h2h = defaultdict(lambda: {"gp": 0, **{k: 0.0 for k in STATS}})
     for r in hist:
         opp = want.get(r["pid"])
         if opp and opp in sides[r["gid"]] and r["team"] != opp:
             h = h2h[r["pid"]]
             h["gp"] += 1
-            for k in ("pts", "reb", "ast"):
+            for k in STATS:
                 h[k] += r[k]
     for p in players:
         h = h2h.get(p["id"])
-        p["vs"] = {"opp": want[p["id"]], "gp": h["gp"], **{k: round(h[k] / h["gp"], 1) for k in ("pts", "reb", "ast")}} \
+        p["vs"] = {"opp": want[p["id"]], "gp": h["gp"], **{k: round(h[k] / h["gp"], 1) for k in STATS}} \
             if h else {"opp": want[p["id"]], "gp": 0}
 
     teams = {}
@@ -351,7 +355,7 @@ def main():
         out = {"gp": cg, "pace": round(((c["pace"] if c else 0) + K_TEAM * pace_base) / (cg + K_TEAM), 2), "allow": {}}
         for g in GROUPS:
             out["allow"][g] = {}
-            for k in ("pts", "reb", "ast"):
+            for k in STATS:
                 base = pr["allow"][g][k] / pr["gp"] if pr and pr["gp"] else lg["allow"][g][k]
                 out["allow"][g][k] = round(((c["allow"][g][k] if c else 0) + K_TEAM * base) / (cg + K_TEAM), 2)
         teams[tm] = out
