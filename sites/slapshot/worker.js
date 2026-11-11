@@ -361,7 +361,7 @@ function sportsMenuHTML(){
 
 let BOARD = null, GAMES = [], ROWS = [], DAYLBL = "", SEASON = "", DEFRANK = {}, POSRANK = {};
 let F = { stat:"G", pos:"ALL", game:"all", tier:"all", q:"" };
-const STATNAME = { G:"Goals", P:"Points", S:"SOG" };
+const STATNAME = { G:"Goals", A:"Assists", P:"Points", S:"SOG" };
 
 async function fetchJSON(u){
   const r = await fetch(u, { headers: { "X-Slapshot":"1" } });
@@ -406,9 +406,9 @@ function slotOf(pos){ return pos === "C" ? "C" : pos === "D" ? "D" : "W"; }
 function posRanks(teams){
   const out = {};
   for(const sl of ["C","W","D"]){
-    out[sl] = { G:{}, P:{}, S:{} };
-    for(const st of ["G","P","S"]){
-      const val = t => { const a = (teams[t].allow || {})[sl]; return a ? (st === "G" ? a.g : st === "S" ? (a.s || 0) : a.g + a.a) : 0; };
+    out[sl] = { G:{}, A:{}, P:{}, S:{} };
+    for(const st of ["G","A","P","S"]){
+      const val = t => { const a = (teams[t].allow || {})[sl]; return a ? (st === "G" ? a.g : st === "A" ? a.a : st === "S" ? (a.s || 0) : a.g + a.a) : 0; };
       const list = Object.keys(teams).filter(t => teams[t].allow).sort((a,b)=> val(a) - val(b));
       list.forEach(function(t,i){ out[sl][st][t] = { rank: i+1, of: list.length }; });
     }
@@ -447,17 +447,24 @@ function scorePlayer(p, game){
   const rawP = 0.34*ppgIdx + 0.16*toiIdx + 0.12*ppIdx + 0.08*volIdx + 0.16*posP + 0.14*envIdx;
   const scoreP = clamp(Math.round(60*rawP + 2), 4, 99);
   const projP = p.a != null ? ((p.g+p.a)/g) * (1 + 0.5*(posP-1)) * (0.6 + 0.4*envIdx) : null;
+  // assists: setup production first, then ice time, the power play, and what this defense gives up to his position
+  const posA = la && oa ? clamp(oa.a/la.a, 0.7, 1.4) : 1;
+  const apgIdx = lg.pts && p.a != null ? clamp((p.a/g)/(lg.pts - lg.gl), 0.1, 2.6) : formIdx;
+  const rawA = 0.36*apgIdx + 0.16*toiIdx + 0.14*ppIdx + 0.06*volIdx + 0.14*posA + 0.14*envIdx;
+  const scoreA = clamp(Math.round(60*rawA - 3), 4, 99);
+  const projA = p.a != null ? (p.a/g) * (1 + 0.5*(posA-1)) * (0.6 + 0.4*envIdx) : null;
   const rk = DEFRANK[oppN] || null;
   const rawS = 0.46*volIdx + 0.18*clamp((p.toi/g)/lg.toi, 0.4, 1.5) + 0.10*ppIdx + 0.16*matchS + 0.10*shotEnv;
   const scoreS = clamp(Math.round(60*rawS), 4, 99);
-  const prk = POSRANK[sl] ? { G: POSRANK[sl].G[oppN] || null, P: POSRANK[sl].P[oppN] || null, S: (POSRANK[sl].S || {})[oppN] || null } : { G:null, P:null, S:null };
-  return { score, scoreP, scoreS, projS: Math.round(projS*10)/10, projP: projP == null ? null : Math.round(projP*100)/100,
-           expG: Math.round(expG*100)/100, idx:{ vol:volIdx, qual:qualIdx, form:formIdx, pp:ppIdx, match:matchIdx, env:envIdx, ppg:ppgIdx, toi:toiIdx, posG, posP, posS, matchS, shotEnv, team:teamIdx },
+  const prk = POSRANK[sl] ? { G: POSRANK[sl].G[oppN] || null, A: (POSRANK[sl].A || {})[oppN] || null, P: POSRANK[sl].P[oppN] || null, S: (POSRANK[sl].S || {})[oppN] || null } : { G:null, A:null, P:null, S:null };
+  return { score, scoreA, scoreP, scoreS, projS: Math.round(projS*10)/10, projP: projP == null ? null : Math.round(projP*100)/100,
+           projA: projA == null ? null : Math.round(projA*100)/100,
+           expG: Math.round(expG*100)/100, idx:{ vol:volIdx, qual:qualIdx, form:formIdx, pp:ppIdx, match:matchIdx, env:envIdx, ppg:ppgIdx, apg:apgIdx, toi:toiIdx, posG, posA, posP, posS, matchS, shotEnv, team:teamIdx },
            gk, op, rk, prk, sl, oppN };
 }
 
 function tierOf(s){ return s>=80?"ELITE":s>=68?"STRONG":s>=56?"SOLID":s>=44?"FRINGE":"LONGSHOT"; }
-function scoreOf(r){ return F.stat === "P" ? r.scoreP : F.stat === "S" ? r.scoreS : r.score; }
+function scoreOf(r){ return F.stat === "A" ? r.scoreA : F.stat === "P" ? r.scoreP : F.stat === "S" ? r.scoreS : r.score; }
 
 function parseSlate(bd){
   return (bd.games||[]).map(function(g,ix){ return {
@@ -482,6 +489,7 @@ function buildRows(){
   }
 }
 function sortedRows(){
+  if(F.stat === "A") return ROWS.slice().sort((x,y)=> y.scoreA - x.scoreA || (y.projA||0) - (x.projA||0));
   if(F.stat === "P") return ROWS.slice().sort((x,y)=> y.scoreP - x.scoreP || (y.projP||0) - (x.projP||0));
   if(F.stat === "S") return ROWS.slice().sort((x,y)=> y.scoreS - x.scoreS || y.projS - x.projS);
   return ROWS.slice().sort((x,y)=> y.score - x.score || y.projS - x.projS);
@@ -515,6 +523,12 @@ function detailHTML(r){
       + bar("Power play", i.pp, i.pp.toFixed(2), "Expected goals he creates on the power play per game. First-unit players pile up shots with the extra man.")
       + bar("Matchup" + (pr ? " · " + ordn(pr.rank) : ""), i.matchS, i.matchS.toFixed(2), "Shots "+esc(oppN)+" gives up per game, overall and to "+who+", against the league average. Above 1.00 = generous.")
       + bar("Team shot pace", i.shotEnv, i.shotEnv.toFixed(2), "Shots his team should put on net tonight: its own shot rate against what this opponent allows.")
+    : F.stat === "A"
+    ? bar("Assists per game", i.apg, i.apg.toFixed(2), "Assists per game against a typical top-six forward, with this season blended against last so a hot week can’t swing it. The biggest piece of the assists score.")
+      + bar("Ice time", i.toi, i.toi.toFixed(2), "Minutes a night against a typical top-six forward. More time on the ice, more chances to set one up.")
+      + bar("Power play", i.pp, i.pp.toFixed(2), "Expected goals he helps create on the power play per game. First-unit playmakers rack up assists with the extra man.")
+      + bar("Matchup" + (pr ? " · " + ordn(pr.rank) : ""), i.posA, i.posA.toFixed(2), "Assists "+esc(oppN)+" gives up to "+who+" per game, against the league average. Above 1.00 = generous.")
+      + bar("Game environment", i.env, i.env.toFixed(2), "Goals his team should score tonight: its own scoring rate against this opponent’s goals allowed, with a small home-ice edge.")
     : F.stat === "P"
     ? bar("Points per game", i.ppg, i.ppg.toFixed(2), "Goals plus assists per game against a typical top-six forward, with this season blended against last so a hot week can’t swing it. The biggest piece of the points score.")
       + bar("Ice time", i.toi, i.toi.toFixed(2), "Minutes a night against a typical top-six forward. More time on the ice means more chances to be on for a goal.")
@@ -543,7 +557,7 @@ function detailHTML(r){
    + '<div class="frow"><span>Expected goals / game (model)</span><b>'+(p.ixg/p.gp).toFixed(2)+'</b></div>'
    + (r.rk ? '<div class="frow"><span>'+esc(oppN)+' defense</span><b>'+ordn(r.rk.rank)+' of '+r.rk.of+' <span style="color:var(--faint)">('+rankWord(r.rk.rank, r.rk.of)+')</span></b></div>' : '')
    + (pr ? '<div class="frow"><span>'+esc(oppN)+' vs '+who+' ('+STATNAME[F.stat].toLowerCase()+')</span><b>'+ordn(pr.rank)+' of '+pr.of+' <span style="color:var(--faint)">('+rankWord(pr.rank, pr.of)+')</span></b></div>' : '')
-   + (oa ? '<div class="frow"><span>'+esc(oppN)+' allows to '+who+' / game</span><b>'+(F.stat === "S" ? (oa.s != null ? oa.s.toFixed(1)+' sog' : '—') : F.stat === "P" ? oa.g.toFixed(2)+' g · '+oa.a.toFixed(2)+' a' : oa.g.toFixed(2)+' g')+'</b></div>' : '')
+   + (oa ? '<div class="frow"><span>'+esc(oppN)+' allows to '+who+' / game</span><b>'+(F.stat === "S" ? (oa.s != null ? oa.s.toFixed(1)+' sog' : '—') : F.stat === "A" ? oa.a.toFixed(2)+' a' : F.stat === "P" ? oa.g.toFixed(2)+' g · '+oa.a.toFixed(2)+' a' : oa.g.toFixed(2)+' g')+'</b></div>' : '')
    + '<div class="frow"><span>'+esc(oppN)+' goals allowed / game</span><b>'+op.ga.toFixed(2)+'</b></div>'
    + '<div class="frow"><span>'+esc(oppN)+' shots allowed / game</span><b>'+op.sa.toFixed(1)+'</b></div>'
    + (gk ? '<div class="frow stack"><span>Likely goalie</span><b>'+esc(gk.name)+(gk.sv!=null ? ' · '+gk.sv.toFixed(3).replace(/^0/,"")+' sv%' : '')+(gk.b2b ? ' · '+esc(oppN)+' played yesterday' : '')+'</b></div>' : '')
@@ -566,7 +580,8 @@ function rowHTML(r, n){
   const p = r.p, sc = scoreOf(r), tier = tierOf(sc), pr = r.prk[F.stat];
   const tag = pr ? '<span class="dtag '+rankClass(pr.rank,pr.of)+'">'+esc(r.oppN)+' '+ordn(pr.rank)+' vs '+r.sl+'</span>'
             : (r.rk ? '<span class="dtag '+rankClass(r.rk.rank,r.rk.of)+'">'+esc(r.oppN)+' '+ordn(r.rk.rank)+' defense</span>' : '');
-  const proj = F.stat === "P" ? '<div class="yproj">proj pts<b>'+(r.projP != null ? r.projP.toFixed(2) : "—")+'</b></div>'
+  const proj = F.stat === "A" ? '<div class="yproj">proj ast<b>'+(r.projA != null ? r.projA.toFixed(2) : "—")+'</b></div>'
+             : F.stat === "P" ? '<div class="yproj">proj pts<b>'+(r.projP != null ? r.projP.toFixed(2) : "—")+'</b></div>'
              : '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>';
   return '<div class="row'+(p.gl?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
@@ -603,7 +618,7 @@ function render(banner){
     + '<div class="ls-cell"><div class="k">Games</div><div class="v">'+GAMES.length+'</div></div>'
     + '<div class="ls-cell"><div class="k">Skaters</div><div class="v">'+ROWS.length+'</div></div>'
     + '<div class="ls-cell top"><div class="k">Top pick · '+STATNAME[F.stat].toLowerCase()+'</div><div class="v">'+(top? esc(top.p.name.split(" ").slice(-1)[0])+' <b>'+scoreOf(top)+'</b>' : "—")+'</div></div></div>';
-  h += '<div class="posrow">'+[["G","GOALS"],["P","POINTS"],["S","SOG"]].map(x=>'<div class="pos'+(F.stat===x[0]?" on":"")+'" data-stat="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
+  h += '<div class="posrow">'+[["G","GOALS"],["A","ASSISTS"],["P","POINTS"],["S","SOG"]].map(x=>'<div class="pos'+(F.stat===x[0]?" on":"")+'" data-stat="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
   h += '<div class="controls">'
     + '<div class="ctrl srch"><label>Search</label><input id="f-q" type="text" autocapitalize="none" autocorrect="off" placeholder="player, team, or game…" value="'+esc(F.q)+'"><span id="f-qx" class="qx">✕</span></div>'
     + '<div class="ctrl"><label>Game</label><select id="f-game"><option value="all">All games</option>'
@@ -613,12 +628,13 @@ function render(banner){
     + '<div class="ctrl"><label>Tier</label><select id="f-tier"><option value="all">All</option>'
     + ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"].map(t=>'<option'+(F.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'
     + '</div>';
-  h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+(F.stat==="P"?"Points":F.stat==="S"?"Shots":"Goal")+' Score</div></div>';
+  h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+(F.stat==="A"?"Assist":F.stat==="P"?"Points":F.stat==="S"?"Shots":"Goal")+' Score</div></div>';
   h += rows.length ? rows.map((r,i)=>rowHTML(r,i)).join("")
      : '<div class="status"><div class="big">🏒</div><h2>No players match</h2><p>Loosen the filters to see the board.</p></div>';
   h += '<details class="method"><summary>How the model works</summary>'
     + '<p><b style="color:var(--ink)">Goals:</b> six inputs, each an index where <b style="color:var(--ink)">1.00 = a typical top-six forward</b> (matchup and game environment: <b style="color:var(--ink)">1.00 = league average</b>): shot volume, chance quality, scoring form, power-play role, the opponent’s defense, likely goalie and what it allows to his position, and how many goals his team should score tonight.</p>'
     + '<p><b style="color:var(--ink)">SOG:</b> built on <b style="color:var(--ink)">shots per game</b>, then ice time, power-play role, the shots the opponent gives up overall and to his position, and how many shots his team should get tonight.</p>'
+    + '<p><b style="color:var(--ink)">Assists:</b> built on <b style="color:var(--ink)">assists per game</b>, then ice time, power-play role, the assists the opponent gives up to his position, and the game environment.</p>'
     + '<p><b style="color:var(--ink)">Points:</b> built on <b style="color:var(--ink)">points per game</b>, then ice time, power-play role, shot volume, the goals and assists the opponent gives up to his position, and the game environment.</p>'
     + '<p>Each score (0–100) is its inputs, weighted and scaled. This season is blended with last so early-season streaks can’t swing it.</p></details>';
   app.innerHTML = h;
