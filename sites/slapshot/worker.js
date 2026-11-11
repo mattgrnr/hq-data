@@ -453,11 +453,13 @@ function scorePlayer(p, game){
   const rawA = 0.36*apgIdx + 0.16*toiIdx + 0.14*ppIdx + 0.06*volIdx + 0.14*posA + 0.14*envIdx;
   const scoreA = clamp(Math.round(60*rawA - 3), 4, 99);
   const projA = p.a != null ? (p.a/g) * (1 + 0.5*(posA-1)) * (0.6 + 0.4*envIdx) : null;
+  // goals: half actual scoring, half shot quality, then the matchup and game environment
+  const projG = (0.5*p.g/g + 0.5*p.ixg/g) * (1 + 0.5*(matchIdx-1)) * (0.6 + 0.4*envIdx);
   const rk = DEFRANK[oppN] || null;
   const rawS = 0.46*volIdx + 0.18*clamp((p.toi/g)/lg.toi, 0.4, 1.5) + 0.10*ppIdx + 0.16*matchS + 0.10*shotEnv;
   const scoreS = clamp(Math.round(60*rawS), 4, 99);
   const prk = POSRANK[sl] ? { G: POSRANK[sl].G[oppN] || null, A: (POSRANK[sl].A || {})[oppN] || null, P: POSRANK[sl].P[oppN] || null, S: (POSRANK[sl].S || {})[oppN] || null } : { G:null, A:null, P:null, S:null };
-  return { score, scoreA, scoreP, scoreS, projS: Math.round(projS*10)/10, projP: projP == null ? null : Math.round(projP*100)/100,
+  return { score, scoreA, scoreP, scoreS, projS: Math.round(projS*10)/10, projG: Math.round(projG*100)/100, projP: projP == null ? null : Math.round(projP*100)/100,
            projA: projA == null ? null : Math.round(projA*100)/100,
            expG: Math.round(expG*100)/100, idx:{ vol:volIdx, qual:qualIdx, form:formIdx, pp:ppIdx, match:matchIdx, env:envIdx, ppg:ppgIdx, apg:apgIdx, toi:toiIdx, posG, posA, posP, posS, matchS, shotEnv, team:teamIdx },
            gk, op, rk, prk, sl, oppN };
@@ -492,7 +494,7 @@ function sortedRows(){
   if(F.stat === "A") return ROWS.slice().sort((x,y)=> y.scoreA - x.scoreA || (y.projA||0) - (x.projA||0));
   if(F.stat === "P") return ROWS.slice().sort((x,y)=> y.scoreP - x.scoreP || (y.projP||0) - (x.projP||0));
   if(F.stat === "S") return ROWS.slice().sort((x,y)=> y.scoreS - x.scoreS || y.projS - x.projS);
-  return ROWS.slice().sort((x,y)=> y.score - x.score || y.projS - x.projS);
+  return ROWS.slice().sort((x,y)=> y.score - x.score || y.projG - x.projG);
 }
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -562,6 +564,7 @@ function detailHTML(r){
    + '<div class="frow"><span>'+esc(oppN)+' shots allowed / game</span><b>'+op.sa.toFixed(1)+'</b></div>'
    + (gk ? '<div class="frow stack"><span>Likely goalie</span><b>'+esc(gk.name)+(gk.sv!=null ? ' · '+gk.sv.toFixed(3).replace(/^0/,"")+' sv%' : '')+(gk.b2b ? ' · '+esc(oppN)+' played yesterday' : '')+'</b></div>' : '')
    + '<div class="frow"><span>Expected team goals</span><b>'+r.expG.toFixed(2)+' <span style="color:var(--faint)">(lg '+lg.gf.toFixed(2)+')</span></b></div>'
+   + '<div class="frow"><span>Proj goals</span><b>'+r.projG.toFixed(2)+'</b></div>'
    + '<div class="frow"><span>Proj shots on goal</span><b>'+r.projS.toFixed(1)+'</b></div>'
    + (r.projP != null ? '<div class="frow"><span>Proj points</span><b>'+r.projP.toFixed(2)+'</b></div>' : '')
    + '</div>'
@@ -582,7 +585,8 @@ function rowHTML(r, n){
             : (r.rk ? '<span class="dtag '+rankClass(r.rk.rank,r.rk.of)+'">'+esc(r.oppN)+' '+ordn(r.rk.rank)+' defense</span>' : '');
   const proj = F.stat === "A" ? '<div class="yproj">proj ast<b>'+(r.projA != null ? r.projA.toFixed(2) : "—")+'</b></div>'
              : F.stat === "P" ? '<div class="yproj">proj pts<b>'+(r.projP != null ? r.projP.toFixed(2) : "—")+'</b></div>'
-             : '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>';
+             : F.stat === "S" ? '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>'
+             : '<div class="yproj">proj g<b>'+r.projG.toFixed(2)+'</b></div>';
   return '<div class="row'+(p.gl?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
