@@ -1,9 +1,6 @@
-200 User-agent: *Allow: /Disallow: /api/*Disallow: /auth/*Disallow: /infoDisallow: /healthDisallow: /contact_usUser <- https://www.fotmob.com/robots.txt
-200 {"leagues":[{"ccode":"ENG","id":47,"primaryId":47,"name":"Premier League","matches":[{"id":5795506,"leagueId":47,"time": <- https://www.fotmob.com/api/data/matches?date=20261108
-404  <- https://www.fotmob.com/api/matches?date=20261108
-200 {"tabs":["overview","table","fixtures","stats","transfers","seasons"],"allAvailableSeasons":["2026/2027","2025/2026","20 <- https://www.fotmob.com/api/data/leagues?id=47
-404  <- https://www.fotmob.com/api/leagues?id=47
-match 5795506
-200 {"general":{"matchId":"5795506","matchName":"Brighton & Hove Albion-vs-Brentford_Sun, Nov 8, 2026, 14:00 UTC","matchRoun <- https://www.fotmob.com/api/data/matchDetails?matchId=5795506
-404  <- https://www.fotmob.com/api/matchDetails?matchId=5795506
-200 <!DOCTYPE html><html lang="en" dir="ltr"><head><meta charSet="utf-8" data-next-head=""/><meta name="viewport" content="w <- https://www.fotmob.com/en/leagues/47/overview/premier-league
+200 https://www.fotmob.com/match/5795506 <- https://www.fotmob.com/match/5795506
+200 https://www.fotmob.com/?date=20261121 <- https://www.fotmob.com/?date=20261121
+200 https://www.fotmob.com/players/1134871/maxim-de-cuyper <- https://www.fotmob.com/players/1134871/maxim-de-cuyper
+match.html ['general', 'header', 'nav', 'ongoing', 'hasPendingVAR', 'content', 'seo', 'fetchingLeagueData', 'ssr', 'canonicalUrl', 'fallback']
+home.html ['fallback']
+player.html ['data', 'fallback']
