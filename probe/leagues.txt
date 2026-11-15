@@ -1,47 +1,47 @@
-league|name|games_oct|sample|players_with_shot_stats|starters|has_odds
-eng.1||0||-|-|-
-esp.1||0||-|-|-
-ita.1||0||-|-|-
-ger.1||0||-|-|-
-fra.1||0||-|-|-
-usa.1||0||-|-|-
-uefa.champions||0||-|-|-
-uefa.europa||0||-|-|-
-uefa.europa.conf||0||-|-|-
-eng.2||0||-|-|-
-eng.3||0||-|-|-
-eng.fa||0||-|-|-
-eng.league_cup||0||-|-|-
-sco.1||0||-|-|-
-ned.1||0||-|-|-
-por.1||0||-|-|-
-bel.1||0||-|-|-
-tur.1||0||-|-|-
-gre.1||0||-|-|-
-aut.1||0||-|-|-
-sui.1||0||-|-|-
-den.1||0||-|-|-
-nor.1||0||-|-|-
-swe.1||0||-|-|-
-ksa.1||0||-|-|-
-mex.1||0||-|-|-
-bra.1||0||-|-|-
-arg.1||0||-|-|-
-jpn.1||0||-|-|-
-aus.1||0||-|-|-
-ger.2||0||-|-|-
-esp.2||0||-|-|-
-ita.2||0||-|-|-
-fra.2||0||-|-|-
-esp.copa_del_rey||0||-|-|-
-ger.dfb_pokal||0||-|-|-
-ita.coppa_italia||0||-|-|-
-fra.coupe_de_france||0||-|-|-
-conmebol.libertadores||0||-|-|-
-conmebol.sudamericana||0||-|-|-
-concacaf.champions||0||-|-|-
-uefa.nations||0||-|-|-
-fifa.friendly||0||-|-|-
-fifa.worldq.uefa||0||-|-|-
-fifa.worldq.conmebol||0||-|-|-
-fifa.worldq.concacaf||0||-|-|-
+league|name|games_3wk|sample|players_with_shot_stats|starters|has_odds
+eng.1|English Premier League|25|401878762|40|22|3
+esp.1|Spanish LALIGA|25|401882824|46|22|2
+ita.1|Italian Serie A|35|401874963|48|22|3
+ger.1|German Bundesliga|20|401884750|40|22|3
+fra.1|French Ligue 1|25|401876419|40|22|3
+usa.1|MLS|45|761927|40|22|3
+uefa.champions|UEFA Champions League|18|401915383|44|22|3
+uefa.europa|UEFA Europa League|18|401915534|44|22|3
+uefa.europa.conf|UEFA Conference League|18|401915831|46|22|3
+eng.2|English League Championship|36|401880175|40|22|3
+eng.3|English League One|25|401880754|36|22|3
+eng.fa|English FA Cup|40|401931098|38|22|3
+eng.league_cup|English Carabao Cup|8|401921844|40|22|3
+sco.1|Scottish Premiership|17|401878349|40|22|3
+ned.1|Dutch Eredivisie|23|401875560|46|22|3
+por.1|Portuguese Primeira Liga|22|401885403|46|22|3
+bel.1|Belgian Pro League|23|401878967|40|22|3
+tur.1|Turkish Super Lig|23|401888260|42|22|3
+gre.1|Greek Super League|18|401896739|46|22|3
+aut.1|Austrian Bundesliga|14|401881761|40|22|3
+sui.1|Swiss Super League|0||-|-|-
+den.1|Danish Superliga|17|401874494|40|22|3
+nor.1|Norwegian Eliteserien|22|401843474|40|22|3
+swe.1|Swedish Allsvenskan|26|401842866|40|22|3
+ksa.1|Saudi Pro League|10|401900878|40|22|3
+mex.1|Mexican Liga BBVA MX|24|401876988|42|22|3
+bra.1|Brazilian Serie A|24|401841311|46|22|3
+arg.1|Argentine Liga Profesional de Fútbol|38|401841659|45|22|3
+jpn.1|Japanese J.League|25|401877580|40|22|2
+aus.1|Australian A-League Men|13|401892146|36|22|2
+ger.2|German 2. Bundesliga|21|401885072|40|22|3
+esp.2|Spanish LALIGA 2|30|401883114|46|22|3
+ita.2|Italian Serie B|32|401899569|46|22|3
+fra.2|French Ligue 2|20|401876703|40|22|1
+esp.copa_del_rey|Spanish Copa del Rey|50|401928490|46|22|1
+ger.dfb_pokal|German Cup|16|401916921|40|22|3
+ita.coppa_italia|Coppa Italia|0||-|-|-
+fra.coupe_de_france|Coupe de France|58|401932858|0|0|0
+conmebol.libertadores|CONMEBOL Libertadores|0||-|-|-
+conmebol.sudamericana|CONMEBOL Sudamericana|0||-|-|-
+concacaf.champions|Concacaf Champions Cup|0||-|-|-
+uefa.nations|UEFA Nations League|26|401861163|46|22|3
+fifa.friendly|International Friendly|22|401933864|0|0|0
+fifa.worldq.uefa|FIFA World Cup Qualifying - UEFA|0||-|-|-
+fifa.worldq.conmebol|FIFA World Cup Qualifying - CONMEBOL|0||-|-|-
+fifa.worldq.concacaf|FIFA World Cup Qualifying - Concacaf|0||-|-|-
