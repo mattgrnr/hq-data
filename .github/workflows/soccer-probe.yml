@@ -15,16 +15,23 @@ jobs:
           set +e +o pipefail
           mkdir -p probe/fotmob && cd probe/fotmob
           get(){ code=$(curl -s -H "Accept: application/json" -o "$2" -w "%{http_code}" "$1"); echo "$code $(head -c 120 "$2" | tr -d '\n') <- $1" | tee -a status.txt; }
-          get https://www.fotmob.com/robots.txt robots.txt
-          get "https://www.fotmob.com/api/data/matches?date=20261108" matches_data.json
-          get "https://www.fotmob.com/api/matches?date=20261108" matches.json
-          get "https://www.fotmob.com/api/data/leagues?id=47" league_data.json
-          get "https://www.fotmob.com/api/leagues?id=47" league.json
-          mid=$(jq -r '[.leagues[]?.matches[]?][0].id // empty' matches_data.json matches.json 2>/dev/null | head -1)
-          echo "match $mid" | tee -a status.txt
-          [ -n "$mid" ] && get "https://www.fotmob.com/api/data/matchDetails?matchId=$mid" md_data.json
-          [ -n "$mid" ] && get "https://www.fotmob.com/api/matchDetails?matchId=$mid" md.json
-          get "https://www.fotmob.com/en/leagues/47/overview/premier-league" page.html
+          rm -f *.json *.html status.txt
+          get(){ code=$(curl -sL -o "$2" -w "%{http_code} %{url_effective}" "$1"); echo "$code <- $1" | tee -a status.txt; }
+          get "https://www.fotmob.com/match/5795506" match.html
+          get "https://www.fotmob.com/?date=20261121" home.html
+          get "https://www.fotmob.com/players/1134871/maxim-de-cuyper" player.html
+          for f in match.html home.html player.html; do
+            python3 - "$f" <<'PY' | tee -a status.txt
+          import re,json,sys
+          h=open(sys.argv[1]).read()
+          m=re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',h,re.S)
+          if not m: print(sys.argv[1],"no next data"); sys.exit()
+          d=json.loads(m.group(1))["props"]["pageProps"]
+          print(sys.argv[1], list(d.keys())[:25])
+          json.dump(d, open(sys.argv[1]+".json","w"))
+          PY
+          done
+          rm -f *.html
       - name: Save
         run: |
           git config user.name "github-actions[bot]"
