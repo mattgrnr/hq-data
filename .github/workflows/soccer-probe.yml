@@ -17,10 +17,18 @@ jobs:
           get(){ code=$(curl -s -H "Accept: application/json" -o "$2" -w "%{http_code}" "$1"); echo "$code $(head -c 120 "$2" | tr -d '\n') <- $1" | tee -a status.txt; }
           rm -f *.json *.html status.txt
           get(){ code=$(curl -sL -o "$2" -w "%{http_code} %{url_effective}" "$1"); echo "$code <- $1" | tee -a status.txt; }
-          get "https://www.fotmob.com/match/5795506" match.html
-          get "https://www.fotmob.com/?date=20261121" home.html
-          get "https://www.fotmob.com/players/1134871/maxim-de-cuyper" player.html
-          for f in match.html home.html player.html; do
+          get "https://www.fotmob.com/leagues/47/fixtures/premier-league" league.html
+          get "https://www.fotmob.com/leagues/47/fixtures/premier-league?season=2025-2026" league_prev.html
+          python3 - <<'PY' > upcoming.txt
+          import re,json
+          h=open("league.html").read()
+          d=json.loads(re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',h,re.S).group(1))["props"]["pageProps"]
+          ms=d["fixtures"]["allMatches"]
+          up=[m for m in ms if not m["status"].get("finished")]
+          print(up[0]["id"])
+          PY
+          get "https://www.fotmob.com/match/$(cat upcoming.txt)" upcoming.html
+          for f in league.html league_prev.html upcoming.html; do
             python3 - "$f" <<'PY' | tee -a status.txt
           import re,json,sys
           h=open(sys.argv[1]).read()
