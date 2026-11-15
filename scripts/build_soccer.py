@@ -387,8 +387,10 @@ def exp_minutes(p, team, lu_side, kind):
             return clamp(used, 0.15, 0.8) * avg_sub, "bench"
         return 0.0, "not in squad"
     if lu_side and lu_side["start"]:
+        # a predicted XI is a decent guess; last match's XI is a weaker one
+        sure, tag = (0.88, "predicted") if kind == "predicted" else (0.75, "last11")
         if pid in lu_side["start"]:
-            return 0.85 * min(90.0, avg_start), "predicted"
+            return sure * min(90.0, avg_start), tag
     recent = [x for x in p["log"] if x[2] == team][:5]
     if not recent:
         return 0.0, ""
