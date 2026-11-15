@@ -1,0 +1,27 @@
+name: Soccer probe
+on:
+  push:
+    branches: ["probe/soccer"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch samples
+        run: |
+          mkdir out && cd out
+          B=https://site.api.espn.com/apis/site/v2/sports/soccer
+          for lg in eng.1 esp.1 ita.1 ger.1 fra.1 uefa.champions usa.1; do
+            curl -s "$B/$lg/scoreboard?dates=20261101-20261114" -o "sb_$lg.json"
+            curl -s "$B/$lg/teams" -o "teams_$lg.json"
+          done
+          ev=$(jq -r '[.events[] | select(.status.type.completed)][0].id' sb_eng.1.json)
+          echo "event $ev"
+          curl -s "$B/eng.1/summary?event=$ev" -o sum_eng.1.json
+          t=$(jq -r '.sports[0].leagues[0].teams[0].team.id' teams_eng.1.json)
+          curl -s "$B/eng.1/teams/$t/roster" -o roster_eng.1.json
+          curl -s "https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/seasons/2026/types/1/athletes?limit=5" -o core_athletes.json
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soccer
+          path: out
