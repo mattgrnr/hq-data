@@ -15,12 +15,14 @@ jobs:
           set +e +o pipefail
           B=https://site.api.espn.com/apis/site/v2/sports/soccer
           LEAGUES="eng.1 esp.1 ita.1 ger.1 fra.1 usa.1 uefa.champions uefa.europa uefa.europa.conf eng.2 eng.3 eng.fa eng.league_cup sco.1 ned.1 por.1 bel.1 tur.1 gre.1 aut.1 sui.1 den.1 nor.1 swe.1 ksa.1 mex.1 bra.1 arg.1 jpn.1 aus.1 ger.2 esp.2 ita.2 fra.2 esp.copa_del_rey ger.dfb_pokal ita.coppa_italia fra.coupe_de_france conmebol.libertadores conmebol.sudamericana concacaf.champions uefa.nations fifa.friendly fifa.worldq.uefa fifa.worldq.conmebol fifa.worldq.concacaf"
-          echo "league|name|games_oct|sample|players_with_shot_stats|starters|has_odds" > out.txt
+          echo "league|name|games_3wk|sample|players_with_shot_stats|starters|has_odds" > out.txt
           for lg in $LEAGUES; do
-            curl -s "$B/$lg/scoreboard?dates=20261001-20261114&limit=400" -o sb.json
+            rm -f d_*.json
+            for d in $(seq 1 21); do curl -s "$B/$lg/scoreboard?dates=$(date -u -d "-$d day" +%Y%m%d)" -o "d_$d.json"; done
+            jq -s '{leagues: (map(.leagues? // []) | add), events: (map(.events? // []) | add)}' d_*.json > sb.json 2>/dev/null
             name=$(jq -r '.leagues[0].name // "?"' sb.json 2>/dev/null)
             n=$(jq '[.events[]? | select(.status.type.completed)] | length' sb.json 2>/dev/null || echo 0)
-            ev=$(jq -r '[.events[]? | select(.status.type.completed)] | last | .id // empty' sb.json 2>/dev/null)
+            ev=$(jq -r '[.events[]? | select(.status.type.completed)] | first | .id // empty' sb.json 2>/dev/null)
             if [ -n "$ev" ]; then
               curl -s "$B/$lg/summary?event=$ev" -o s.json
               shots=$(jq '[.rosters[]?.roster[]? | select(any(.stats[]?; .name=="totalShots"))] | length' s.json 2>/dev/null || echo 0)
