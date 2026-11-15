@@ -1,6 +1,6 @@
-200 https://www.fotmob.com/match/5795506 <- https://www.fotmob.com/match/5795506
-200 https://www.fotmob.com/?date=20261121 <- https://www.fotmob.com/?date=20261121
-200 https://www.fotmob.com/players/1134871/maxim-de-cuyper <- https://www.fotmob.com/players/1134871/maxim-de-cuyper
-match.html ['general', 'header', 'nav', 'ongoing', 'hasPendingVAR', 'content', 'seo', 'fetchingLeagueData', 'ssr', 'canonicalUrl', 'fallback']
-home.html ['fallback']
-player.html ['data', 'fallback']
+200 https://www.fotmob.com/leagues/47/fixtures/premier-league <- https://www.fotmob.com/leagues/47/fixtures/premier-league
+200 https://www.fotmob.com/leagues/47/fixtures/premier-league?season=2025-2026 <- https://www.fotmob.com/leagues/47/fixtures/premier-league?season=2025-2026
+200 https://www.fotmob.com/match/5795522 <- https://www.fotmob.com/match/5795522
+league.html ['tabs', 'allAvailableSeasons', 'details', 'seostr', 'QAData', 'table', 'transfers', 'overview', 'stats', 'fixtures', 'playoff', 'seasons', 'fallback']
+league_prev.html ['tabs', 'allAvailableSeasons', 'details', 'seostr', 'QAData', 'table', 'transfers', 'overview', 'stats', 'fixtures', 'playoff', 'seasons', 'fallback']
+upcoming.html ['general', 'header', 'nav', 'ongoing', 'hasPendingVAR', 'content', 'seo', 'fetchingLeagueData', 'ssr', 'canonicalUrl', 'fallback']
