@@ -74,7 +74,14 @@ jobs:
                 rm "sites/$site/wrangler.first.toml"
                 npx --yes wrangler@4 versions upload --config "sites/$site/wrangler.toml" --preview-alias "$alias" | tee out.txt
               fi
-              url=$(grep -oE 'https://[^ ]+workers\.dev[^ ]*' out.txt | tail -1)
+              if ! grep -qE 'https://[^ ]+workers\.dev' out.txt; then
+                # uploaded but never deployed, so there is no preview URL yet: deploy once with no domain, then preview
+                sed '/^\[\[routes\]\]/,$d' "sites/$site/wrangler.toml" > "sites/$site/wrangler.first.toml"
+                npx --yes wrangler@4 deploy --config "sites/$site/wrangler.first.toml"
+                rm "sites/$site/wrangler.first.toml"
+                npx --yes wrangler@4 versions upload --config "sites/$site/wrangler.toml" --preview-alias "$alias" | tee out.txt
+              fi
+              url=$(grep -oE 'https://[^ ]+workers\.dev[^ ]*' out.txt | tail -1 || true)
               echo "- **$site** preview: $url" >> "$GITHUB_STEP_SUMMARY"
             fi
             echo "::endgroup::"
