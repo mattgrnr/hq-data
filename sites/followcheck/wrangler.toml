@@ -1,0 +1,13 @@
+name = "follow-check"
+main = "worker.js"
+compatibility_date = "2026-11-15"
+workers_dev = false
+preview_urls = true
+
+[[routes]]
+pattern = "thefollowcheck.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.thefollowcheck.com"
+custom_domain = true
