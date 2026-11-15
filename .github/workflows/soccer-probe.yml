@@ -9,31 +9,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Check player stats per league
+      - name: FotMob check
         shell: bash
         run: |
           set +e +o pipefail
-          B=https://site.api.espn.com/apis/site/v2/sports/soccer
-          LEAGUES="eng.1 esp.1 ita.1 ger.1 fra.1 usa.1 uefa.champions uefa.europa uefa.europa.conf eng.2 eng.3 eng.fa eng.league_cup sco.1 ned.1 por.1 bel.1 tur.1 gre.1 aut.1 sui.1 den.1 nor.1 swe.1 ksa.1 mex.1 bra.1 arg.1 jpn.1 aus.1 ger.2 esp.2 ita.2 fra.2 esp.copa_del_rey ger.dfb_pokal ita.coppa_italia fra.coupe_de_france conmebol.libertadores conmebol.sudamericana concacaf.champions uefa.nations fifa.friendly fifa.worldq.uefa fifa.worldq.conmebol fifa.worldq.concacaf"
-          echo "league|name|games_3wk|sample|players_with_shot_stats|starters|has_odds" > out.txt
-          for lg in $LEAGUES; do
-            rm -f d_*.json
-            for d in $(seq 1 21); do curl -s "$B/$lg/scoreboard?dates=$(date -u -d "-$d day" +%Y%m%d)" -o "d_$d.json"; done
-            jq -s '{leagues: (map(.leagues? // []) | add), events: (map(.events? // []) | add)}' d_*.json > sb.json 2>/dev/null
-            name=$(jq -r '.leagues[0].name // "?"' sb.json 2>/dev/null)
-            n=$(jq '[.events[]? | select(.status.type.completed)] | length' sb.json 2>/dev/null || echo 0)
-            ev=$(jq -r '[.events[]? | select(.status.type.completed)] | first | .id // empty' sb.json 2>/dev/null)
-            if [ -n "$ev" ]; then
-              curl -s "$B/$lg/summary?event=$ev" -o s.json
-              shots=$(jq '[.rosters[]?.roster[]? | select(any(.stats[]?; .name=="totalShots"))] | length' s.json 2>/dev/null || echo 0)
-              st=$(jq '[.rosters[]?.roster[]? | select(.starter)] | length' s.json 2>/dev/null || echo 0)
-              odds=$(jq '((.pickcenter // []) | length) + ((.odds // []) | length)' s.json 2>/dev/null || echo 0)
-            else shots=-; st=-; odds=-; fi
-            echo "$lg|$name|$n|$ev|$shots|$st|$odds" | tee -a out.txt
-          done
-          mkdir -p probe && mv out.txt probe/leagues.txt
+          mkdir -p probe/fotmob && cd probe/fotmob
+          get(){ code=$(curl -s -H "Accept: application/json" -o "$2" -w "%{http_code}" "$1"); echo "$code $(head -c 120 "$2" | tr -d '\n') <- $1" | tee -a status.txt; }
+          get https://www.fotmob.com/robots.txt robots.txt
+          get "https://www.fotmob.com/api/data/matches?date=20261108" matches_data.json
+          get "https://www.fotmob.com/api/matches?date=20261108" matches.json
+          get "https://www.fotmob.com/api/data/leagues?id=47" league_data.json
+          get "https://www.fotmob.com/api/leagues?id=47" league.json
+          mid=$(jq -r '[.leagues[]?.matches[]?][0].id // empty' matches_data.json matches.json 2>/dev/null | head -1)
+          echo "match $mid" | tee -a status.txt
+          [ -n "$mid" ] && get "https://www.fotmob.com/api/data/matchDetails?matchId=$mid" md_data.json
+          [ -n "$mid" ] && get "https://www.fotmob.com/api/matchDetails?matchId=$mid" md.json
+          get "https://www.fotmob.com/en/leagues/47/overview/premier-league" page.html
       - name: Save
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add probe && git commit -qm "Soccer league coverage [skip ci]" && git push
+          git add probe && git commit -qm "FotMob probe [skip ci]" && git push
