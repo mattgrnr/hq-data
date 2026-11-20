@@ -294,7 +294,8 @@ def main():
             k = K_ROOKIE * 5 / (5 + c["gp"])   # the pull fades as his own games pile up
             b = by_group[pos]
             base = {f: b[f] / b["gp"] for f in ("min", *STATS)}
-            mpg = (c["min"] + 3 * 18) / (c["gp"] + 3)
+            km = 3 * 5 / (5 + c["gp"])
+            mpg = (c["min"] + km * 18) / (c["gp"] + km)
         else:
             continue
         if mpg < MIN_MPG:
