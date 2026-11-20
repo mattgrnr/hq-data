@@ -234,6 +234,65 @@ def main():
         t = lg[pos]
         return t[td] / t[opp] if t[opp] else 0.0
 
+    cur = defaultdict(lambda: defaultdict(float))
+    cur_weeks = defaultdict(set)
+    td_week = defaultdict(int)
+    stats_in = set()
+    team_last_week = {}
+    qb_att_by_week = defaultdict(lambda: defaultdict(float))  # (team, week) -> qb -> attempts
+    for r in cur_weekly:
+        pid, wk, tm = r["player_id"], int(r["week"]), r["team"]
+        if wk == week:
+            stats_in.add(tm)
+            td_week[pid] = int(num(r["rushing_tds"]) + num(r["receiving_tds"]))
+        if r["position"] not in POS:
+            continue
+        cur_weeks[pid].add(wk)
+        c = cur[pid]
+        c["pyd"] += num(r["passing_yards"]); c["ptd"] += num(r["passing_tds"]); c["att"] += num(r["attempts"])
+        c["car"] += num(r["carries"]); c["ryd"] += num(r["rushing_yards"]); c["rtd"] += num(r["rushing_tds"])
+        c["tgt"] += num(r["targets"]); c["rec"] += num(r["receptions"]); c["cyd"] += num(r["receiving_yards"])
+        c["ctd"] += num(r["receiving_tds"])
+        team_last_week[tm] = max(team_last_week.get(tm, 0), wk)
+        if r["position"] == "QB":
+            qb_att_by_week[(tm, wk)][pid] += num(r["attempts"])
+
+    # current roster: latest week each player appears
+    roster = {}
+    for r in roster_rows:
+        pid = r["gsis_id"]
+        if not pid or r["position"] not in POS:
+            continue
+        wk = int(r["week"])
+        if pid not in roster or wk >= roster[pid]["week"]:
+            roster[pid] = {"week": wk, "team": r["team"], "status": r["status"], "name": r["full_name"], "pos": r["position"]}
+
+    # injury designations for this week; carry last week's Out until this week's report is final
+    inj_now, inj_prev = {}, {}
+    for r in injury_rows:
+        wk = int(r["week"])
+        if wk == week and r["report_status"]:
+            inj_now[r["gsis_id"]] = r["report_status"]
+        elif wk == week - 1 and r["report_status"]:
+            inj_prev[r["gsis_id"]] = r["report_status"]
+
+    game_day = {}
+    for g in week_games:
+        d = dt.date.fromisoformat(g["gameday"])
+        game_day[g["home_team"]] = d
+        game_day[g["away_team"]] = d
+
+    # game-status reports are final two days before kickoff; earlier Outs still count
+    def injury(pid, team):
+        now = inj_now.get(pid, "")
+        if team in game_day and today >= game_day[team] - dt.timedelta(days=2):
+            return now
+        if now:
+            return now
+        return "Out" if inj_prev.get(pid) == "Out" else ""
+
+    # one QB per team: highest on the depth chart among those not ruled out,
+    # then whoever threw the most in the team's latest game
     def starting_qb(team, candidates):
         lw = team_last_week.get(team)
         recent = qb_att_by_week.get((team, lw), {}) if lw else {}
