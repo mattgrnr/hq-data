@@ -20,7 +20,7 @@ OUT = ROOT / "board.json"
 LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downloading
 ET = ZoneInfo("America/New_York")
 
-K_ROOKIE = 6    # small samples lean on the league average for the position group until he has a handful of games
+K_ROOKIE = 6    # small samples lean on the league average for the position group; the pull fades fast
 K_TEAM = 8      # teams lean on the league average early on
 K_GOALIE = 25   # in expected goals faced
 SHOTS = ("SHOT", "MISSED_SHOT", "GOAL")
@@ -264,7 +264,7 @@ def main():
             c, i = sk[pid], info[pid]
             gc = c["gp"]
             p = {"id": pid, "name": i["name"], "pos": i["pos"], "team": tm}
-            k = K_ROOKIE
+            k = K_ROOKIE * 5 / (5 + gc)   # the pull fades as his own games pile up
             b = by_group[group(i["pos"])]
             base = {f: b[f] / b["gp"] for f in ("g", "a", "sog", "ixg", "att", "ppx", "toi")}
             for f in ("g", "a", "sog", "ixg", "att", "ppx", "toi"):

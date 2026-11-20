@@ -22,7 +22,7 @@ LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downlo
 NO_ESPN = os.environ.get("HQ_NO_ESPN")
 ET = ZoneInfo("America/New_York")
 
-K_ROOKIE = 6    # small samples lean on the league average for the position group until he has a handful of games
+K_ROOKIE = 6    # small samples lean on the league average for the position group; the pull fades fast
 K_TEAM = 8      # teams lean on the league average early on
 MIN_MPG = 10    # below this a player isn't in the rotation
 HIST_SEASONS = 3  # head-to-head history: this many past seasons plus the current one
@@ -291,7 +291,7 @@ def main():
         c = pl.get(pid, {"gp": 0, "min": 0.0, **{s: 0.0 for s in STATS}})
         pos = info.get(pid, {}).get("pos") or ro["pos"] or "F"
         if c["gp"]:
-            k = K_ROOKIE
+            k = K_ROOKIE * 5 / (5 + c["gp"])   # the pull fades as his own games pile up
             b = by_group[pos]
             base = {f: b[f] / b["gp"] for f in ("min", *STATS)}
             mpg = (c["min"] + 3 * 18) / (c["gp"] + 3)
