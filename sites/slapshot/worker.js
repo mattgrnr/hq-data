@@ -313,10 +313,15 @@ body{background:
 #app button:focus-visible,#app select:focus-visible,#app input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#app *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 /* ===== results dashboard + starred players (shared) ===== */
-/* header: buttons drop under the logo only when they don't fit beside it */
-#app .topbar{flex-wrap:wrap;row-gap:10px}
-#app .topbar>div:first-child{flex:1 0 auto;min-width:0}
-#app .topbar>div:last-child{margin-left:auto}
+/* header: logo and buttons share one row; the date line lives in the board itself */
+#app header.hero .sub{display:none}
+#app header.hero .topbar{flex-wrap:nowrap;align-items:center}
+#app header.hero .topbar>div:last-child{align-items:center!important}
+@media (max-width:480px){
+  #app header.hero .brand{font-size:clamp(18px,5.8vw,34px)}
+  #app header.hero .navbtn{font-size:12px;padding:8px 8px;letter-spacing:.01em}
+  #app header.hero .topbar>div:last-child{gap:6px!important}
+}
 #app .navbtn.on{box-shadow:inset 0 0 0 1px var(--red);background:linear-gradient(180deg,rgba(255,77,61,.16),rgba(255,77,61,.04))}
 #app .star{flex:none;background:none;border:0;padding:6px 2px;margin:-6px 0;font-size:19px;line-height:1;color:rgba(255,255,255,.22);cursor:pointer}
 #app .star.on{color:#F5C451}
