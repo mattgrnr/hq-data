@@ -163,14 +163,39 @@ def summarize(sport, cfg):
                     a[1] += nhl_hit(stat, r["act"])
                     a[2] += nhl_expect(stat, r["pj"].get(stat)) or 0
             out["tiers"][stat][w] = {t: {"n": a[0], "hit": a[1], "exp": round(a[2], 1)} for t, a in agg.items()}
-    for day in days[-30:]:
+    for stat in cfg["stats"]:
+        out.setdefault("players", {})[stat] = {}
+        for w, since in windows.items():
+            seen = {}
+            for day in days:
+                if date.fromisoformat(day["date"]) < since:
+                    continue
+                for r in sorted(day["rows"], key=lambda r: -r["s"][stat])[:10]:
+                    p = seen.setdefault(r["id"], {"n": r["n"], "t": r["t"], "picks": 0, "hits": 0})
+                    p["picks"] += 1
+                    p["hits"] += nhl_hit(stat, r["act"])
+                    p["t"] = r["t"]
+            ranked = sorted(seen.values(), key=lambda p: (-p["picks"], -p["hits"]))
+            out["players"][stat][w] = [p for p in ranked if p["picks"] >= 2][:8]
+    for day in days:
         entry = {"date": day["date"], "games": day["games"], "stats": {}}
         for stat in cfg["stats"]:
             ranked = sorted(day["rows"], key=lambda r: -r["s"][stat])
+            top10 = ranked[:10]
             top = [{"n": r["n"], "t": r["t"], "s": r["s"][stat], "hit": nhl_hit(stat, r["act"]),
-                    "act": r["act"]} for r in ranked[:10]]
+                    "act": r["act"]} for r in top10]
             elite = [r for r in day["rows"] if r["s"][stat] >= 80]
-            entry["stats"][stat] = {"top": top, "elite": [len(elite), sum(nhl_hit(stat, r["act"]) for r in elite)]}
+            entry["stats"][stat] = {
+                "top": top,
+                "elite": [len(elite), sum(nhl_hit(stat, r["act"]) for r in elite)],
+                "t10": [len(top10), sum(x["hit"] for x in top), round(sum(nhl_expect(stat, r["pj"].get(stat)) or 0 for r in top10), 2)],
+                "tiers": {},
+            }
+            for r in day["rows"]:
+                t = entry["stats"][stat]["tiers"].setdefault(tier(r["s"][stat]), [0, 0, 0.0])
+                t[0] += 1
+                t[1] += nhl_hit(stat, r["act"])
+                t[2] = round(t[2] + (nhl_expect(stat, r["pj"].get(stat)) or 0), 2)
         out["daily"].append(entry)
     out["daily"].reverse()
     (hdir / "summary.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
