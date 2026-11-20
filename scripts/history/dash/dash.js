@@ -1,5 +1,5 @@
 /* ===== results dashboard: shared by every HQ site; RSTATS and FAVKEY are set per site ===== */
-let HIST = null, HW = "7", HG = "T10", HV = "trend", HD = null, HDAY = {}, HSORT = "picks", RS = null;
+let HIST = null, HPL = null, HW = "7", HG = "T10", HV = "trend", HD = null, HDAY = {}, HSORT = "picks", RS = null;
 const GROUPS = [["T10","Top 10"],["ELITE","Elite"],["STRONG","Strong"],["SOLID","Solid"],["FRINGE","Fringe"],["LONGSHOT","Longshot"]];
 const TIERCOL = { ELITE:"var(--elite)", STRONG:"var(--strong)", SOLID:"var(--solid)", FRINGE:"var(--fringe)", LONGSHOT:"var(--long)" };
 
@@ -139,6 +139,23 @@ function playersHTML(){
     + '</tbody></table>';
 }
 
+function favsHTML(){
+  const fav = [...favSet()];
+  const st = rstat();
+  let h = '<h3 class="dash-h">Your players</h3>';
+  if(!fav.length) return h + '<p class="dash-note">Tap ★ next to a player on the board to follow him here.</p>';
+  if(!HPL) return h + '<p class="dash-note">Loading your players…</p>';
+  const rows = fav.map(id=>HPL[id] && Object.assign({ id }, HPL[id])).filter(Boolean);
+  if(!rows.length) return h + '<p class="dash-note">None of your starred players have a graded game yet.</p>';
+  return h + '<p class="dash-note">'+rlabel()+' this season, and his last five.</p>' + rows.map(p=>{
+    const t = p.s[st], last = p.l[st] || [];
+    return '<div class="favcard"><div class="fc-top"><span class="n">'+esc(p.n)+'<small>'+esc(p.t)+'</small></span>'
+      + '<span class="fc-rate">'+(t ? '<b>'+pct0(t[1], t[0])+'</b> over · '+t[1]+' of '+t[0] : 'no '+rlabel().toLowerCase()+' picks')+'</span></div>'
+      + (last.length ? '<div class="fc-last">'+last.map(x=>'<span class="'+(x[3]?"o":"u")+'" title="'+fmtDay(x[0])+'"><b>'+(x[3]?"O":"U")+'</b>'+fmtNum(x[1])+' <small>vs '+fmtNum(x[2])+'</small></span>').join("")+'</div>' : '')
+      + '</div>';
+  }).join("");
+}
+
 function nightsHTML(days){
   const one = HIST.weekly ? "Week" : "Night";
   return '<h3 class="dash-h">'+(HIST.weekly?"Weeks":"Nights")+'</h3><table class="ptable nights"><thead><tr><th>'+one+'</th><th>Games</th><th>Over</th><th>Rate</th></tr></thead><tbody>'
@@ -146,12 +163,19 @@ function nightsHTML(days){
     + '</tbody></table>';
 }
 
+function rangeText(days){
+  if(!days.length) return "No graded "+slateWord()+" in this range yet.";
+  const a = days[days.length-1].date, b = days[0].date;
+  const span = a === b ? fmtDay(a) : fmtDay(a)+" to "+fmtDay(b);
+  return "Showing "+span+" ("+days.length+" "+(days.length === 1 ? slateWord().slice(0,-1) : slateWord())+").";
+}
 function resultsHTML(){
-  let h = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
-  if(!HIST) return h + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
-  if(HIST.error) return h + '<div class="status"><h2>No results yet</h2><p>The first graded '+(HIST.weekly?"week":"night")+' shows up here the morning after.</p></div>';
+  const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
+  if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
+  if(HIST.error) return tabs + '<div class="status"><h2>No results yet</h2><p>The first graded '+(HIST.weekly?"week":"night")+' shows up here the morning after.</p></div>';
   const days = rangeDays();
-  h += '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. Graded '+fmtDay(HIST.first)+' to '+fmtDay(HIST.last)+'.</p>';
+  let h = '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. '+rangeText(days)+'</p>';
+  h += tabs;
   h += '<div class="dash-filters">'
     + '<div class="ctrl"><label>Range</label><select id="d-range">'+(HIST.weekly ? [["7","Last week"],["30","Last 4 weeks"],["season","Season"]] : [["7","Last 7 days"],["30","Last 30 days"],["season","Season"]]).map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Picks</label><select id="d-group">'+GROUPS.map(o=>'<option value="'+o[0]+'"'+(HG===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
@@ -160,16 +184,34 @@ function resultsHTML(){
   h += '<div class="dash-card"><div class="seg">'+[["trend","Trend"],["tiers","By tier"],["donut","Over / under"]].map(v=>'<button class="'+(HV===v[0]?"on":"")+'" data-view="'+v[0]+'">'+v[1]+'</button>').join("")+'</div>'
     + (HV==="trend" ? trendSVG(days) : HV==="tiers" ? tiersHTML(days) : donutSVG(days)) + '</div>';
   h += drillHTML();
+  h += favsHTML();
   h += playersHTML();
   h += nightsHTML(days);
   return h;
 }
 
 async function loadHistory(){
-  if(HIST) return;
-  try{ HIST = await fetchJSON("/history"); if(!HIST || !HIST.daily) HIST = { error:true }; }catch(e){ HIST = { error:true }; }
-  if(F.view === "results") render();
+  if(!HIST){
+    try{ HIST = await fetchJSON("/history"); if(!HIST || !HIST.daily) HIST = { error:true }; }catch(e){ HIST = { error:true }; }
+    if(F.view === "results") render();
+  }
+  if(!HPL && favSet().size && !HIST.error){
+    try{ HPL = await fetchJSON("/history/players"); }catch(e){ HPL = {}; }
+    if(F.view === "results") render();
+  }
 }
+// the board and the dashboard share one page: the phone's back gesture and the logo both return to the board
+function openResults(){
+  if(F.view !== "results"){ F.view = "results"; try{ history.pushState({ hq:"results" }, ""); }catch(e){} }
+  window.scrollTo(0,0); render();
+}
+function closeResults(){
+  if(F.view !== "results") return;
+  F.view = "board";
+  window.scrollTo(0,0);
+  if(!GAMES.length) boot(false); else render();
+}
+window.addEventListener("popstate", ()=> closeResults());
 async function openDay(d){
   HD = HD === d ? null : d;
   render();
@@ -188,6 +230,10 @@ function wireResults(){
   document.querySelectorAll(".tr-row[data-group]").forEach(el=> el.onclick = ()=>{ HG = el.dataset.group; HV = "trend"; render(); });
   document.querySelectorAll("th[data-sort]").forEach(el=> el.onclick = ()=>{ HSORT = el.dataset.sort; render(); });
   const x = document.getElementById("drill-x"); if(x) x.onclick = ()=>{ HD = null; render(); };
+}
+function wireBrand(){
+  const b = document.querySelector(".brand");
+  if(b){ b.style.cursor = "pointer"; b.onclick = ()=>{ if(F.view === "results") history.back(); }; }
 }
 function wireStars(){
   document.querySelectorAll(".star").forEach(el=> el.onclick = (e)=>{ e.stopPropagation(); toggleFav(el.dataset.fav); render(); });
