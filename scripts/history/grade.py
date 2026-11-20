@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
-"""Grade saved picks against what actually happened, and roll the results into summary.json.
+"""Grade saved picks against what actually happened and roll the results into summary.json.
 
-usage: grade.py nhl            grade any finished days that are not graded yet
-       grade.py nhl --backfill also rebuild picks for past days from the board's git history first
+A pick is Over when the player's actual number for that tab's stat reached our projection, Under otherwise.
+
+usage: grade.py <nhl|nba|nfl|soccer>              grade finished slates that are not graded yet
+       grade.py <sport> --backfill               first rebuild picks from the board's git history
 """
+import csv
+import gzip
 import io
 import json
 import math
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
-
-import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-REL = "https://github.com/sportsdataverse/sportsdataverse-data/releases/download"
-ET = ZoneInfo("America/New_York")
+SDV = "https://github.com/sportsdataverse/sportsdataverse-data/releases/download"
+NFLV = "https://github.com/nflverse/nflverse-data/releases/download"
 TIERS = [("ELITE", 80), ("STRONG", 68), ("SOLID", 56), ("FRINGE", 44), ("LONGSHOT", 0)]
-SPORT = {"nhl": {"site": "slapshot", "stats": ["G", "A", "P", "S"]}}
+GIVE_UP_DAYS = 4   # a game with no box score after this long (postponed) is dropped
 
 
 def tier(s):
@@ -31,44 +33,126 @@ def tier(s):
     return "LONGSHOT"
 
 
-def poisson_at_least(mean, k):
-    if mean is None or mean <= 0:
+def get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "hq-data"})
+    with urllib.request.urlopen(req, timeout=300) as r:
+        return r.read()
+
+
+def parquet(url, columns):
+    import pyarrow.parquet as pq
+    try:
+        return pq.read_table(io.BytesIO(get(url)), columns=columns).to_pylist()
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return []
+        raise
+
+
+def n(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
         return 0.0
-    return 1 - sum(math.exp(-mean) * mean ** i / math.factorial(i) for i in range(k))
 
 
-# ---------- what counts as a hit ----------
-
-def nhl_hit(stat, act):
-    return {"G": act["g"] >= 1, "A": act["a"] >= 1, "P": act["g"] + act["a"] >= 1, "S": act["sog"] >= 3}[stat]
+def season_of(day):
+    return day.year + 1 if day.month >= 8 else day.year
 
 
-def nhl_expect(stat, pj):
-    """Chance the model gave for a hit, from its projection."""
-    if pj is None:
-        return None
-    return poisson_at_least(pj, 3) if stat == "S" else 1 - math.exp(-pj)
+# ---------- actual numbers, per sport: {game key: {player id: {stat: value}}} ----------
 
-
-def nhl_season(d):
-    return d.year + 1 if d.month >= 8 else d.year
-
-
-def nhl_actuals(game_ids, season, cache={}):
-    """Player lines for the given games, from the sportsdataverse box scores."""
+def nhl_actuals(slate, cache={}):
+    season = season_of(date.fromisoformat(slate["key"]))
     if season not in cache:
-        url = f"{REL}/nhl_player_boxscores/player_box_{season}.parquet"
-        req = urllib.request.Request(url, headers={"User-Agent": "hq-data"})
-        with urllib.request.urlopen(req, timeout=300) as r:
-            rows = pq.read_table(io.BytesIO(r.read()),
-                                 columns=["game_id", "game_date", "player_id", "goals", "assists", "shots_on_goal"]).to_pylist()
-        cache[season] = rows
-    out = defaultdict(dict)
+        cache[season] = parquet(f"{SDV}/nhl_player_boxscores/player_box_{season}.parquet",
+                                ["game_id", "player_id", "goals", "assists", "shots_on_goal"])
+    keys, out = set(slate["games"]), defaultdict(dict)
     for r in cache[season]:
-        if int(r["game_id"]) in game_ids:
-            out[int(r["game_id"])][int(r["player_id"])] = {"g": int(r["goals"] or 0), "a": int(r["assists"] or 0),
-                                                           "sog": int(r["shots_on_goal"] or 0)}
+        k = str(r["game_id"])
+        if k in keys:
+            g, a = n(r["goals"]), n(r["assists"])
+            out[k][int(r["player_id"])] = {"G": g, "A": a, "P": g + a, "S": n(r["shots_on_goal"])}
     return out
+
+
+def nba_actuals(slate, cache={}):
+    season = season_of(date.fromisoformat(slate["key"]))
+    if season not in cache:
+        cache[season] = parquet(f"{SDV}/espn_nba_player_boxscores/player_box_{season}.parquet",
+                                ["game_id", "athlete_id", "did_not_play", "minutes", "points", "rebounds", "assists",
+                                 "three_point_field_goals_made", "steals", "blocks"])
+    keys, out = set(slate["games"]), defaultdict(dict)
+    for r in cache[season]:
+        k = str(r["game_id"])
+        if k not in keys:
+            continue
+        out[k]  # a game whose rows are all did-not-plays still counts as played
+        if r["did_not_play"] or n(r["minutes"]) <= 0:
+            continue
+        pts, reb, ast = n(r["points"]), n(r["rebounds"]), n(r["assists"])
+        out[k][int(r["athlete_id"])] = {"PTS": pts, "REB": reb, "AST": ast, "PRA": pts + reb + ast,
+                                        "3PM": n(r["three_point_field_goals_made"]), "STL": n(r["steals"]), "BLK": n(r["blocks"])}
+    return out
+
+
+def nfl_actuals(slate, cache={}):
+    season, week = slate["key"].split("-w")
+    if season not in cache:
+        text = get(f"{NFLV}/stats_player/stats_player_week_{season}.csv").decode("utf-8")
+        cache[season] = list(csv.DictReader(io.StringIO(text)))
+    by_team = defaultdict(dict)
+    for r in cache[season]:
+        if int(r["week"]) == int(week):
+            by_team[r["team"]][r["player_id"]] = {
+                "TD": n(r["rushing_tds"]) + n(r["receiving_tds"]), "CYD": n(r["receiving_yards"]),
+                "RYD": n(r["rushing_yards"]), "REC": n(r["receptions"]), "PYD": n(r["passing_yards"]),
+                "PTD": n(r["passing_tds"])}
+    out = {}
+    for k in slate["games"]:
+        away, home = k.split("@")
+        if by_team.get(away) and by_team.get(home):
+            out[k] = {**by_team[away], **by_team[home]}
+    return out
+
+
+def soccer_actuals(slate, cache={}):
+    if "rows" not in cache:
+        idx = defaultdict(dict)
+        for f in (ROOT / "soccer" / "hist").glob("*.csv.gz"):
+            with gzip.open(f, "rt", newline="") as fh:
+                for r in csv.DictReader(fh):
+                    idx[r["mid"]][int(r["pid"])] = {"G": n(r["g"]), "A": n(r["a"]), "T": n(r["sot"]), "S": n(r["sh"])}
+        cache["rows"] = idx
+    return {k: cache["rows"][k] for k in slate["games"] if k in cache["rows"]}
+
+
+SPORT = {
+    "nhl": {"site": "slapshot", "actuals": nhl_actuals},
+    "nba": {"site": "slam", "actuals": nba_actuals},
+    "nfl": {"site": "touchdown", "actuals": nfl_actuals},
+    "soccer": {"site": "golazo", "actuals": soccer_actuals},
+}
+
+
+# ---------- Over / Under ----------
+
+def is_over(actual, proj):
+    return actual >= proj - 1e-9
+
+
+def chance_over(proj):
+    """What the model implied: the chance a count with this average reaches it (Poisson)."""
+    if not proj or proj <= 0:
+        return None
+    need = math.ceil(proj - 1e-9)
+    if need > 400:
+        return 0.5
+    term, below = math.exp(-proj), 0.0
+    for k in range(need):
+        below += term
+        term *= proj / (k + 1)
+    return max(0.0, 1 - below)
 
 
 # ---------- picks from git history ----------
@@ -78,35 +162,21 @@ def git(*args):
 
 
 def backfill_picks(sport):
-    """For each past day, score the last board committed before the first game started."""
+    """Replay every committed board in order; each game keeps the last snapshot from before it started."""
     cfg = SPORT[sport]
-    pdir = ROOT / sport / "history" / "picks"
-    pdir.mkdir(parents=True, exist_ok=True)
-    best = {}
-    for line in git("log", "--format=%H %cI", "--", f"{sport}/board.json").split("\n"):
-        if not line.strip():
-            continue
-        sha, when = line.split()
-        try:
-            bd = json.loads(git("show", f"{sha}:{sport}/board.json"))
-        except Exception:
-            continue
-        if not bd.get("games"):
-            continue
-        first = min(datetime.fromisoformat(g["start"].replace("Z", "+00:00")) for g in bd["games"] if g.get("start"))
-        committed = datetime.fromisoformat(when)
-        if committed > first:
-            continue  # built after puck drop: not a fair pick
-        d = bd["date"]
-        if d not in best or committed > best[d][1]:
-            best[d] = (sha, committed)
+    hdir = ROOT / sport / "history" / "picks"
     tmp = ROOT / ".board.tmp.json"
-    for d, (sha, _) in sorted(best.items()):
-        out = pdir / f"{d}.json"
-        if out.exists():
+    commits = [l.split() for l in git("log", "--reverse", "--format=%H %cI", "--", f"{sport}/board.json").split("\n") if l.strip()]
+    for sha, when in commits:
+        try:
+            tmp.write_text(git("show", f"{sha}:{sport}/board.json"))
+        except subprocess.CalledProcessError:
             continue
-        tmp.write_text(git("show", f"{sha}:{sport}/board.json"))
-        subprocess.run(["node", "scripts/history/score.cjs", cfg["site"], str(tmp), str(out)], cwd=ROOT, check=True)
+        r = subprocess.run(["node", "scripts/history/score.cjs", cfg["site"], str(tmp), str(hdir), "--now", when],
+                           cwd=ROOT, capture_output=True, text=True)
+        if r.returncode:
+            err = r.stderr.strip().splitlines()
+            print(f"  {sha[:7]}: skipped ({err[0][:120] if err else 'error'})")
     tmp.unlink(missing_ok=True)
 
 
@@ -117,89 +187,106 @@ def grade(sport):
     hdir = ROOT / sport / "history"
     gdir = hdir / "graded"
     gdir.mkdir(parents=True, exist_ok=True)
-    today = datetime.now(ET).date()
+    now = datetime.now(timezone.utc)
     for pf in sorted((hdir / "picks").glob("*.json")):
-        d = pf.stem
-        if (gdir / pf.name).exists() or date.fromisoformat(d) >= today:
+        if (gdir / pf.name).exists():
             continue
-        picks = json.loads(pf.read_text())
-        game_ids = {g["id"] for g in picks["games"]}
-        acts = nhl_actuals(game_ids, nhl_season(date.fromisoformat(d)))
-        if not game_ids <= set(acts):
-            print(f"{d}: box scores not in yet ({len(game_ids & set(acts))}/{len(game_ids)} games)")
+        slate = json.loads(pf.read_text())
+        starts = [datetime.fromisoformat(g["start"].replace("Z", "+00:00")) for g in slate["games"].values()]
+        if not starts or now < max(starts) + timedelta(hours=6):
+            continue
+        acts = cfg["actuals"](slate)
+        missing = [k for k in slate["games"] if k not in acts]
+        if missing and now < max(starts) + timedelta(days=GIVE_UP_DAYS):
+            print(f"{pf.stem}: waiting on {len(missing)} of {len(slate['games'])} games")
             continue
         rows = []
-        for p in picks["picks"]:
-            act = acts.get(p["g"], {}).get(p["id"])
-            if act is None:
-                continue  # did not play
-            rows.append({**p, "act": act})
-        (gdir / pf.name).write_text(json.dumps({"date": d, "games": len(game_ids), "rows": rows}, separators=(",", ":")))
-        print(f"{d}: graded {len(rows)} players")
-    summarize(sport, cfg)
+        for k, plist in slate["picks"].items():
+            for p in plist:
+                act = acts.get(k, {}).get(p["id"])
+                if act is None:
+                    continue  # did not play
+                rows.append({**p, "act": {s: act[s] for s in p["pj"] if s in act}})
+        games = len(slate["games"]) - len(missing)
+        (gdir / pf.name).write_text(json.dumps({"key": pf.stem, "games": games, "stats": slate["stats"], "rows": rows},
+                                               separators=(",", ":"), ensure_ascii=False))
+        print(f"{pf.stem}: graded {len(rows)} players in {games} games")
+    summarize(sport)
 
 
-def summarize(sport, cfg):
-    """Hit rates by stat and tier over several windows, plus each day's top picks."""
+def label_of(key):
+    return "Week " + str(int(key.split("-w")[1])) if "-w" in key else key
+
+
+def summarize(sport):
+    """Over rates by stat and tier over several windows, per-slate splits, and the most-backed players."""
     hdir = ROOT / sport / "history"
     days = [json.loads(f.read_text()) for f in sorted((hdir / "graded").glob("*.json"))]
+    days = [d for d in days if d["rows"]]
     if not days:
         return
-    last = date.fromisoformat(days[-1]["date"])
-    windows = {"7": last - timedelta(days=6), "30": last - timedelta(days=29), "season": date.min}
-    out = {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "first": days[0]["date"],
-           "last": days[-1]["date"], "days": len(days), "tiers": {}, "daily": []}
-    for stat in cfg["stats"]:
-        out["tiers"][stat] = {}
-        for w, since in windows.items():
-            agg = defaultdict(lambda: [0, 0, 0.0])  # picks, hits, expected hits
-            for day in days:
-                if date.fromisoformat(day["date"]) < since:
-                    continue
-                for r in day["rows"]:
-                    t = tier(r["s"][stat])
-                    a = agg[t]
-                    a[0] += 1
-                    a[1] += nhl_hit(stat, r["act"])
-                    a[2] += nhl_expect(stat, r["pj"].get(stat)) or 0
-            out["tiers"][stat][w] = {t: {"n": a[0], "hit": a[1], "exp": round(a[2], 1)} for t, a in agg.items()}
-    for stat in cfg["stats"]:
-        out.setdefault("players", {})[stat] = {}
-        for w, since in windows.items():
+    stats = days[-1]["stats"]
+    weekly = "-w" in days[-1]["key"]
+    if weekly:
+        keep = {"7": days[-1:], "30": days[-4:], "season": days}
+    else:
+        last = date.fromisoformat(days[-1]["key"])
+        keep = {w: [d for d in days if date.fromisoformat(d["key"]) > last - timedelta(days=int(w))] for w in ("7", "30")}
+        keep["season"] = days
+
+    def graded(day, stat):
+        out = []
+        for r in day["rows"]:
+            pj, a = r["pj"].get(stat), r["act"].get(stat)
+            if pj and a is not None:
+                out.append((r, is_over(a, pj), chance_over(pj) or 0))
+        return sorted(out, key=lambda x: -x[0]["s"][stat])
+
+    out = {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "weekly": weekly,
+           "first": days[0]["key"], "last": days[-1]["key"], "days": len(days), "stats": stats,
+           "tiers": {}, "players": {}, "daily": []}
+    for stat in stats:
+        out["tiers"][stat], out["players"][stat] = {}, {}
+        for w, ds in keep.items():
+            agg = defaultdict(lambda: [0, 0, 0.0])
             seen = {}
-            for day in days:
-                if date.fromisoformat(day["date"]) < since:
-                    continue
-                for r in sorted(day["rows"], key=lambda r: -r["s"][stat])[:10]:
+            for day in ds:
+                g = graded(day, stat)
+                for r, over, e in g:
+                    a = agg[tier(r["s"][stat])]
+                    a[0] += 1
+                    a[1] += over
+                    a[2] += e
+                for r, over, e in g[:10]:
                     p = seen.setdefault(r["id"], {"n": r["n"], "t": r["t"], "picks": 0, "hits": 0})
                     p["picks"] += 1
-                    p["hits"] += nhl_hit(stat, r["act"])
+                    p["hits"] += over
                     p["t"] = r["t"]
+            out["tiers"][stat][w] = {t: {"n": a[0], "hit": a[1], "exp": round(a[2], 1)} for t, a in agg.items()}
             ranked = sorted(seen.values(), key=lambda p: (-p["picks"], -p["hits"]))
             out["players"][stat][w] = [p for p in ranked if p["picks"] >= 2][:8]
     for day in days:
-        entry = {"date": day["date"], "games": day["games"], "stats": {}}
-        for stat in cfg["stats"]:
-            ranked = sorted(day["rows"], key=lambda r: -r["s"][stat])
-            top10 = ranked[:10]
-            top = [{"n": r["n"], "t": r["t"], "s": r["s"][stat], "hit": nhl_hit(stat, r["act"]),
-                    "act": r["act"]} for r in top10]
-            elite = [r for r in day["rows"] if r["s"][stat] >= 80]
-            entry["stats"][stat] = {
-                "top": top,
-                "elite": [len(elite), sum(nhl_hit(stat, r["act"]) for r in elite)],
-                "t10": [len(top10), sum(x["hit"] for x in top), round(sum(nhl_expect(stat, r["pj"].get(stat)) or 0 for r in top10), 2)],
-                "tiers": {},
-            }
-            for r in day["rows"]:
-                t = entry["stats"][stat]["tiers"].setdefault(tier(r["s"][stat]), [0, 0, 0.0])
+        entry = {"date": day["key"], "label": label_of(day["key"]), "games": day["games"], "stats": {}}
+        for stat in stats:
+            g = graded(day, stat)
+            tiers = {}
+            for r, over, e in g:
+                t = tiers.setdefault(tier(r["s"][stat]), [0, 0, 0.0])
                 t[0] += 1
-                t[1] += nhl_hit(stat, r["act"])
-                t[2] = round(t[2] + (nhl_expect(stat, r["pj"].get(stat)) or 0), 2)
+                t[1] += over
+                t[2] = round(t[2] + e, 2)
+            elite = [x for x in g if x[0]["s"][stat] >= 80]
+            entry["stats"][stat] = {
+                "top": [{"n": r["n"], "t": r["t"], "s": r["s"][stat], "pj": r["pj"][stat], "a": r["act"][stat], "hit": over}
+                        for r, over, e in g[:10]],
+                "elite": [len(elite), sum(x[1] for x in elite)],
+                "t10": [len(g[:10]), sum(x[1] for x in g[:10]), round(sum(x[2] for x in g[:10]), 2)],
+                "tiers": tiers,
+            }
         out["daily"].append(entry)
     out["daily"].reverse()
     (hdir / "summary.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
-    print(f"summary: {len(days)} days, {out['first']} to {out['last']}")
+    print(f"summary: {len(days)} slates, {out['first']} to {out['last']}")
 
 
 if __name__ == "__main__":
