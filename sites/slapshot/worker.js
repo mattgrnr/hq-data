@@ -344,6 +344,54 @@ body{background:
 .tr-pick .sc{width:30px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .tr-pick .ok{width:20px;text-align:center;font-weight:700}
 .tr-pick .ok.yes{color:var(--strong)} .tr-pick .ok.no{color:#5E6A78}
+.dash-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kpi{border-radius:14px;padding:11px 13px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.kpi .k{font-size:11.5px;color:var(--faint)}
+.kpi .v{font-size:26px;font-weight:700;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:11.5px;color:var(--faint)}
+.dash-card{border-radius:16px;padding:12px;margin-bottom:12px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.dash-card .tr-tiers{background:none;box-shadow:none;padding:0 2px;margin:0}
+.seg{display:flex;background:rgba(0,0,0,.25);border-radius:10px;padding:3px;margin-bottom:10px}
+.seg button{flex:1;background:none;border:0;color:var(--faint);font:inherit;font-size:13px;font-weight:600;padding:7px 0;border-radius:8px;cursor:pointer}
+.seg button.on{background:rgba(255,255,255,.1);color:var(--ink)}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:rgba(255,255,255,.07);stroke-width:1}
+.chart .ax,.donut .ax{fill:var(--faint);font-size:10px;font-family:inherit}
+.chart .expline{fill:none;stroke:#fff;stroke-opacity:.6;stroke-width:1.5;stroke-dasharray:4 3}
+.chart .tbar{cursor:pointer}
+.legend-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:11.5px;color:var(--faint);margin-top:8px}
+.legend-row i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.legend-row i.dash{width:14px;height:0;border-top:2px dashed rgba(255,255,255,.6);border-radius:0;vertical-align:3px}
+.legend-row i.dash.v{width:0;height:12px;border-top:0;border-left:2px solid rgba(255,255,255,.55);vertical-align:-2px}
+.legend-row .tip{margin-left:auto}
+.tr-row[data-group]{cursor:pointer}
+.tr-row.on .tr-name{text-decoration:underline;text-underline-offset:4px}
+.donut{display:flex;align-items:center;gap:16px}
+.donut svg{width:150px;flex:none}
+.donut .dv{fill:var(--ink);font-size:28px;font-weight:700}
+.dlist{flex:1;display:grid;gap:10px;font-size:13px}
+.dlist div{display:flex;align-items:center}
+.dlist i{width:10px;height:10px;border-radius:2px;margin-right:7px}
+.dlist b{margin-left:auto;font-variant-numeric:tabular-nums}
+.dlist .mute{color:var(--faint)}
+.dash-empty{color:var(--faint);font-size:13px;padding:30px 0;text-align:center}
+.drill{border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,77,61,.45);background:rgba(255,77,61,.04)}
+.drill-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 2px 14px;font-size:15px}
+.drill-head .navbtn{padding:4px 10px}
+.drill-sub{color:var(--faint);font-size:12px;padding:0 14px 8px}
+.dash-h{font-family:'Big Shoulders Display',sans-serif;font-size:16px;letter-spacing:.1em;margin:18px 2px 4px}
+.dash-note{color:var(--faint);font-size:12px;margin:0 2px 8px}
+.ptable{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.ptable th{color:var(--faint);font-weight:500;font-size:11.5px;text-align:right;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.1)}
+.ptable th:first-child,.ptable td:first-child{text-align:left}
+.ptable th[data-sort]{cursor:pointer}
+.ptable th.on{color:var(--ink)}
+.ptable td{padding:9px 4px;text-align:right;border-bottom:1px solid rgba(255,255,255,.06)}
+.ptable td small{color:var(--faint);font-size:11px;margin-left:4px}
+.ptable.nights tr[data-day]{cursor:pointer}
+.ptable.nights tr.on td{color:var(--red)}
+@media (min-width:600px){ .kpis{grid-template-columns:repeat(4,1fr)} }
 </style>
 </head>
 <body>
@@ -629,30 +677,161 @@ function fmtDay(d){
 function lineOf(stat, a){
   return a.g+" G · "+a.a+" A · "+a.sog+" SOG";
 }
+let HG = "T10", HV = "trend", HD = null, HDAY = {}, HSORT = "picks", HPICK = null;
+const GROUPS = [["T10","Top 10"],["ELITE","Elite"],["STRONG","Strong"],["SOLID","Solid"],["FRINGE","Fringe"],["LONGSHOT","Longshot"]];
+
+function pct0(h, n){ return n ? Math.round(100*h/n)+"%" : "—"; }
+function rangeDays(){
+  if(!HIST) return [];
+  if(HW === "season") return HIST.daily;
+  const last = new Date(HIST.last+"T12:00:00");
+  last.setDate(last.getDate() - (+HW - 1));
+  const since = last.toISOString().slice(0,10);
+  return HIST.daily.filter(d=>d.date >= since);
+}
+function groupOf(d){
+  const s = d.stats[F.stat];
+  return HG === "T10" ? s.t10 : (s.tiers[HG] || [0,0,0]);
+}
+function groupColor(){ return HG === "T10" ? "var(--red)" : TIERCOL[HG]; }
+function sumGroup(days){
+  const t = [0,0,0];
+  for(const d of days){ const g = groupOf(d); t[0]+=g[0]; t[1]+=g[1]; t[2]+=g[2]; }
+  return t;
+}
+
+function kpisHTML(days){
+  const t = sumGroup(days), last = days[0], lg = last ? groupOf(last) : [0,0,0];
+  let best = null;
+  for(const d of days){ const g = groupOf(d); if(g[0] >= 3 && (!best || g[1]/g[0] > best.r)) best = { d, r:g[1]/g[0], g }; }
+  const tile = (k, v, sub)=>'<div class="kpi"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="s">'+sub+'</div></div>';
+  return '<div class="kpis">'
+    + tile("Hit rate", pct0(t[1], t[0]), "model said "+pct0(t[2], t[0]))
+    + tile("Picks graded", t[0], days.length+" nights")
+    + tile("Last night", lg[0] ? lg[1]+" of "+lg[0] : "—", last ? fmtDay(last.date) : "")
+    + tile("Best night", best ? best.g[1]+" of "+best.g[0] : "—", best ? fmtDay(best.d.date) : "needs 3+ picks")
+    + '</div>';
+}
+
+function trendSVG(days){
+  const list = days.slice().reverse().filter(d=>groupOf(d)[0] > 0);
+  if(!list.length) return '<div class="dash-empty">No picks in this group for this range.</div>';
+  const W = 360, H = 170, L = 30, R = 6, T = 10, B = 22, iw = W-L-R, ih = H-T-B;
+  const bw = iw / list.length, gap = Math.min(4, bw*0.25);
+  let g = '';
+  for(const v of [0, 0.25, 0.5, 0.75, 1]){
+    const y = T + ih*(1-v);
+    g += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" class="grid"/><text x="'+(L-6)+'" y="'+(y+3.5)+'" class="ax" text-anchor="end">'+Math.round(v*100)+'%</text>';
+  }
+  let bars = '', pts = [];
+  list.forEach((d,i)=>{
+    const gp = groupOf(d), r = gp[1]/gp[0], e = gp[2]/gp[0];
+    const x = L + i*bw + gap/2, h = Math.max(2, ih*r), y = T + ih - h;
+    const on = HD === d.date;
+    bars += '<g class="tbar'+(on?' on':'')+'" data-day="'+d.date+'"><rect class="hit" x="'+(L+i*bw)+'" y="'+T+'" width="'+bw+'" height="'+ih+'" fill="transparent"/>'
+      + '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-gap).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="2" fill="'+groupColor()+'" opacity="'+(HD && !on ? .45 : 1)+'"/></g>';
+    pts.push((L + i*bw + bw/2).toFixed(1)+","+(T + ih*(1-e)).toFixed(1));
+  });
+  const ticks = [0, Math.floor((list.length-1)/2), list.length-1].filter((v,i,a)=>a.indexOf(v)===i)
+    .map(i=>'<text x="'+(i===0 ? L : i===list.length-1 ? W-R : L + i*bw + bw/2)+'" y="'+(H-6)+'" class="ax" text-anchor="'+(i===0 ? "start" : i===list.length-1 ? "end" : "middle")+'">'+new Date(list[i].date+"T12:00:00").toLocaleDateString([], {month:"short", day:"numeric"})+'</text>').join("");
+  return '<svg viewBox="0 0 '+W+' '+H+'" class="chart" role="img" aria-label="Hit rate by night">'+g+bars
+    + '<polyline points="'+pts.join(" ")+'" class="expline"/>'+ticks+'</svg>'
+    + '<div class="legend-row"><span><i style="background:'+groupColor()+'"></i>Hit rate</span><span><i class="dash"></i>Model expected</span><span class="tip">Tap a night to open it</span></div>';
+}
+
+function tiersHTML(days){
+  let h = '<div class="tr-tiers">';
+  for(const t of ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"]){
+    const v = [0,0,0];
+    for(const d of days){ const g = d.stats[F.stat].tiers[t]; if(g){ v[0]+=g[0]; v[1]+=g[1]; v[2]+=g[2]; } }
+    if(!v[0]){ h += '<div class="tr-row"><div class="tr-name" style="color:'+TIERCOL[t]+'">'+t+'</div><div></div><div class="tr-num">no picks</div></div>'; continue; }
+    h += '<div class="tr-row'+(HG===t?' on':'')+'" data-group="'+t+'"><div class="tr-name" style="color:'+TIERCOL[t]+'">'+t+'</div>'
+      + '<div class="tr-bar"><i style="width:'+(100*v[1]/v[0]).toFixed(1)+'%;background:'+TIERCOL[t]+'"></i><em style="left:'+(100*v[2]/v[0]).toFixed(1)+'%"></em></div>'
+      + '<div class="tr-num"><b>'+pct0(v[1],v[0])+'</b>'+v[1]+' of '+v[0]+'</div></div>';
+  }
+  return h + '</div><div class="legend-row"><span><i class="dash v"></i>Model expected</span><span class="tip">Tap a tier to focus on it</span></div>';
+}
+
+function donutSVG(days){
+  const t = sumGroup(days);
+  if(!t[0]) return '<div class="dash-empty">No picks in this group for this range.</div>';
+  const r = 58, c = 2*Math.PI*r, hit = t[1]/t[0];
+  return '<div class="donut"><svg viewBox="0 0 160 160" role="img" aria-label="Hits and misses">'
+    + '<circle cx="80" cy="80" r="'+r+'" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="18"/>'
+    + '<circle cx="80" cy="80" r="'+r+'" fill="none" stroke="'+groupColor()+'" stroke-width="18" stroke-dasharray="'+(c*hit).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 80 80)"/>'
+    + '<text x="80" y="80" text-anchor="middle" class="dv">'+pct0(t[1],t[0])+'</text><text x="80" y="100" text-anchor="middle" class="ax">hit</text></svg>'
+    + '<div class="dlist"><div><i style="background:'+groupColor()+'"></i>Hits<b>'+t[1]+'</b></div><div><i style="background:rgba(255,255,255,.18)"></i>Misses<b>'+(t[0]-t[1])+'</b></div><div class="mute">Model expected<b>'+Math.round(t[2])+' hits</b></div></div></div>';
+}
+
+function drillHTML(){
+  if(!HD) return '';
+  const day = HDAY[HD];
+  let h = '<div class="drill"><div class="drill-head"><b>'+fmtDay(HD)+'</b><button class="navbtn" id="drill-x" aria-label="Close">✕</button></div>';
+  if(!day) return h + '<div class="dash-empty">Loading that night…</div></div>';
+  let rows = day.rows.slice().sort((a,b)=>b.s[F.stat]-a.s[F.stat]);
+  rows = HG === "T10" ? rows.slice(0,10) : rows.filter(r=>tierOf(r.s[F.stat])===HG);
+  const hits = rows.filter(r=>hitOf(F.stat, r.act)).length;
+  h += '<div class="drill-sub">'+(GROUPS.find(g=>g[0]===HG)[1])+' · '+hits+' of '+rows.length+' hit · '+day.games+' games</div>';
+  h += rows.map(r=>{ const ok = hitOf(F.stat, r.act);
+    return '<div class="tr-pick"><span class="sc">'+r.s[F.stat]+'</span><span class="n">'+esc(r.n)+'<small>'+esc(r.t)+'</small></span><span class="ln">'+lineOf(F.stat, r.act)+'</span><span class="ok '+(ok?"yes":"no")+'">'+(ok?"✓":"✗")+'</span></div>'; }).join("");
+  return h + '</div>';
+}
+function hitOf(stat, a){ return stat==="G" ? a.g>=1 : stat==="A" ? a.a>=1 : stat==="P" ? a.g+a.a>=1 : a.sog>=3; }
+
+function playersHTML(){
+  const list = ((HIST.players||{})[F.stat]||{})[HW] || [];
+  if(!list.length) return '';
+  const rows = list.slice().sort((a,b)=> HSORT==="rate" ? (b.hits/b.picks - a.hits/a.picks) : HSORT==="hits" ? b.hits-a.hits : b.picks-a.picks);
+  const th = (k, l)=>'<th data-sort="'+k+'" class="'+(HSORT===k?"on":"")+'">'+l+(HSORT===k?" ▾":"")+'</th>';
+  return '<h3 class="dash-h">Most-backed players</h3><p class="dash-note">Players who made the nightly top 10 most often, and how often they delivered.</p>'
+    + '<table class="ptable"><thead><tr><th>Player</th>'+th("picks","Picks")+th("hits","Hits")+th("rate","Rate")+'</tr></thead><tbody>'
+    + rows.map(p=>'<tr><td>'+esc(p.n)+' <small>'+esc(p.t)+'</small></td><td>'+p.picks+'</td><td>'+p.hits+'</td><td>'+pct0(p.hits,p.picks)+'</td></tr>').join("")
+    + '</tbody></table>';
+}
+
+function nightsHTML(days){
+  return '<h3 class="dash-h">Nights</h3><table class="ptable nights"><thead><tr><th>Night</th><th>Games</th><th>Hit</th><th>Rate</th></tr></thead><tbody>'
+    + days.map(d=>{ const g = groupOf(d); return '<tr data-day="'+d.date+'" class="'+(HD===d.date?"on":"")+'"><td>'+fmtDay(d.date)+'</td><td>'+d.games+'</td><td>'+(g[0] ? g[1]+" / "+g[0] : "—")+'</td><td>'+pct0(g[1],g[0])+'</td></tr>'; }).join("")
+    + '</tbody></table>';
+}
+
 function resultsHTML(){
   if(!HIST) return '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
-  const st = F.stat, w = HIST.tiers[st][HW] || {};
-  const label = HW==="season" ? "this season" : "the last "+HW+" days";
-  let h = '<p class="tr-intro">Every morning the board grades the night before. A pick counts as a hit if the player <b>'+HITWORD[st]+'</b>. Graded from '+fmtDay(HIST.first)+' to '+fmtDay(HIST.last)+'.</p>';
-  h += '<div class="tr-win">'+[["7","Last 7 days"],["30","Last 30"],["season","Season"]].map(x=>'<div class="pos'+(HW===x[0]?" on":"")+'" data-hw="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
-  h += '<div class="tr-tiers">';
-  for(const t of ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"]){
-    const v = w[t];
-    if(!v || !v.n){ h += '<div class="tr-row"><div class="tr-name" style="color:'+TIERCOL[t]+'">'+t+'</div><div></div><div class="tr-num">no picks</div></div>'; continue; }
-    const rate = v.hit/v.n, exp = v.exp/v.n;
-    h += '<div class="tr-row"><div class="tr-name" style="color:'+TIERCOL[t]+'">'+t+'</div>'
-      + '<div class="tr-bar"><i style="width:'+(rate*100).toFixed(1)+'%;background:'+TIERCOL[t]+'"></i><em style="left:'+(exp*100).toFixed(1)+'%"></em></div>'
-      + '<div class="tr-num"><b>'+Math.round(rate*100)+'%</b>'+v.hit+' of '+v.n+'</div></div>';
-  }
-  h += '</div><div class="tr-key"><em></em>what the model expected for '+label+'</div>';
-  h += HIST.daily.map(function(d){
-    const s = d.stats[st], e = s.elite;
-    return '<details class="tr-day"><summary><div><b>'+fmtDay(d.date)+'</b> <span>· '+d.games+' games</span></div><b>'+(e[0] ? 'Elite '+e[1]+' of '+e[0] : 'No elite picks')+'</b></summary>'
-      + s.top.map((x,i)=>'<div class="tr-pick"><span class="sc">'+x.s+'</span><span class="n">'+esc(x.n)+'<small>'+esc(x.t)+'</small></span><span class="ln">'+lineOf(st, x.act)+'</span><span class="ok '+(x.hit?"yes":"no")+'">'+(x.hit?"✓":"✗")+'</span></div>').join("")
-      + '</details>';
-  }).join("");
+  const days = rangeDays();
+  let h = '<p class="tr-intro">The board grades itself every morning. A pick hits if the player <b>'+HITWORD[F.stat]+'</b>. Graded '+fmtDay(HIST.first)+' to '+fmtDay(HIST.last)+'.</p>';
+  h += '<div class="dash-filters">'
+    + '<div class="ctrl"><label>Range</label><select id="d-range">'+[["7","Last 7 days"],["30","Last 30 days"],["season","Season"]].map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
+    + '<div class="ctrl"><label>Picks</label><select id="d-group">'+GROUPS.map(o=>'<option value="'+o[0]+'"'+(HG===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
+    + '</div>';
+  h += kpisHTML(days);
+  h += '<div class="dash-card"><div class="seg">'+[["trend","Trend"],["tiers","By tier"],["donut","Hit / miss"]].map(v=>'<button class="'+(HV===v[0]?"on":"")+'" data-view="'+v[0]+'">'+v[1]+'</button>').join("")+'</div>'
+    + (HV==="trend" ? trendSVG(days) : HV==="tiers" ? tiersHTML(days) : donutSVG(days)) + '</div>';
+  h += drillHTML();
+  h += playersHTML();
+  h += nightsHTML(days);
   return h;
 }
+
+async function openDay(d){
+  HD = HD === d ? null : d;
+  render();
+  if(HD && !HDAY[HD]){
+    try{ HDAY[HD] = await fetchJSON("/history/day?d="+HD); }catch(e){ HDAY[HD] = { rows:[], games:0 }; }
+    if(HD === d) render();
+  }
+  const el = document.querySelector(".drill"); if(el) el.scrollIntoView({ block:"nearest" });
+}
+function wireResults(){
+  document.querySelectorAll("[data-hw]").forEach(el=> el.onclick = ()=>{ HW = el.dataset.hw; render(); });
+  const rg = document.getElementById("d-range"); if(rg) rg.onchange = e=>{ HW = e.target.value; HD = null; render(); };
+  const gp = document.getElementById("d-group"); if(gp) gp.onchange = e=>{ HG = e.target.value; render(); };
+  document.querySelectorAll("[data-view]").forEach(el=> el.onclick = ()=>{ HV = el.dataset.view; render(); });
+  document.querySelectorAll("[data-day]").forEach(el=> el.onclick = ()=> openDay(el.dataset.day));
+  document.querySelectorAll(".tr-row[data-group]").forEach(el=> el.onclick = ()=>{ HG = el.dataset.group; HV = "trend"; render(); });
+  document.querySelectorAll("th[data-sort]").forEach(el=> el.onclick = ()=>{ HSORT = el.dataset.sort; render(); });
+  const x = document.getElementById("drill-x"); if(x) x.onclick = ()=>{ HD = null; render(); };
+}
+
 async function loadHistory(){
   if(HIST) return;
   try{ HIST = await fetchJSON("/history"); }catch(e){ HIST = { error:String(e && e.message || e) }; }
@@ -705,7 +884,7 @@ function render(banner){
     h += resultsHTML();
     app.innerHTML = h;
     wireTop();
-    document.querySelectorAll("[data-hw]").forEach(el=> el.onclick = ()=>{ HW = el.dataset.hw; render(); });
+    wireResults();
     loadHistory();
     return;
   }
@@ -889,6 +1068,15 @@ export default {
       const res = await fetch(BOARD_URL, { cf: { cacheTtl: 600, cacheEverything: true } });
       if (!res.ok) return json({ error: "board upstream " + res.status }, 502);
       return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+    }
+
+    if (path === "/history/day") {
+      if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
+      const d = url.searchParams.get("d") || "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return new Response("Bad request", { status: 400 });
+      const res = await fetch(HISTORY_URL.replace("summary.json", "graded/" + d + ".json"), { cf: { cacheTtl: 3600, cacheEverything: true } });
+      if (!res.ok) return json({ error: "history upstream " + res.status }, 502);
+      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" } });
     }
 
     if (path === "/history") {
