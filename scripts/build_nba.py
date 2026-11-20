@@ -22,10 +22,8 @@ LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downlo
 NO_ESPN = os.environ.get("HQ_NO_ESPN")
 ET = ZoneInfo("America/New_York")
 
-K_PLAYER = 20   # last season counts as this many games
-K_ROOKIE = 10   # no history: lean on the league average for the position group
-K_MIN = 10      # minutes follow this season's role faster than scoring rates do
-K_TEAM = 20
+K_ROOKIE = 6    # small samples lean on the league average for the position group until he has a handful of games
+K_TEAM = 8      # teams lean on the league average early on
 MIN_MPG = 10    # below this a player isn't in the rotation
 HIST_SEASONS = 3  # head-to-head history: this many past seasons plus the current one
 STATS = ("pts", "reb", "ast", "fg3m", "stl", "blk")
@@ -225,7 +223,7 @@ def main():
     sched = [g for g in parquet(f"espn_nba_schedules/nba_schedule_{season}.parquet") if g["season_type"] == 2]
     nba = {g["home_abbreviation"] for g in sched} | {g["away_abbreviation"] for g in sched}
     nba.discard("TBD")   # the 30 real teams; keeps All-Star and other exhibition sides out
-    prior = prior_profile(season - 1, nba)
+    prior = {"pl": {}, "team": {}}   # this season only
     slate = sorted((g for g in sched if str(g["game_date"])[:10] == today.isoformat()),
                    key=lambda g: (g["start_date"], g["home_abbreviation"]))
 
@@ -291,13 +289,8 @@ def main():
     players = []
     for pid, ro in roster.items():
         c = pl.get(pid, {"gp": 0, "min": 0.0, **{s: 0.0 for s in STATS}})
-        pr = prior["pl"].get(str(pid))
-        pos = info.get(pid, {}).get("pos") or ro["pos"] or (pr or {}).get("pos") or "F"
-        if pr and pr["gp"] >= 10:
-            k = K_PLAYER
-            base = {f: pr[f] / pr["gp"] for f in ("min", *STATS)}
-            mpg = (c["min"] + K_MIN * base["min"]) / (c["gp"] + K_MIN)
-        elif c["gp"]:
+        pos = info.get(pid, {}).get("pos") or ro["pos"] or "F"
+        if c["gp"]:
             k = K_ROOKIE
             b = by_group[pos]
             base = {f: b[f] / b["gp"] for f in ("min", *STATS)}

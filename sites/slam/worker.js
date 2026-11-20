@@ -576,8 +576,7 @@ function detailHTML(r){
   const oppN = r.oppN, op = r.op, lg = BOARD.lg;
   const per = (v, d) => sg ? (v/sg).toFixed(d) : "—";
   const wp = Math.round((p.w || 0)*100);
-  const prev = SEASON.split("-")[0];
-  const blend = p.w >= 1 ? SEASON+" only" : wp+"% "+SEASON+" · "+(100-wp)+"% "+(+prev-1)+"-"+prev.slice(2);
+  const blend = wp >= 95 ? "his own numbers" : wp+"% his games \u00b7 "+(100-wp)+"% position average";
   const rk = r.rk[k];
   const allowed = op.allow && (k === "pra" || op.allow[p.pos][k] != null) ? allowOf(op.allow[p.pos], k) : null;
   const rare = RARE[k];
@@ -602,7 +601,7 @@ function detailHTML(r){
    + '<div class="frow"><span>Proj '+st+' tonight</span><b>'+r.proj[k].toFixed(1)+'</b></div>'
    + '<h4 style="margin-top:14px">The rest</h4>'
    + '<div class="frow"><span>Games played ('+SEASON+')</span><b>'+sg+'</b></div>'
-   + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>'
+   + '<div class="frow"><span>Built from</span><b>'+blend+'</b></div>'
    + '<div class="frow"><span>Minutes / game (model)</span><b>'+p.mpg.toFixed(1)+'</b></div>'
    + '<div class="frow"><span>Game pace</span><b>'+(lg.pace*r.paceIdx).toFixed(1)+' <span style="color:var(--faint)">(lg '+lg.pace.toFixed(1)+')</span></b></div>'
    + histRows(p, k)

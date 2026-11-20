@@ -514,8 +514,7 @@ function detailHTML(r){
   const oppN = r.oppN, op = r.op, gk = r.gk, lg = BOARD.lg;
   const per = (v, d) => sg ? (v/sg).toFixed(d) : "—";
   const wp = Math.round((p.w || 0)*100);
-  const prev = SEASON.split("-")[0];
-  const blend = p.w >= 1 ? SEASON+" only" : wp+"% "+SEASON+" · "+(100-wp)+"% "+(+prev-1)+"-"+prev.slice(2);
+  const blend = wp >= 95 ? "his own numbers" : wp+"% his games \u00b7 "+(100-wp)+"% position average";
   const pr = r.prk[F.stat];
   const who = SLOTNAME[r.sl];
   const oa = op.allow && op.allow[r.sl];
@@ -549,7 +548,7 @@ function detailHTML(r){
    + bars
    + '<div class="numbers"><h4>The numbers</h4>'
    + '<div class="frow"><span>Games played ('+SEASON+')</span><b>'+sg+'</b></div>'
-   + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>'
+   + '<div class="frow"><span>Built from</span><b>'+blend+'</b></div>'
    + '<div class="frow"><span>Goals · assists ('+SEASON+')</span><b>'+(sg ? s.g+" · "+s.a : "—")+'</b></div>'
    + '<div class="frow"><span>Points / game ('+SEASON+')</span><b>'+(sg ? ((s.g+s.a)/sg).toFixed(2) : "—")+'</b></div>'
    + '<div class="frow"><span>Power-play goals ('+SEASON+')</span><b>'+(sg ? s.ppg : "—")+'</b></div>'

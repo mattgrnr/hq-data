@@ -342,13 +342,10 @@ def league_avgs(team_games):
             for lid, b in by.items() if b[0] >= 10}
 
 
-def rate(p, k, prior, K=6.0):
-    """Per-90 rate: this season, leaning on last season (or the position average) until minutes build up."""
-    c, v = p["cur"], p["prev"]
-    n90c, n90p = c["min"] / 90, v["min"] / 90
-    base = (v[k] / n90p) if n90p >= 3 else prior
-    base = (base * n90p + prior * 4) / (n90p + 4) if n90p >= 3 else prior
-    return (c[k] + base * K) / (n90c + K)
+def rate(p, k, prior, K=5.0):
+    """Per-90 rate: this season only, leaning on the position average until he has a handful of full games."""
+    c = p["cur"]
+    return (c[k] + prior * K) / (c["min"] / 90 + K)
 
 
 # ---------- today's slate ----------
@@ -486,8 +483,8 @@ def build_board(state, rows):
                 f90 = mins / 90
                 ha = 1.06 if home else 0.94
                 # finishing: goals vs xG over a decent sample, pulled hard toward 1
-                xgs = p["cur"]["xg"] + p["prev"]["xg"]
-                gs = p["cur"]["g"] + p["prev"]["g"]
+                xgs = p["cur"]["xg"]
+                gs = p["cur"]["g"]
                 fin = clamp((gs + 8) / (xgs + 8), 0.85, 1.2)
                 share = pens[pid] / tot_pen if tot_pen > 0.5 else 0.0
                 pen_g = share * team_pen * 0.78 * (min(mins, 90) / 90)

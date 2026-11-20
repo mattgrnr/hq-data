@@ -20,8 +20,8 @@ OUT = Path(__file__).resolve().parent.parent / "nfl" / "board.json"
 LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downloading
 
 POS = ("QB", "RB", "WR", "TE")
-K_PLAYER = 4   # last season counts as this many games
-K_DEF = 8      # defenses lean on last season longer
+K_PLAYER = 4   # TD rates lean on the league rate per opportunity until he has ~4 games
+K_DEF = 4      # defenses lean on the league average early on
 STAT = ("pyd", "ptd", "att", "car", "ryd", "rtd", "tgt", "rec", "cyd", "ctd")
 EMIT = ("pyd", "ptd", "car", "ryd", "rtd", "tgt", "rec", "cyd", "ctd", "rz", "i5")
 ROUND_LABELS = {19: "Wild Card", 20: "Divisional", 21: "Conference", 22: "Super Bowl"}
@@ -186,7 +186,6 @@ def main():
     today = dt.datetime.now(dt.timezone.utc).date()
     games = rows(fetch(GAMES_URL))
     season = pick_season(games, today)
-    prior = season - 1
 
     season_games = [g for g in games if int(g["season"]) == season]
     week = pick_week(season_games, today)
@@ -198,8 +197,6 @@ def main():
             played[g["home_team"]] += 1
             played[g["away_team"]] += 1
 
-    # last season, per player
-    prior_stats = rows(rel(f"stats_player/stats_player_reg_{prior}.csv"))
     # this season, per player per week
     cur_weekly = rows(rel(f"stats_player/stats_player_week_{season}.csv"))
     roster_rows = rows(rel(f"weekly_rosters/roster_weekly_{season}.csv"))
@@ -216,20 +213,17 @@ def main():
         print("player ids unavailable:", e)
 
     pos_of = {}
-    for r in prior_stats:
-        pos_of[r["player_id"]] = r["position"]
     for r in cur_weekly:
         pos_of[r["player_id"]] = r["position"]
     for r in roster_rows:
         if r["gsis_id"]:
             pos_of[r["gsis_id"]] = r["position"]
 
-    rz_prior, dvp_prior, dg_prior = scan_pbp(rel(f"pbp/play_by_play_{prior}.csv"), pos_of)
     rz_cur, dvp_cur, dg_cur = scan_pbp(rel(f"pbp/play_by_play_{season}.csv"), pos_of)
 
-    # league TD rates, used to steady players with no prior season
+    # league TD rates per opportunity this season, used to steady small samples
     lg = defaultdict(lambda: defaultdict(float))
-    for r in prior_stats:
+    for r in cur_weekly:
         if r["position"] in POS:
             t = lg[r["position"]]
             t["ptd"] += num(r["passing_tds"]); t["att"] += num(r["attempts"])
@@ -240,89 +234,12 @@ def main():
         t = lg[pos]
         return t[td] / t[opp] if t[opp] else 0.0
 
-    priors = {}
-    for r in prior_stats:
-        if r["position"] not in POS:
-            continue
-        g = num(r["games"])
-        if g < 4:
-            continue
-        if num(r["carries"]) + num(r["targets"]) < 25 and num(r["passing_yards"]) < 800:
-            continue
-        a, b = rz_for(rz_prior, r["player_id"], r["position"])
-        priors[r["player_id"]] = {
-            "g": g, "team": r["recent_team"],
-            "pyd": num(r["passing_yards"]), "ptd": num(r["passing_tds"]), "att": num(r["attempts"]),
-            "car": num(r["carries"]), "ryd": num(r["rushing_yards"]), "rtd": num(r["rushing_tds"]),
-            "tgt": num(r["targets"]), "rec": num(r["receptions"]), "cyd": num(r["receiving_yards"]),
-            "ctd": num(r["receiving_tds"]), "rz": a, "i5": b,
-        }
-
-    cur = defaultdict(lambda: defaultdict(float))
-    cur_weeks = defaultdict(set)
-    td_week = defaultdict(int)
-    stats_in = set()
-    team_last_week = {}
-    qb_att_by_week = defaultdict(lambda: defaultdict(float))  # (team, week) -> qb -> attempts
-    for r in cur_weekly:
-        pid, wk, tm = r["player_id"], int(r["week"]), r["team"]
-        if wk == week:
-            stats_in.add(tm)
-            td_week[pid] = int(num(r["rushing_tds"]) + num(r["receiving_tds"]))
-        if r["position"] not in POS:
-            continue
-        cur_weeks[pid].add(wk)
-        c = cur[pid]
-        c["pyd"] += num(r["passing_yards"]); c["ptd"] += num(r["passing_tds"]); c["att"] += num(r["attempts"])
-        c["car"] += num(r["carries"]); c["ryd"] += num(r["rushing_yards"]); c["rtd"] += num(r["rushing_tds"])
-        c["tgt"] += num(r["targets"]); c["rec"] += num(r["receptions"]); c["cyd"] += num(r["receiving_yards"])
-        c["ctd"] += num(r["receiving_tds"])
-        team_last_week[tm] = max(team_last_week.get(tm, 0), wk)
-        if r["position"] == "QB":
-            qb_att_by_week[(tm, wk)][pid] += num(r["attempts"])
-
-    # current roster: latest week each player appears
-    roster = {}
-    for r in roster_rows:
-        pid = r["gsis_id"]
-        if not pid or r["position"] not in POS:
-            continue
-        wk = int(r["week"])
-        if pid not in roster or wk >= roster[pid]["week"]:
-            roster[pid] = {"week": wk, "team": r["team"], "status": r["status"], "name": r["full_name"], "pos": r["position"]}
-
-    # injury designations for this week; carry last week's Out until this week's report is final
-    inj_now, inj_prev = {}, {}
-    for r in injury_rows:
-        wk = int(r["week"])
-        if wk == week and r["report_status"]:
-            inj_now[r["gsis_id"]] = r["report_status"]
-        elif wk == week - 1 and r["report_status"]:
-            inj_prev[r["gsis_id"]] = r["report_status"]
-
-    game_day = {}
-    for g in week_games:
-        d = dt.date.fromisoformat(g["gameday"])
-        game_day[g["home_team"]] = d
-        game_day[g["away_team"]] = d
-
-    # game-status reports are final two days before kickoff; earlier Outs still count
-    def injury(pid, team):
-        now = inj_now.get(pid, "")
-        if team in game_day and today >= game_day[team] - dt.timedelta(days=2):
-            return now
-        if now:
-            return now
-        return "Out" if inj_prev.get(pid) == "Out" else ""
-
-    # one QB per team: highest on the depth chart among those not ruled out,
-    # then whoever threw the most in the team's latest game
     def starting_qb(team, candidates):
         lw = team_last_week.get(team)
         recent = qb_att_by_week.get((team, lw), {}) if lw else {}
         ranks = depth.get(team, {})
         def key(pid):
-            return (-ranks.get(pid, 99), recent.get(pid, 0), cur[pid]["att"], priors.get(pid, {}).get("pyd", 0))
+            return (-ranks.get(pid, 99), recent.get(pid, 0), cur[pid]["att"])
         return max(candidates, key=key) if candidates else None
 
     built = []
@@ -331,11 +248,8 @@ def main():
         if ro["status"] != "ACT":
             continue
         pos, team = ro["pos"], ro["team"]
-        pr = priors.get(pid)
         gc = len(cur_weeks.get(pid, ()))
-        if not pr and gc == 0:
-            continue
-        if played.get(team, 0) >= 2 and gc == 0:
+        if gc == 0:
             continue
         status = injury(pid, team)
         if status == "Out":
@@ -346,24 +260,18 @@ def main():
         c["rz"], c["i5"] = a, b
 
         p = {"id": pid, "name": ro["name"], "pos": pos, "team": team}
-        if pr:
-            ge = gc + K_PLAYER
-            for k in STAT + ("rz", "i5"):
-                p[k] = c[k] + K_PLAYER * pr[k] / pr["g"]
-            p["w"] = round(gc / ge, 2)
-            p["newteam"] = pr["team"] != team
-        else:
-            ge = gc
-            for k in STAT + ("rz", "i5"):
-                p[k] = c[k]
-            exp = {
-                "ptd": c["att"] / gc * lg_rate(pos, "ptd", "att"),
-                "rtd": c["car"] / gc * lg_rate(pos, "rtd", "car"),
-                "ctd": c["tgt"] / gc * lg_rate(pos, "ctd", "tgt"),
-            }
-            for k, e in exp.items():
-                p[k] = (c[k] + K_PLAYER * e) / (gc + K_PLAYER) * gc
-            p["w"] = 1
+        ge = gc
+        for k in STAT + ("rz", "i5"):
+            p[k] = c[k]
+        # TD rates lean on the league rate for his opportunities until the sample builds
+        exp = {
+            "ptd": c["att"] / gc * lg_rate(pos, "ptd", "att"),
+            "rtd": c["car"] / gc * lg_rate(pos, "rtd", "car"),
+            "ctd": c["tgt"] / gc * lg_rate(pos, "ctd", "tgt"),
+        }
+        for k, e in exp.items():
+            p[k] = (c[k] + K_PLAYER * e) / (gc + K_PLAYER) * gc
+        p["w"] = round(gc / (gc + K_PLAYER), 2)
         p["g"] = ge
         p["sg"] = gc
         p["s"] = {k: int(round(c[k])) for k in EMIT}
@@ -399,19 +307,20 @@ def main():
                 out[k] = p[k]
         players.append(out)
 
-    # defense vs position, blended per game, expressed per 17 games
+    # defense vs position this season, leaning on the league average early, expressed per 17 games
+    lg_def = {pos: [0.0] * 7 for pos in POS}
+    lg_games = sum(len(v) for v in dg_cur.values())
+    for d in dvp_cur:
+        for pos in POS:
+            for i in range(7):
+                lg_def[pos][i] += dvp_cur[d][pos][i]
     dvp = {}
-    for d in sorted(set(dg_prior) | set(dg_cur)):
-        pg_prior, pg_cur = len(dg_prior.get(d, ())), len(dg_cur.get(d, ()))
+    for d in sorted(dg_cur):
+        pg = len(dg_cur[d])
         dvp[d] = {}
         for pos in POS:
-            pv = dvp_prior[d][pos] if d in dvp_prior else [0.0] * 7
-            cv = dvp_cur[d][pos] if d in dvp_cur else [0.0] * 7
-            vals = []
-            for i in range(7):
-                base = pv[i] / pg_prior if pg_prior else 0.0
-                rate = (cv[i] + K_DEF * base) / (pg_cur + K_DEF) if (pg_cur or pg_prior) else 0.0
-                vals.append(rate * 17)
+            cv = dvp_cur[d][pos]
+            vals = [(cv[i] + K_DEF * (lg_def[pos][i] / lg_games if lg_games else 0.0)) / (pg + K_DEF) * 17 for i in range(7)]
             # [td, yds, 17, rz plays, rz tds, rush yds, rec yds, receptions], all per 17 games
             dvp[d][pos] = [round(vals[0], 2), int(round(vals[1])), 17, round(vals[2], 1), round(vals[3], 1),
                            int(round(vals[4])), int(round(vals[5])), round(vals[6], 1)]

@@ -20,9 +20,8 @@ OUT = ROOT / "board.json"
 LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downloading
 ET = ZoneInfo("America/New_York")
 
-K_PLAYER = 20   # last season counts as this many games
-K_ROOKIE = 10   # no history: lean on the league average for the position group
-K_TEAM = 20
+K_ROOKIE = 6    # small samples lean on the league average for the position group until he has a handful of games
+K_TEAM = 8      # teams lean on the league average early on
 K_GOALIE = 25   # in expected goals faced
 SHOTS = ("SHOT", "MISSED_SHOT", "GOAL")
 PP_STATES = ("5v4", "5v3", "4v3")
@@ -207,7 +206,7 @@ def main():
     now = dt.datetime.now(ET)
     today = dt.date.fromisoformat(os.environ["TODAY"]) if os.environ.get("TODAY") else now.date()
     season = today.year + 1 if today.month >= 8 else today.year
-    prior = prior_profile(season - 1)
+    prior = {"sk": {}, "team": {}, "goalie": {}}   # this season only
 
     sched = list(csv.DictReader(io.StringIO(fetch(f"nhl_schedules/nhl_schedule_{season}.csv").decode("utf-8"))))
     sched = [g for g in sched if g["game_type"] == "R"]
@@ -264,15 +263,10 @@ def main():
         for pid in dressed.get(tm, ()):
             c, i = sk[pid], info[pid]
             gc = c["gp"]
-            pr = prior["sk"].get(str(pid))
             p = {"id": pid, "name": i["name"], "pos": i["pos"], "team": tm}
-            if pr and pr["gp"] >= 10:
-                k = K_PLAYER
-                base = {f: pr[f] / pr["gp"] for f in ("g", "a", "sog", "ixg", "att", "ppx", "toi")}
-            else:
-                k = K_ROOKIE
-                b = by_group[group(i["pos"])]
-                base = {f: b[f] / b["gp"] for f in ("g", "a", "sog", "ixg", "att", "ppx", "toi")}
+            k = K_ROOKIE
+            b = by_group[group(i["pos"])]
+            base = {f: b[f] / b["gp"] for f in ("g", "a", "sog", "ixg", "att", "ppx", "toi")}
             for f in ("g", "a", "sog", "ixg", "att", "ppx", "toi"):
                 p[f] = round(c[f] + k * base[f], 3)
             p["gp"] = gc + k

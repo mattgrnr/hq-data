@@ -560,7 +560,7 @@ function tabDetailHTML(r){
   const p = r.p, tab = F.stat, t = TABINFO[tab], x = r.tab[tab];
   const oppN = r.gm.opp(p), live = p.w != null;
   const wp = Math.round((p.w || 0)*100);
-  const blend = p.w >= 1 ? SEASON+" only" : wp+"% "+SEASON+" \\u00b7 "+(100-wp)+"% "+(SEASON-1);
+  const blend = wp >= 95 ? "his own numbers" : wp+"% his games \u00b7 "+(100-wp)+"% position average";
   const posWord = {QB:"QBs",RB:"RBs",WR:"WRs",TE:"TEs"}[p.pos];
   const fmt = v => t.unit === "yds" ? String(Math.round(v)) : v.toFixed(1);
   return '<div class="detail">'
@@ -580,7 +580,7 @@ function tabDetailHTML(r){
    + (tab === "PYD" && r.tab.PTD ? '<div class="frow"><span>Proj passing TDs this week</span><b>'+r.tab.PTD.proj.toFixed(1)+'</b></div>' : '')
    + '<h4 style="margin-top:14px">The rest</h4>'
    + (live ? '<div class="frow"><span>Games played ('+SEASON+')</span><b>'+(p.sg || 0)+'</b></div>'
-        + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>' : '')
+        + '<div class="frow"><span>Built from</span><b>'+blend+'</b></div>' : '')
    + '<div class="frow"><span>Implied team total</span><b>'+r.imp+'</b></div>'
    + '<div class="frow"><span>Weather</span><b>'+esc(r.wxNote||"\\u2014")+'</b></div>'
    + '</div>'
@@ -759,7 +759,7 @@ function tdDetailHTML(r){
   const szn = live ? String(SEASON) : "szn";
   const pg = k => qg ? (q[k]/qg).toFixed(1) : "\\u2014";
   const wp = Math.round((p.w || 0)*100);
-  const blend = p.w >= 1 ? SEASON+" only" : wp+"% "+SEASON+" \\u00b7 "+(100-wp)+"% "+(SEASON-1);
+  const blend = wp >= 95 ? "his own numbers" : wp+"% his games \u00b7 "+(100-wp)+"% position average";
   return '<div class="detail">'
    + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Each bar compares this player to the <b>average at his position</b>. The tick in the middle is <b>1.00 — dead average</b>: fill past it is above average, short of it is below. Tap any bar to see what it means.</div></details>'
    + bar("Red-zone role", i.rz, i.rz.toFixed(2), "Trips inside the opponent\\u2019s 20 per game, with extra weight on inside-the-5 work \\u2014 the closest thing football has to a guaranteed shot at six.")
@@ -770,7 +770,7 @@ function tdDetailHTML(r){
    + bar("Yardage engine", i.yds, i.yds.toFixed(2), "Scrimmage (or passing) yards per game vs. the position average \\u2014 the fuel behind the projected-yards number.")
    + '<div class="numbers"><h4>The numbers</h4>'
    + (live ? '<div class="frow"><span>Games played ('+szn+')</span><b>'+qg+'</b></div>'
-        + '<div class="frow"><span>Model blend</span><b>'+blend+'</b></div>' : '')
+        + '<div class="frow"><span>Built from</span><b>'+blend+'</b></div>' : '')
    + (p.pos==="QB"
       ? '<div class="frow"><span>Pass yds / game</span><b>'+pg("pyd")+'</b></div>'
         + '<div class="frow"><span>Carries / game</span><b>'+pg("car")+'</b></div>'
