@@ -55,11 +55,12 @@ export default {
     const asset = serveAsset(path);
     if (asset) return asset;
 
-    if (path === "/history" || path === "/history/day") {
+    if (path === "/history" || path === "/history/day" || path === "/history/players") {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
       const d = url.searchParams.get("d") || "";
       if (path === "/history/day" && !/^\d{4}-(\d{2}-\d{2}|w\d{2})$/.test(d)) return new Response("Bad request", { status: 400 });
-      const src = path === "/history" ? HISTORY_URL : HISTORY_URL.replace("summary.json", "graded/" + d + ".json");
+      const src = path === "/history" ? HISTORY_URL : path === "/history/players" ? HISTORY_URL.replace("summary.json", "players.json")
+        : HISTORY_URL.replace("summary.json", "graded/" + d + ".json");
       const res = await fetch(src, { cf: { cacheTtl: 600, cacheEverything: true } });
       if (!res.ok) return new Response(JSON.stringify({ error: "history upstream " + res.status }), { status: 502, headers: { "Content-Type": "application/json" } });
       return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
@@ -402,6 +403,17 @@ body{background:
 #app button:focus-visible,#app select:focus-visible,#app input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#app *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 /* ===== results dashboard + starred players (shared) ===== */
+/* header: logo and buttons share one row; the date line lives in the board itself */
+#app header.hero .sub{display:none}
+#app header.hero{padding:calc(env(safe-area-inset-top,0px) + 10px) 0 10px}
+#app header.hero + *{margin-top:10px}
+#app header.hero .topbar{flex-wrap:nowrap;align-items:center}
+#app header.hero .topbar>div:last-child{align-items:center!important}
+@media (max-width:480px){
+  #app header.hero .brand{font-size:clamp(18px,5.8vw,34px)}
+  #app header.hero .navbtn{font-size:12px;padding:8px 8px;letter-spacing:.01em}
+  #app header.hero .topbar>div:last-child{gap:6px!important}
+}
 #app .navbtn.on{box-shadow:inset 0 0 0 1px var(--red);background:linear-gradient(180deg,rgba(255,77,61,.16),rgba(255,77,61,.04))}
 #app .star{flex:none;background:none;border:0;padding:6px 2px;margin:-6px 0;font-size:19px;line-height:1;color:rgba(255,255,255,.22);cursor:pointer}
 #app .star.on{color:#F5C451}
@@ -412,7 +424,7 @@ body{background:
 .rtabs button{flex:1 0 auto;min-width:64px;padding:8px 12px;border:0;border-radius:11px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;letter-spacing:.04em;color:var(--faint);
  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
 .rtabs button.on{color:var(--ink);box-shadow:inset 0 0 0 1px var(--red);background:linear-gradient(180deg,rgba(255,77,61,.16),rgba(255,77,61,.04))}
-.tr-intro{color:var(--faint);font-size:13px;line-height:1.5;margin:0 2px 14px}
+.tr-intro{color:var(--faint);font-size:13px;line-height:1.5;margin:14px 2px 14px}
 .tr-intro b{color:var(--ink)}
 .dash-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}
 .dash-filters .ctrl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
@@ -482,6 +494,18 @@ body{background:
 .ptable.nights tr[data-day]{cursor:pointer}
 .ptable.nights tr.on td{color:var(--red)}
 @media (min-width:600px){ .kpis{grid-template-columns:repeat(4,1fr)} }
+.favcard{border-radius:14px;padding:10px 12px;margin-bottom:8px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));box-shadow:inset 0 0 0 1px rgba(245,196,81,.25)}
+.fc-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14px}
+.fc-top .n{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.fc-top .n small{color:var(--faint);font-size:12px;font-weight:400;margin-left:6px}
+.fc-rate{flex:none;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+.fc-rate b{color:var(--ink);font-size:14px}
+.fc-last{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.fc-last span{font-size:11.5px;padding:3px 7px;border-radius:6px;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);color:var(--faint)}
+.fc-last span b{margin-right:4px}
+.fc-last span.o{box-shadow:inset 0 0 0 1px rgba(74,222,128,.5);color:var(--ink)}
+.fc-last span.o b{color:var(--strong)}
+.fc-last small{color:var(--faint);font-size:10.5px}
 /* ===== end results dashboard ===== */
 </style>
 </head>
@@ -903,7 +927,7 @@ function tdTag(p){ return p.td ? '<span class="tdtag">TD'+(p.td>1?' \\u00d7'+p.t
 const RSTATS = [["TD","TD","touchdowns"],["CYD","REC YDS","receiving yards"],["RYD","RUSH YDS","rushing yards"],["REC","REC","receptions"],["PYD","PASS YDS","passing yards"],["PTD","PASS TD","passing TDs"]];
 const FAVKEY = "hq.touchdown.fav";
 /* ===== results dashboard: shared by every HQ site; RSTATS and FAVKEY are set per site ===== */
-let HIST = null, HW = "7", HG = "T10", HV = "trend", HD = null, HDAY = {}, HSORT = "picks", RS = null;
+let HIST = null, HPL = null, HW = "7", HG = "T10", HV = "trend", HD = null, HDAY = {}, HSORT = "picks", RS = null;
 const GROUPS = [["T10","Top 10"],["ELITE","Elite"],["STRONG","Strong"],["SOLID","Solid"],["FRINGE","Fringe"],["LONGSHOT","Longshot"]];
 const TIERCOL = { ELITE:"var(--elite)", STRONG:"var(--strong)", SOLID:"var(--solid)", FRINGE:"var(--fringe)", LONGSHOT:"var(--long)" };
 
@@ -1043,6 +1067,23 @@ function playersHTML(){
     + '</tbody></table>';
 }
 
+function favsHTML(){
+  const fav = [...favSet()];
+  const st = rstat();
+  let h = '<h3 class="dash-h">Your players</h3>';
+  if(!fav.length) return h + '<p class="dash-note">Tap ★ next to a player on the board to follow him here.</p>';
+  if(!HPL) return h + '<p class="dash-note">Loading your players…</p>';
+  const rows = fav.map(id=>HPL[id] && Object.assign({ id }, HPL[id])).filter(Boolean);
+  if(!rows.length) return h + '<p class="dash-note">None of your starred players have a graded game yet.</p>';
+  return h + '<p class="dash-note">'+rlabel()+' this season, and his last five.</p>' + rows.map(p=>{
+    const t = p.s[st], last = p.l[st] || [];
+    return '<div class="favcard"><div class="fc-top"><span class="n">'+esc(p.n)+'<small>'+esc(p.t)+'</small></span>'
+      + '<span class="fc-rate">'+(t ? '<b>'+pct0(t[1], t[0])+'</b> over · '+t[1]+' of '+t[0] : 'no '+rlabel().toLowerCase()+' picks')+'</span></div>'
+      + (last.length ? '<div class="fc-last">'+last.map(x=>'<span class="'+(x[3]?"o":"u")+'" title="'+fmtDay(x[0])+'"><b>'+(x[3]?"O":"U")+'</b>'+fmtNum(x[1])+' <small>vs '+fmtNum(x[2])+'</small></span>').join("")+'</div>' : '')
+      + '</div>';
+  }).join("");
+}
+
 function nightsHTML(days){
   const one = HIST.weekly ? "Week" : "Night";
   return '<h3 class="dash-h">'+(HIST.weekly?"Weeks":"Nights")+'</h3><table class="ptable nights"><thead><tr><th>'+one+'</th><th>Games</th><th>Over</th><th>Rate</th></tr></thead><tbody>'
@@ -1050,12 +1091,19 @@ function nightsHTML(days){
     + '</tbody></table>';
 }
 
+function rangeText(days){
+  if(!days.length) return "No graded "+slateWord()+" in this range yet.";
+  const a = days[days.length-1].date, b = days[0].date;
+  const span = a === b ? fmtDay(a) : fmtDay(a)+" to "+fmtDay(b);
+  return "Showing "+span+" ("+days.length+" "+(days.length === 1 ? slateWord().slice(0,-1) : slateWord())+").";
+}
 function resultsHTML(){
-  let h = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
-  if(!HIST) return h + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
-  if(HIST.error) return h + '<div class="status"><h2>No results yet</h2><p>The first graded '+(HIST.weekly?"week":"night")+' shows up here the morning after.</p></div>';
+  const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
+  if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
+  if(HIST.error) return tabs + '<div class="status"><h2>No results yet</h2><p>The first graded '+(HIST.weekly?"week":"night")+' shows up here the morning after.</p></div>';
   const days = rangeDays();
-  h += '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. Graded '+fmtDay(HIST.first)+' to '+fmtDay(HIST.last)+'.</p>';
+  let h = '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. '+rangeText(days)+'</p>';
+  h += tabs;
   h += '<div class="dash-filters">'
     + '<div class="ctrl"><label>Range</label><select id="d-range">'+(HIST.weekly ? [["7","Last week"],["30","Last 4 weeks"],["season","Season"]] : [["7","Last 7 days"],["30","Last 30 days"],["season","Season"]]).map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Picks</label><select id="d-group">'+GROUPS.map(o=>'<option value="'+o[0]+'"'+(HG===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
@@ -1064,16 +1112,34 @@ function resultsHTML(){
   h += '<div class="dash-card"><div class="seg">'+[["trend","Trend"],["tiers","By tier"],["donut","Over / under"]].map(v=>'<button class="'+(HV===v[0]?"on":"")+'" data-view="'+v[0]+'">'+v[1]+'</button>').join("")+'</div>'
     + (HV==="trend" ? trendSVG(days) : HV==="tiers" ? tiersHTML(days) : donutSVG(days)) + '</div>';
   h += drillHTML();
+  h += favsHTML();
   h += playersHTML();
   h += nightsHTML(days);
   return h;
 }
 
 async function loadHistory(){
-  if(HIST) return;
-  try{ HIST = await fetchJSON("/history"); if(!HIST || !HIST.daily) HIST = { error:true }; }catch(e){ HIST = { error:true }; }
-  if(F.view === "results") render();
+  if(!HIST){
+    try{ HIST = await fetchJSON("/history"); if(!HIST || !HIST.daily) HIST = { error:true }; }catch(e){ HIST = { error:true }; }
+    if(F.view === "results") render();
+  }
+  if(!HPL && favSet().size && !HIST.error){
+    try{ HPL = await fetchJSON("/history/players"); }catch(e){ HPL = {}; }
+    if(F.view === "results") render();
+  }
 }
+// the board and the dashboard share one page: the phone's back gesture and the logo both return to the board
+function openResults(){
+  if(F.view !== "results"){ F.view = "results"; try{ history.pushState({ hq:"results" }, ""); }catch(e){} }
+  window.scrollTo(0,0); render();
+}
+function closeResults(){
+  if(F.view !== "results") return;
+  F.view = "board";
+  window.scrollTo(0,0);
+  if(!GAMES.length) boot(false); else render();
+}
+window.addEventListener("popstate", ()=> closeResults());
 async function openDay(d){
   HD = HD === d ? null : d;
   render();
@@ -1093,8 +1159,33 @@ function wireResults(){
   document.querySelectorAll("th[data-sort]").forEach(el=> el.onclick = ()=>{ HSORT = el.dataset.sort; render(); });
   const x = document.getElementById("drill-x"); if(x) x.onclick = ()=>{ HD = null; render(); };
 }
+function wireBrand(){
+  fitBrand();
+  const b = document.querySelector(".brand");
+  if(b){ b.style.cursor = "pointer"; b.onclick = ()=>{ if(F.view === "results") history.back(); }; }
+}
 function wireStars(){
   document.querySelectorAll(".star").forEach(el=> el.onclick = (e)=>{ e.stopPropagation(); toggleFav(el.dataset.fav); render(); });
+  fitBrand();
+  setTimeout(fitBrand, 250);
+}
+// size the site name to fill the room left of the buttons, so every site's header lines up the same way
+function fitBrand(){
+  const b = document.querySelector("header.hero .brand");
+  if(!b) return;
+  const bar = b.closest(".topbar"), btns = bar && bar.lastElementChild;
+  if(!btns || btns === b.parentNode) return;
+  const room = bar.clientWidth - btns.offsetWidth - 14;
+  b.style.setProperty("font-size", "40px", "important");
+  const r = document.createRange();
+  r.selectNodeContents(b);
+  const w = r.getBoundingClientRect().width;
+  if(room > 0 && w > 0) b.style.setProperty("font-size", Math.max(18, Math.min(48, 40 * room / w)).toFixed(1) + "px", "important");
+}
+window.addEventListener("resize", ()=> fitBrand());
+if(document.fonts){
+  document.fonts.ready.then(()=> fitBrand());
+  document.fonts.addEventListener("loadingdone", ()=> fitBrand());
 }
 /* ===== end results dashboard ===== */
 function pinnedHTML(rows){
@@ -1105,7 +1196,7 @@ function pinnedHTML(rows){
 function wireTop(){
   document.getElementById("btn-refresh").onclick = ()=>boot(true);
   const rb = document.getElementById("btn-results");
-  if(rb) rb.onclick = ()=>{ F.view = F.view === "results" ? "board" : "results"; window.scrollTo(0,0); if(F.view === "board" && !GAMES.length) boot(false); else render(); };
+  if(rb) rb.onclick = ()=>{ if(F.view === "results") history.back(); else openResults(); };
   const sb = document.getElementById("btn-sports"), sm = document.getElementById("sportmenu");
   if(sb && sm){
     sb.onclick = (e)=>{ e.stopPropagation(); sm.classList.toggle("open"); };
@@ -1145,12 +1236,13 @@ function render(banner){
   let h = '<header class="hero"><div class="topbar"><div>'
     + '<div class="brand">TOUCHDOWN <b>HQ</b></div>'
     + '<div class="sub">'+esc(WEEKLBL)+'</div></div>'
-    + '<div style="display:flex;gap:8px;align-items:flex-start">'+sportsMenuHTML()+'<button class="navbtn'+(F.view==="results"?" on":"")+'" id="btn-results">Results</button><button class="navbtn" id="btn-refresh" aria-label="Refresh">\\u21bb</button></div></div></header>';
+    + '<div style="display:flex;gap:8px;align-items:flex-start">'+sportsMenuHTML()+'<button class="navbtn'+(F.view==="results"?" on":"")+'" id="btn-results">Results Dashboard</button><button class="navbtn" id="btn-refresh" aria-label="Refresh">\\u21bb</button></div></div></header>';
   if(F.view === "results"){
     h += resultsHTML();
     app.innerHTML = h;
     wireTop();
     wireResults();
+    wireBrand();
     loadHistory();
     return;
   }
@@ -1182,7 +1274,7 @@ function render(banner){
 function wire(){
   document.getElementById("btn-refresh").onclick = ()=>boot(true);
   const rb = document.getElementById("btn-results");
-  if(rb) rb.onclick = ()=>{ F.view = "results"; window.scrollTo(0,0); render(); };
+  if(rb) rb.onclick = ()=> openResults();
   wireStars();
   const sb = document.getElementById("btn-sports"), sm = document.getElementById("sportmenu");
   if(sb && sm){
@@ -1315,7 +1407,7 @@ async function boot(force){
       if(F.view === "results"){ render(); return; }
       app.innerHTML = '<div class="status"><div class="big">\\ud83c\\udfc8</div><h2>No games on the slate</h2><p>Check back when the next week posts.</p><p style="margin-top:14px"><button class="navbtn" id="btn-results">See how the board did</button> <button class="navbtn" id="btn-refresh">\\u21bb Refresh</button></p></div>';
       document.getElementById("btn-refresh").onclick = ()=>boot(true);
-      document.getElementById("btn-results").onclick = ()=>{ F.view = "results"; render(); };
+      document.getElementById("btn-results").onclick = ()=> openResults();
       return;
     }
     showStatus("Scoring "+PRO.players.length+" playmakers\\u2026");

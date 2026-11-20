@@ -286,6 +286,22 @@ def summarize(sport):
         out["daily"].append(entry)
     out["daily"].reverse()
     (hdir / "summary.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
+
+    # every graded player, for the starred-players panel: season over count and his last five per stat
+    pl = {}
+    for day in days:
+        for stat in stats:
+            for r, over, e in graded(day, stat):
+                p = pl.setdefault(str(r["id"]), {"n": r["n"], "t": r["t"], "s": {}, "l": {}})
+                p["t"] = r["t"]
+                t = p["s"].setdefault(stat, [0, 0])
+                t[0] += 1
+                t[1] += over
+                p["l"].setdefault(stat, []).append([day["key"], r["act"][stat], r["pj"][stat], int(over)])
+    for p in pl.values():
+        for stat in p["l"]:
+            p["l"][stat] = p["l"][stat][-5:][::-1]
+    (hdir / "players.json").write_text(json.dumps(pl, separators=(",", ":"), ensure_ascii=False))
     print(f"summary: {len(days)} slates, {out['first']} to {out['last']}")
 
 
