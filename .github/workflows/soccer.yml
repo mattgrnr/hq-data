@@ -5,6 +5,10 @@ on:
     - cron: "23 * * * *"   # hourly: fill in match history, refresh lineups and the slate
   workflow_dispatch:
     inputs:
+      backfill:
+        description: "Rebuild past picks from the board's git history"
+        type: boolean
+        default: false
       budget:
         description: "Minutes to spend fetching"
         default: "40"
@@ -24,6 +28,11 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: main
+          fetch-depth: ${{ inputs.backfill && '0' || '1' }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
 
       - uses: actions/setup-python@v6
         with:
@@ -33,6 +42,12 @@ jobs:
         env:
           BUDGET_MIN: ${{ inputs.budget || '40' }}
         run: python scripts/build_soccer.py
+
+      - name: Save picks for games that haven't started
+        run: node scripts/history/score.cjs golazo soccer/board.json soccer/history/picks
+
+      - name: Grade finished games
+        run: python scripts/history/grade.py soccer ${{ inputs.backfill && '--backfill' || '' }}
 
       - name: Commit if changed
         run: |

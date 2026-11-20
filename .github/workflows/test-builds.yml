@@ -2,7 +2,7 @@ name: Test builds
 on:
   push:
     branches: ["preview/allsites"]
-    paths: ["scripts/build_*.py", ".github/workflows/test-builds.yml"]
+    paths: ["scripts/**", ".github/workflows/test-builds.yml"]
 permissions:
   contents: write
 concurrency:
@@ -11,21 +11,27 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install pyarrow
-      - name: Build NHL, NBA and NFL boards from this branch
+      - name: Rebuild history from the board commits
         run: |
-          python scripts/build_nhl.py
-          python scripts/build_nba.py
-          python scripts/build_nfl.py
+          for s in nhl nba nfl soccer; do
+            rm -rf $s/history
+            python scripts/history/grade.py $s --backfill
+          done
       - name: Save
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add nhl nba nfl
-          git commit -qm "Test boards [skip ci]" && git push || echo "no changes"
+          git add nhl/history nba/history nfl/history soccer/history
+          git commit -qm "Test history [skip ci]" && git push || echo "no changes"

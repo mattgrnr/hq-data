@@ -8,6 +8,11 @@ on:
     - cron: "37 18 * * *"
     - cron: "37 23 * * *"
   workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Rebuild past picks from the board's git history"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -24,6 +29,11 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: main
+          fetch-depth: ${{ inputs.backfill && '0' || '1' }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
 
       - uses: actions/setup-python@v6
         with:
@@ -34,6 +44,12 @@ jobs:
 
       - name: Build board
         run: python scripts/build_nba.py
+
+      - name: Save picks for games that haven't started
+        run: node scripts/history/score.cjs slam nba/board.json nba/history/picks
+
+      - name: Grade finished games
+        run: python scripts/history/grade.py nba ${{ inputs.backfill && '--backfill' || '' }}
 
       - name: Commit if changed
         run: |
