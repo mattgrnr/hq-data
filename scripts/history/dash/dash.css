@@ -1,6 +1,8 @@
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
 #app header.hero .sub{display:none}
+#app header.hero{padding:calc(env(safe-area-inset-top,0px) + 10px) 0 10px}
+#app header.hero + *{margin-top:10px}
 #app header.hero .topbar{flex-wrap:nowrap;align-items:center}
 #app header.hero .topbar>div:last-child{align-items:center!important}
 @media (max-width:480px){
