@@ -55,7 +55,7 @@ const HTML = `<!doctype html>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0d1117; --panel:#161b22; --panel2:#1c2129; --line:#30363d;
@@ -311,6 +311,77 @@ body{background:
 
 #app button:focus-visible,#app select:focus-visible,#app input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#app *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* ============ BROADCAST SHEET ============
+   Solid surfaces, square edges, one family in two widths, numbers in columns.
+   The ribbon at the top is the HQ signature. */
+body{background:var(--bg);font-family:'Saira',system-ui,sans-serif}
+#app .pname,#app .yproj b,#app .rank,#app .pos,#app .navbtn,#app .frow b,#app .bar .bl b,#app .sportmenu a .tag,#app .pbadge,#app .score,#app .tierlabel,#app .rb-n,#app .rb-name,#app .rb-sc,#app .rb-day b{font-family:'Saira Condensed',sans-serif;font-variant-numeric:tabular-nums lining-nums}
+#app .sub{text-transform:none;letter-spacing:0;font-size:13px;margin-top:6px}
+
+#app .navbtn{border-radius:3px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font-weight:600;letter-spacing:.02em;font-size:14px}
+#app .navbtn:hover{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+#app .sportmenu{border-radius:4px;background:var(--panel);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 12px 28px rgba(0,0,0,.5)}
+#app .sportmenu a{border-radius:2px}
+#app .sportmenu a.cur{background:transparent;border:0;box-shadow:inset 3px 0 0 var(--red)}
+
+/* ribbon: tonight's top three, like the board around the arena */
+.ribbon{display:flex;align-items:stretch;margin:14px 0 18px;background:#05070A;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.rb-day{flex:none;background:var(--red);color:#fff;padding:8px 12px 7px;display:flex;flex-direction:column;justify-content:center;line-height:1.05;font-size:11px;font-weight:600}
+.rb-day b{font-size:24px;font-weight:700;line-height:1}
+.rb-list{flex:1;display:flex;min-width:0;list-style:none}
+.rb-item{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:7px 10px;cursor:pointer}
+.rb-top{display:flex;align-items:baseline;gap:5px;min-width:0}
+.rb-item+.rb-item{box-shadow:inset 1px 0 0 rgba(255,255,255,.09)}
+.rb-n{color:var(--faint);font-size:14px;font-weight:600}
+.rb-name{flex:1;min-width:0;font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rb-sc{align-self:flex-start;font-size:14px;font-weight:700;line-height:1.2;padding:0 6px;color:#0B0F14;background:var(--c)}
+
+/* stat tabs: one rule across the page, the active stat underlined in red */
+#app .posrow{gap:0;margin:0 0 14px;box-shadow:inset 0 -1px 0 var(--line)}
+#app .pos{background:none;box-shadow:none;border:0;border-radius:0;padding:10px 0 9px;font-size:17px;font-weight:600;letter-spacing:.04em;color:var(--faint)}
+#app .pos.on{background:none;color:var(--ink);box-shadow:inset 0 -3px 0 var(--red)}
+
+/* filters: one flat strip */
+#app .controls{gap:0;background:var(--panel);border-radius:3px;box-shadow:inset 0 0 0 1px var(--line)}
+#app .ctrl{background:none;border:0;border-radius:0;box-shadow:inset -1px -1px 0 var(--line)}
+#app .ctrl label{text-transform:none;letter-spacing:0;font-size:11.5px}
+#app .board-head{text-transform:none;letter-spacing:0;font-size:12px;padding:0 0 6px;box-shadow:inset 0 -1px 0 var(--line)}
+
+/* rows: a stat sheet, not cards. Team color on the left edge. */
+#app .row,#app .row:hover,#app .row.open{background:none;border:0;border-radius:0;margin:0;box-shadow:inset 0 -1px 0 var(--line)}
+#app .rowtop{padding:12px 0 12px 0;gap:12px;position:relative}
+#app .rowtop::before{content:"";align-self:stretch;width:4px;flex:none;background:var(--tc,#3A4350)}
+#app .row:hover .rowtop{background:rgba(255,255,255,.025)}
+#app .row.open .rowtop{background:var(--panel)}
+#app .rank{order:-1;width:22px;font-size:17px;font-weight:600;color:var(--faint)}
+#app .pname{font-size:20px;font-weight:600;letter-spacing:.005em;line-height:1.1}
+#app .pbadge{border-radius:2px;font-size:12px;font-weight:600;padding:0 5px;background:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);border:0}
+#app .meta{font-size:13px;margin-top:3px}
+#app .dtag{font-size:13px}
+#app .yproj{font-family:'Saira',sans-serif;font-size:11px;letter-spacing:0;text-transform:none}
+#app .yproj b{font-size:22px;font-weight:600;margin-top:0}
+
+/* score: a solid block in the tier color */
+#app .score{width:50px;height:44px;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:700;color:#0B0F14;border-radius:2px}
+#app .score.t-ELITE{background:var(--elite)} #app .score.t-STRONG{background:var(--strong)} #app .score.t-SOLID{background:var(--solid)}
+#app .score.t-FRINGE{background:#2A323D;color:var(--ink)} #app .score.t-LONGSHOT{background:#1C222B;color:var(--faint)}
+#app .tierlabel{font-size:12px;font-weight:600;letter-spacing:.06em;margin-top:3px;color:var(--faint)}
+#app .rowtop>div:last-child{padding-right:2px}
+
+/* detail drawer */
+#app .detail{background:var(--panel);border-top:1px solid var(--line);padding:12px 12px 14px 16px;box-shadow:inset 4px 0 0 var(--tc,#3A4350)}
+#app .track{height:6px;border-radius:0;background:rgba(255,255,255,.07);box-shadow:none}
+#app .track i{background:var(--red);box-shadow:none;border-radius:0}
+#app .numbers h4{font-family:'Saira Condensed',sans-serif;font-size:15px;letter-spacing:.03em;text-transform:none;color:var(--ink)}
+#app .frow{border-bottom:1px solid rgba(255,255,255,.06)}
+#app .frow b{font-size:15px}
+#app .method summary,#app .status h2{font-family:'Saira Condensed',sans-serif;letter-spacing:.02em}
+
+@media (min-width:1024px){
+  #app .pname{font-size:clamp(20px,1.4vw,24px)}
+  #app .score{width:58px;height:50px;font-size:28px}
+  .rb-name{font-size:20px}
+}
 </style>
 </head>
 <body>
@@ -579,6 +650,11 @@ function puckSVG(){
     '</svg>';
 }
 function goalTag(p){ return p.gl ? '<span class="tdtag">GOAL'+(p.gl>1?' ×'+p.gl:'')+'</span>' : ''; }
+const TEAMCOLOR = { ANA:"#F47A38", BOS:"#FFB81C", BUF:"#2A6BD1", CAR:"#CE1126", CBJ:"#CE1126", CGY:"#D2001C", CHI:"#CF0A2C", COL:"#8A2F4C",
+  DAL:"#00A04F", DET:"#CE1126", EDM:"#FF4C00", FLA:"#C8102E", LAK:"#A2AAAD", MIN:"#2E8B57", MTL:"#AF1E2D", NJD:"#CE1126", NSH:"#FFB81C",
+  NYI:"#F47D30", NYR:"#2D5FD3", OTT:"#DA1A32", PHI:"#F74902", PIT:"#FCB514", SEA:"#99D9D9", SJS:"#00A3B2", STL:"#3A6FD8", TBL:"#2F64C7",
+  TOR:"#2F64C7", UTA:"#71AFE5", VAN:"#00843D", VGK:"#B4975A", WPG:"#5A7BB5", WSH:"#C8102E" };
+
 function rowHTML(r, n){
   const p = r.p, sc = scoreOf(r), tier = tierOf(sc), pr = r.prk[F.stat];
   const tag = pr ? '<span class="dtag '+rankClass(pr.rank,pr.of)+'">'+esc(r.oppN)+' '+ordn(pr.rank)+' vs '+r.sl+'</span>'
@@ -587,13 +663,13 @@ function rowHTML(r, n){
              : F.stat === "P" ? '<div class="yproj">proj pts<b>'+(r.projP != null ? r.projP.toFixed(2) : "—")+'</b></div>'
              : F.stat === "S" ? '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>'
              : '<div class="yproj">proj g<b>'+r.projG.toFixed(2)+'</b></div>';
-  return '<div class="row'+(p.gl?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
+  return '<div class="row'+(p.gl?' scored':'')+'" style="--tc:'+(TEAMCOLOR[p.team]||"#3A4350")+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+(POSNAME[p.pos]||p.pos)+'</span>'+goalTag(p)+'</div>'
-    + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+tag+'</div></div>'
+    + '<div class="meta">'+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+tag+'</div></div>'
     + proj
-    + '<div><div class="ball puck t-'+tier+'">'+puckSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
+    + '<div><div class="score t-'+tier+'">'+sc+'</div><span class="tierlabel">'+tier+'</span></div>'
     + '</div>'
     + detailHTML(r)
     + '</div>';
@@ -618,10 +694,10 @@ function render(banner){
     + '<div class="sub">'+esc(DAYLBL)+'</div></div>'
     + '<div style="display:flex;gap:8px;align-items:flex-start">'+sportsMenuHTML()+'<button class="navbtn" id="btn-refresh">↻ Refresh</button></div></div></header>';
   if(banner) h += '<div class="banner">'+esc(banner)+'</div>';
-  h += '<div class="linescore">'
-    + '<div class="ls-cell"><div class="k">Games</div><div class="v">'+GAMES.length+'</div></div>'
-    + '<div class="ls-cell"><div class="k">Skaters</div><div class="v">'+ROWS.length+'</div></div>'
-    + '<div class="ls-cell top"><div class="k">Top pick · '+STATNAME[F.stat].toLowerCase()+'</div><div class="v">'+(top? esc(top.p.name.split(" ").slice(-1)[0])+' <b>'+scoreOf(top)+'</b>' : "—")+'</div></div></div>';
+  const top3 = all.slice(0, 3);
+  h += '<div class="ribbon"><div class="rb-day"><b>'+GAMES.length+'</b>games</div><ol class="rb-list">'
+    + top3.map((r,i)=>{ const sc = scoreOf(r); return '<li class="rb-item" data-pid="'+r.p.id+'"><span class="rb-top"><span class="rb-n">'+(i+1)+'</span><span class="rb-name">'+esc(r.p.name.split(" ").slice(-1)[0])+'</span></span><span class="rb-sc" style="--c:var(--'+({ELITE:"elite",STRONG:"strong",SOLID:"solid",FRINGE:"fringe",LONGSHOT:"long"})[tierOf(sc)]+')">'+sc+'</span></li>'; }).join("")
+    + '</ol></div>';
   h += '<div class="posrow">'+[["G","GOALS"],["A","ASSISTS"],["P","POINTS"],["S","SOG"]].map(x=>'<div class="pos'+(F.stat===x[0]?" on":"")+'" data-stat="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
   h += '<div class="controls">'
     + '<div class="ctrl srch"><label>Search</label><input id="f-q" type="text" autocapitalize="none" autocorrect="off" placeholder="player, team, or game…" value="'+esc(F.q)+'"><span id="f-qx" class="qx">✕</span></div>'
@@ -647,6 +723,10 @@ function render(banner){
 
 function wire(){
   document.getElementById("btn-refresh").onclick = ()=>boot(true);
+  document.querySelectorAll(".rb-item").forEach(el=> el.onclick = ()=>{
+    const row = document.querySelector('.row[data-pid="'+el.dataset.pid+'"]');
+    if(row){ row.classList.add("open"); row.scrollIntoView({ block:"center" }); }
+  });
   const sb = document.getElementById("btn-sports"), sm = document.getElementById("sportmenu");
   if(sb && sm){
     sb.onclick = (e)=>{ e.stopPropagation(); sm.classList.toggle("open"); };
