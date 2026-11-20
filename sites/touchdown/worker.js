@@ -544,10 +544,10 @@ function scoreTabs(p, game, imp){
 }
 // the selected tab's score, tier and projection for a row
 function cur(r){
-  if(F.stat === "TD") return { score:r.score, tier:r.tier, proj:r.projY, unit:"yds", rk:r.rk };
+  if(F.stat === "TD") return { score:r.score, tier:r.tier, proj:r.projTD.toFixed(2), unit:"td", rk:r.rk };
   const x = r.tab[F.stat];
   const dec = TABINFO[F.stat].unit !== "yds";
-  return { score:x.score, tier:x.tier, proj: dec ? Math.round(x.proj*10)/10 : Math.round(x.proj), unit:TABINFO[F.stat].unit, rk:x.rk };
+  return { score:x.score, tier:x.tier, proj: dec ? (Math.round(x.proj*10)/10).toFixed(1) : Math.round(x.proj), unit:TABINFO[F.stat].unit, rk:x.rk };
 }
 function tabRows(){
   const pos = posOf(F.stat);
@@ -695,8 +695,11 @@ function scorePlayer(p, game){
   const raw = 0.24*rzIdx + 0.20*useIdx + 0.18*formIdx + 0.14*matchIdx + 0.14*envIdx + 0.10*ydsIdx;
   const score = clamp(Math.round(50*raw*wxAdj), 4, 99);
   const projY = Math.round((ydsOf(p)/g) * (0.65+0.35*matchYds) * (0.8+0.2*envIdx) * (p.pos==="QB"?1:wxAdj));
+  // anytime TD: a quarterback only counts his own rushing scores
+  const tdg = (p.pos==="QB" ? p.rtd : p.rtd + p.ctd) / g;
+  const projTD = Math.round(tdg * (0.6+0.4*matchIdx) * (0.75+0.25*envIdx) * 100) / 100;
   const rk = (DVPRANK && DVPRANK[p.pos]) ? DVPRANK[p.pos][oppN] : null;
-  return { score, projY, imp:Math.round(imp*10)/10, idx:{ rz:rzIdx, use:useIdx, form:formIdx, match:matchIdx, env:envIdx, yds:ydsIdx }, wxNote, dv, g, oppRzRate, lbRzRate:lb.rzRate, rk, oppN };
+  return { score, projY, projTD, imp:Math.round(imp*10)/10, idx:{ rz:rzIdx, use:useIdx, form:formIdx, match:matchIdx, env:envIdx, yds:ydsIdx }, wxNote, dv, g, oppRzRate, lbRzRate:lb.rzRate, rk, oppN };
 }
 
 function tierOf(s){ return s>=80?"ELITE":s>=68?"STRONG":s>=56?"SOLID":s>=44?"FRINGE":"LONGSHOT"; }
@@ -734,7 +737,7 @@ function buildRows(){
     s.tab = scoreTabs(p, gm, s.imp);
     ROWS.push(Object.assign({ p, gm, tier: tierOf(s.score) }, s));
   }
-  ROWS.sort((x,y)=> y.score - x.score || y.projY - x.projY);
+  ROWS.sort((x,y)=> y.score - x.score || y.projTD - x.projTD);
 }
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -783,6 +786,7 @@ function tdDetailHTML(r){
    + '<div class="frow"><span>'+esc(oppN)+' TDs allowed to '+p.pos+' / game</span><b>'+(r.dv ? (r.dv[0]/Math.max(1,r.dv[2])).toFixed(1) : '\\u2014')+'</b></div>'
    + (r.dv && r.dv[3]>=20 ? '<div class="frow"><span>'+esc(oppN)+' red-zone TD rate vs '+p.pos+'</span><b>'+Math.round(100*r.oppRzRate)+'% <span style="color:var(--faint)">(lg '+Math.round(100*r.lbRzRate)+'%)</span></b></div>' : '')
    + (r.dv ? '<div class="frow"><span>'+esc(oppN)+' yds allowed to '+p.pos+' / game</span><b>'+Math.round(r.dv[1]/Math.max(1,r.dv[2]))+'</b></div>' : '')
+   + '<div class="frow"><span>Proj TDs</span><b>'+r.projTD.toFixed(2)+'</b></div>'
    + (p.pos==="QB" ? '<div class="frow"><span>Proj pass yds</span><b>'+Math.round(r.projY*(p.pyd/Math.max(1,p.pyd+p.ryd)))+'</b></div>'
         + '<div class="frow"><span>Proj rush yds</span><b>'+Math.round(r.projY*(p.ryd/Math.max(1,p.pyd+p.ryd)))+'</b></div>' : '')
    + (p.pos==="RB" ? '<div class="frow"><span>Proj rush yds</span><b>'+Math.round(r.projY*(p.ryd/Math.max(1,p.ryd+p.cyd)))+'</b></div>'
@@ -810,7 +814,7 @@ function rowHTML(r, n){
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+p.pos+'</span>'+(p.st?'<span class="pbadge inj-'+p.st+'">'+p.st+'</span>':'')+tdTag(p)+'</div>'
     + '<div class="meta">'+esc(p.team)+((p.newteam && WEEKNO<=4)?' <span class="pbadge" style="color:#e3b341;border-color:#5c4a1f">NEW</span>':'')+' \\u00b7 '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(c.rk?'<span class="dtag '+rankClass(c.rk.rank,c.rk.of)+'">'+esc(r.oppN)+' '+ordn(c.rk.rank)+' vs '+p.pos+'</span>':'')+'</div></div>'
-    + '<div class="yproj">proj '+(F.stat==="REC" ? "rec" : F.stat==="PTD" ? "td" : "yds")+'<b>'+c.proj+'</b></div>'
+    + '<div class="yproj">proj '+(F.stat==="REC" ? "rec" : F.stat==="PTD" ? "pass tds" : F.stat==="TD" ? "tds" : "yds")+'<b>'+c.proj+'</b></div>'
     + '<div><div class="ball t-'+c.tier+'">'+ballSVG()+'<span class="num">'+c.score+'</span></div><span class="tierlabel">'+c.tier+'</span></div>'
     + '</div>'
     + detailHTML(r)
