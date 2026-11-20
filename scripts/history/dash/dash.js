@@ -232,10 +232,31 @@ function wireResults(){
   const x = document.getElementById("drill-x"); if(x) x.onclick = ()=>{ HD = null; render(); };
 }
 function wireBrand(){
+  fitBrand();
   const b = document.querySelector(".brand");
   if(b){ b.style.cursor = "pointer"; b.onclick = ()=>{ if(F.view === "results") history.back(); }; }
 }
 function wireStars(){
   document.querySelectorAll(".star").forEach(el=> el.onclick = (e)=>{ e.stopPropagation(); toggleFav(el.dataset.fav); render(); });
+  fitBrand();
+  setTimeout(fitBrand, 250);
+}
+// size the site name to fill the room left of the buttons, so every site's header lines up the same way
+function fitBrand(){
+  const b = document.querySelector("header.hero .brand");
+  if(!b) return;
+  const bar = b.closest(".topbar"), btns = bar && bar.lastElementChild;
+  if(!btns || btns === b.parentNode) return;
+  const room = bar.clientWidth - btns.offsetWidth - 14;
+  b.style.setProperty("font-size", "40px", "important");
+  const r = document.createRange();
+  r.selectNodeContents(b);
+  const w = r.getBoundingClientRect().width;
+  if(room > 0 && w > 0) b.style.setProperty("font-size", Math.max(18, Math.min(48, 40 * room / w)).toFixed(1) + "px", "important");
+}
+window.addEventListener("resize", ()=> fitBrand());
+if(document.fonts){
+  document.fonts.ready.then(()=> fitBrand());
+  document.fonts.addEventListener("loadingdone", ()=> fitBrand());
 }
 /* ===== end results dashboard ===== */
