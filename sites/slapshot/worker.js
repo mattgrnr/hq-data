@@ -4,6 +4,7 @@
 
 const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/board.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/card.png";
+const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/history/summary.json";
 const LIVE_URL = "https://api-web.nhle.com/v1/score/";
 
 const SITE_ORIGINS = [
@@ -311,6 +312,38 @@ body{background:
 
 #app button:focus-visible,#app select:focus-visible,#app input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#app *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* track record + favorites */
+#app .navbtn.on{box-shadow:inset 0 0 0 1px var(--red);background:linear-gradient(180deg,rgba(255,77,61,.16),rgba(255,77,61,.04))}
+#app .star{flex:none;background:none;border:0;padding:6px 2px;margin:-6px 0;font-size:19px;line-height:1;color:rgba(255,255,255,.22);cursor:pointer}
+#app .star.on{color:var(--gold)}
+#app .favhead{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:4px 4px 8px}
+#app .favhead.all{color:var(--faint);margin-top:14px}
+.tr-intro{color:var(--faint);font-size:13px;line-height:1.5;margin:0 2px 14px}
+.tr-intro b{color:var(--ink)}
+.tr-win{display:flex;gap:6px;margin:0 0 12px}
+.tr-tiers{border-radius:16px;padding:6px 14px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);margin-bottom:18px}
+.tr-row{display:grid;grid-template-columns:86px 1fr 84px;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.tr-row:last-child{border-bottom:0}
+.tr-name{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:13px;letter-spacing:.12em}
+.tr-bar{height:10px;border-radius:99px;background:rgba(255,255,255,.06);position:relative;overflow:hidden}
+.tr-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.tr-bar em{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.55}
+.tr-num{text-align:right;font-size:12px;color:var(--faint);line-height:1.3;font-variant-numeric:tabular-nums}
+.tr-num b{display:block;font-size:16px;color:var(--ink)}
+.tr-key{color:var(--faint);font-size:11.5px;margin:-8px 2px 18px;display:flex;align-items:center;gap:6px}
+.tr-key em{display:inline-block;width:2px;height:12px;background:#fff;opacity:.55}
+.tr-day{border-radius:14px;margin-bottom:8px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);overflow:hidden}
+.tr-day summary{list-style:none;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer;font-size:14px}
+.tr-day summary::-webkit-details-marker{display:none}
+.tr-day summary span{color:var(--faint);font-size:12.5px}
+.tr-day summary b{font-variant-numeric:tabular-nums}
+.tr-pick{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid rgba(255,255,255,.06);font-size:13.5px}
+.tr-pick .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-pick .n small{color:var(--faint);font-size:12px;margin-left:6px}
+.tr-pick .ln{flex:none;width:120px;text-align:right;color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tr-pick .sc{width:30px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.tr-pick .ok{width:20px;text-align:center;font-weight:700}
+.tr-pick .ok.yes{color:var(--strong)} .tr-pick .ok.no{color:#5E6A78}
 </style>
 </head>
 <body>
@@ -360,7 +393,7 @@ function sportsMenuHTML(){
 }
 
 let BOARD = null, GAMES = [], ROWS = [], DAYLBL = "", SEASON = "", DEFRANK = {}, POSRANK = {};
-let F = { stat:"G", pos:"ALL", game:"all", tier:"all", q:"" };
+let F = { stat:"G", pos:"ALL", game:"all", tier:"all", q:"", view:"board" };
 const STATNAME = { G:"Goals", A:"Assists", P:"Points", S:"SOG" };
 
 async function fetchJSON(u){
@@ -579,6 +612,54 @@ function puckSVG(){
     '</svg>';
 }
 function goalTag(p){ return p.gl ? '<span class="tdtag">GOAL'+(p.gl>1?' ×'+p.gl:'')+'</span>' : ''; }
+let HIST = null, HW = "7";
+const FAVKEY = "hq.slapshot.fav";
+function favSet(){ try{ return new Set(JSON.parse(localStorage.getItem(FAVKEY) || "[]")); }catch(e){ return new Set(); } }
+function toggleFav(id){
+  const s = favSet();
+  if(s.has(id)) s.delete(id); else s.add(id);
+  try{ localStorage.setItem(FAVKEY, JSON.stringify([...s])); }catch(e){}
+}
+const HITWORD = { G:"scored a goal", A:"had an assist", P:"had a point", S:"had 3+ shots on goal" };
+const TIERCOL = { ELITE:"var(--elite)", STRONG:"var(--strong)", SOLID:"var(--solid)", FRINGE:"var(--fringe)", LONGSHOT:"var(--long)" };
+
+function fmtDay(d){
+  return new Date(d+"T12:00:00").toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" });
+}
+function lineOf(stat, a){
+  return a.g+" G · "+a.a+" A · "+a.sog+" SOG";
+}
+function resultsHTML(){
+  if(!HIST) return '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
+  const st = F.stat, w = HIST.tiers[st][HW] || {};
+  const label = HW==="season" ? "this season" : "the last "+HW+" days";
+  let h = '<p class="tr-intro">Every morning the board grades the night before. A pick counts as a hit if the player <b>'+HITWORD[st]+'</b>. Graded from '+fmtDay(HIST.first)+' to '+fmtDay(HIST.last)+'.</p>';
+  h += '<div class="tr-win">'+[["7","Last 7 days"],["30","Last 30"],["season","Season"]].map(x=>'<div class="pos'+(HW===x[0]?" on":"")+'" data-hw="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
+  h += '<div class="tr-tiers">';
+  for(const t of ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"]){
+    const v = w[t];
+    if(!v || !v.n){ h += '<div class="tr-row"><div class="tr-name" style="color:'+TIERCOL[t]+'">'+t+'</div><div></div><div class="tr-num">no picks</div></div>'; continue; }
+    const rate = v.hit/v.n, exp = v.exp/v.n;
+    h += '<div class="tr-row"><div class="tr-name" style="color:'+TIERCOL[t]+'">'+t+'</div>'
+      + '<div class="tr-bar"><i style="width:'+(rate*100).toFixed(1)+'%;background:'+TIERCOL[t]+'"></i><em style="left:'+(exp*100).toFixed(1)+'%"></em></div>'
+      + '<div class="tr-num"><b>'+Math.round(rate*100)+'%</b>'+v.hit+' of '+v.n+'</div></div>';
+  }
+  h += '</div><div class="tr-key"><em></em>what the model expected for '+label+'</div>';
+  h += HIST.daily.map(function(d){
+    const s = d.stats[st], e = s.elite;
+    return '<details class="tr-day"><summary><div><b>'+fmtDay(d.date)+'</b> <span>· '+d.games+' games</span></div><b>'+(e[0] ? 'Elite '+e[1]+' of '+e[0] : 'No elite picks')+'</b></summary>'
+      + s.top.map((x,i)=>'<div class="tr-pick"><span class="sc">'+x.s+'</span><span class="n">'+esc(x.n)+'<small>'+esc(x.t)+'</small></span><span class="ln">'+lineOf(st, x.act)+'</span><span class="ok '+(x.hit?"yes":"no")+'">'+(x.hit?"✓":"✗")+'</span></div>').join("")
+      + '</details>';
+  }).join("");
+  return h;
+}
+async function loadHistory(){
+  if(HIST) return;
+  try{ HIST = await fetchJSON("/history"); }catch(e){ HIST = { error:String(e && e.message || e) }; }
+  if(HIST.error){ app.querySelector(".status h2").textContent = "Results unavailable"; HIST = null; return; }
+  if(F.view === "results") render();
+}
+
 function rowHTML(r, n){
   const p = r.p, sc = scoreOf(r), tier = tierOf(sc), pr = r.prk[F.stat];
   const tag = pr ? '<span class="dtag '+rankClass(pr.rank,pr.of)+'">'+esc(r.oppN)+' '+ordn(pr.rank)+' vs '+r.sl+'</span>'
@@ -592,6 +673,7 @@ function rowHTML(r, n){
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+(POSNAME[p.pos]||p.pos)+'</span>'+goalTag(p)+'</div>'
     + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+tag+'</div></div>'
+    + '<button class="star'+(favSet().has(p.id)?" on":"")+'" data-fav="'+p.id+'" aria-label="Star '+esc(p.name)+'">★</button>'
     + proj
     + '<div><div class="ball puck t-'+tier+'">'+puckSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
     + '</div>'
@@ -616,8 +698,17 @@ function render(banner){
   let h = '<header class="hero"><div class="topbar"><div>'
     + '<div class="brand">SLAPSHOT <b>HQ</b></div>'
     + '<div class="sub">'+esc(DAYLBL)+'</div></div>'
-    + '<div style="display:flex;gap:8px;align-items:flex-start">'+sportsMenuHTML()+'<button class="navbtn" id="btn-refresh">↻ Refresh</button></div></div></header>';
+    + '<div style="display:flex;gap:8px;align-items:flex-start">'+sportsMenuHTML()+'<button class="navbtn'+(F.view==="results"?" on":"")+'" id="btn-results">Results</button><button class="navbtn" id="btn-refresh" aria-label="Refresh">↻</button></div></div></header>';
   if(banner) h += '<div class="banner">'+esc(banner)+'</div>';
+  if(F.view === "results"){
+    h += '<div class="posrow">'+[["G","GOALS"],["A","ASSISTS"],["P","POINTS"],["S","SOG"]].map(x=>'<div class="pos'+(F.stat===x[0]?" on":"")+'" data-stat="'+x[0]+'">'+x[1]+'</div>').join("")+'</div>';
+    h += resultsHTML();
+    app.innerHTML = h;
+    wireTop();
+    document.querySelectorAll("[data-hw]").forEach(el=> el.onclick = ()=>{ HW = el.dataset.hw; render(); });
+    loadHistory();
+    return;
+  }
   h += '<div class="linescore">'
     + '<div class="ls-cell"><div class="k">Games</div><div class="v">'+GAMES.length+'</div></div>'
     + '<div class="ls-cell"><div class="k">Skaters</div><div class="v">'+ROWS.length+'</div></div>'
@@ -633,6 +724,9 @@ function render(banner){
     + ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"].map(t=>'<option'+(F.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'
     + '</div>';
   h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+(F.stat==="A"?"Assist":F.stat==="P"?"Points":F.stat==="S"?"Shots":"Goal")+' Score</div></div>';
+  const fav = favSet(), pinned = [];
+  rows.forEach((r,i)=>{ if(fav.has(r.p.id)) pinned.push([r,i]); });
+  if(pinned.length) h += '<div class="favhead">Your players</div>' + pinned.map(x=>rowHTML(x[0], x[1])).join("") + '<div class="favhead all">Full board</div>';
   h += rows.length ? rows.map((r,i)=>rowHTML(r,i)).join("")
      : '<div class="status"><div class="big">🏒</div><h2>No players match</h2><p>Loosen the filters to see the board.</p></div>';
   h += '<details class="method"><summary>How the model works</summary>'
@@ -645,14 +739,20 @@ function render(banner){
   wire();
 }
 
-function wire(){
+function wireTop(){
   document.getElementById("btn-refresh").onclick = ()=>boot(true);
+  const rb = document.getElementById("btn-results");
+  if(rb) rb.onclick = ()=>{ F.view = F.view === "results" ? "board" : "results"; window.scrollTo(0,0); if(F.view === "board" && !GAMES.length) boot(false); else render(); };
   const sb = document.getElementById("btn-sports"), sm = document.getElementById("sportmenu");
   if(sb && sm){
     sb.onclick = (e)=>{ e.stopPropagation(); sm.classList.toggle("open"); };
     document.addEventListener("click", ()=>sm.classList.remove("open"));
   }
-  document.querySelectorAll(".pos").forEach(el=> el.onclick = ()=>{ F.stat = el.dataset.stat; render(); });
+  document.querySelectorAll(".pos[data-stat]").forEach(el=> el.onclick = ()=>{ F.stat = el.dataset.stat; render(); });
+}
+function wire(){
+  wireTop();
+  document.querySelectorAll(".star").forEach(el=> el.onclick = (e)=>{ e.stopPropagation(); toggleFav(+el.dataset.fav); render(); });
   const q = document.getElementById("f-q"), qx = document.getElementById("f-qx");
   q.oninput = ()=>{ F.q = q.value; qx.style.display = F.q? "block":"none"; renderRowsOnly(); };
   qx.onclick = ()=>{ F.q=""; render(); };
@@ -745,8 +845,11 @@ async function boot(force){
     POSRANK = posRanks(bd.teams);
     GAMES = parseSlate(bd);
     if(!GAMES.length){
-      app.innerHTML = '<div class="status"><div class="big">🏒</div><h2>No games tonight</h2><p>Check back tomorrow for the next slate.</p><p style="margin-top:14px"><button class="navbtn" id="btn-refresh">↻ Refresh</button></p></div>';
+      ROWS = [];
+      if(F.view === "results"){ render(); return; }
+      app.innerHTML = '<div class="status"><div class="big">🏒</div><h2>No games tonight</h2><p>Check back tomorrow for the next slate.</p><p style="margin-top:14px;display:flex;gap:8px;justify-content:center"><button class="navbtn" id="btn-results">See how the board did</button><button class="navbtn" id="btn-refresh">↻ Refresh</button></p></div>';
       document.getElementById("btn-refresh").onclick = ()=>boot(true);
+      document.getElementById("btn-results").onclick = ()=>{ F.view = "results"; render(); };
       return;
     }
     showStatus("Scoring "+bd.players.length+" skaters…");
@@ -785,6 +888,13 @@ export default {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
       const res = await fetch(BOARD_URL, { cf: { cacheTtl: 600, cacheEverything: true } });
       if (!res.ok) return json({ error: "board upstream " + res.status }, 502);
+      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+    }
+
+    if (path === "/history") {
+      if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
+      const res = await fetch(HISTORY_URL, { cf: { cacheTtl: 600, cacheEverything: true } });
+      if (!res.ok) return json({ error: "history upstream " + res.status }, 502);
       return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
     }
 
