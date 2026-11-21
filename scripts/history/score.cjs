@@ -43,10 +43,11 @@ const SITES = {
     file: (bd, g) => bd.season + "-w" + String(bd.week).padStart(2, "0"),
   },
   futbol: {
-    stats: ["G", "T", "S", "A"],
+    stats: ["G", "T", "S", "A", "GA"],
     run: `BOARD = bd; buildRows();
       ROWS.map(r => ({ id: r.p.id, n: r.p.n, t: r.team, pos: r.p.pos, g: String(r.gm.id),
-        s: { G: r.sc.G, T: r.sc.T, S: r.sc.S, A: r.sc.A }, pj: { G: r.p.pg, T: r.p.psot, S: r.p.psh, A: r.p.pa } }))`,
+        s: { G: r.sc.G, T: r.sc.T, S: r.sc.S, A: r.sc.A, GA: r.sc.GA },
+        pj: { G: r.p.pg, T: r.p.psot, S: r.p.psh, A: r.p.pa, GA: Math.round((r.p.pg + r.p.pa)*1000)/1000 } }))`,
     games: bd => bd.games.map(g => ({ key: String(g.id), start: Date.parse(g.t), home: g.h, away: g.a, league: g.league })),
     file: (bd, g) => ctDate(g.start),
   },

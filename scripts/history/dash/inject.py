@@ -13,7 +13,7 @@ SITES = {
     "slapshot": ("nhl", '[["G","Goals","goals"],["A","Assists","assists"],["P","Points","points"],["S","SOG","shots on goal"]]'),
     "slam": ("nba", '[["PTS","PTS","points"],["REB","REB","rebounds"],["AST","AST","assists"],["PRA","PRA","points + rebounds + assists"],["3PM","3PM","threes"],["BLK","BLK","blocks"],["STL","STL","steals"]]'),
     "touchdown": ("nfl", '[["TD","TD","touchdowns"],["CYD","REC YDS","receiving yards"],["RYD","RUSH YDS","rushing yards"],["REC","REC","receptions"],["PYD","PASS YDS","passing yards"],["PTD","PASS TD","passing TDs"]]'),
-    "futbol": ("soccer", '[["G","Goals","goals"],["T","SOT","shots on target"],["S","Shots","shots"],["A","Assists","assists"]]'),
+    "futbol": ("soccer", '[["G","Goals","goals"],["T","SOT","shots on target"],["S","Shots","shots"],["A","Assists","assists"],["GA","TSOA","goals plus assists"]]'),
 }
 JS_START, JS_END = "/* ===== results dashboard:", "/* ===== end results dashboard ===== */"
 CSS_START = "/* ===== results dashboard + starred players (shared) ===== */"

@@ -122,7 +122,8 @@ def soccer_actuals(slate, cache={}):
         for f in (ROOT / "soccer" / "hist").glob("*.csv.gz"):
             with gzip.open(f, "rt", newline="") as fh:
                 for r in csv.DictReader(fh):
-                    idx[r["mid"]][int(r["pid"])] = {"G": n(r["g"]), "A": n(r["a"]), "T": n(r["sot"]), "S": n(r["sh"])}
+                    idx[r["mid"]][int(r["pid"])] = {"G": n(r["g"]), "A": n(r["a"]), "T": n(r["sot"]), "S": n(r["sh"]),
+                                                     "GA": n(r["g"]) + n(r["a"])}
         cache["rows"] = idx
     return {k: cache["rows"][k] for k in slate["games"] if k in cache["rows"]}
 

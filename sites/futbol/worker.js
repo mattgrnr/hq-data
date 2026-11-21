@@ -91,7 +91,7 @@ header.hero{padding:calc(env(safe-area-inset-top,0px) + 12px) 0 14px;border-bott
 .ctrl.srch{grid-column:1 / -1;position:relative}
 .qx{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--faint);cursor:pointer;display:none}
 .posrow{display:flex;gap:6px;margin:0 0 14px}
-.pos{flex:1;text-align:center;padding:8px 0;border:1px solid var(--line);background:var(--panel);border-radius:8px;font-size:13px;font-weight:600;color:var(--faint);cursor:pointer}
+.pos{flex:1;min-width:0;text-align:center;padding:8px 0;border:1px solid var(--line);background:var(--panel);border-radius:8px;font-size:13px;font-weight:600;color:var(--faint);cursor:pointer}
 .pos.on{color:var(--ink);border-color:var(--red);background:#20161a}
 .board-head{display:flex;justify-content:space-between;color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.6px;padding:0 4px 6px}
 .row{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
@@ -467,8 +467,8 @@ function sportsMenuHTML(){
     + '</div></div>';
 }
 
-const TABS = [["G","GOALS"],["T","SOT"],["S","SHOTS"],["A","ASSISTS"]];
-const STATNAME = { G:"Goals", T:"Shots on target", S:"Shots", A:"Assists" };
+const TABS = [["G","GOALS"],["T","SOT"],["S","SHOTS"],["A","ASSISTS"],["GA","TSOA"]];
+const STATNAME = { G:"Goals", T:"Shots on target", S:"Shots", A:"Assists", GA:"TSOA" };
 const POSNAME = { 1:"DEF", 2:"MID", 3:"FWD" };
 const LU = { starting:"Starting", predicted:"", last11:"", likely:"", bench:"Bench", "":"" };
 const PAGE = 120;
@@ -492,8 +492,12 @@ function kickoff(t){
 // Goals and assists are scored on the chance of at least one; shots on the projected count.
 function scoreRow(p){
   const pg = 1 - Math.exp(-p.pg), pa = 1 - Math.exp(-p.pa);
+  // to score or assist: goals and assists counted together as one chance to be involved
+  p.pga = Math.round((p.pg + p.pa)*1000)/1000;
+  const pga = 1 - Math.exp(-p.pga);
   return {
-    pG: pg, pA: pa,
+    pG: pg, pA: pa, pGA: pga,
+    GA: clamp(Math.round(100*Math.pow(pga/0.66, 0.75)), 1, 99),
     G: clamp(Math.round(100*Math.pow(pg/0.55, 0.75)), 1, 99),
     A: clamp(Math.round(100*Math.pow(pa/0.42, 0.75)), 1, 99),
     T: clamp(Math.round(100*Math.pow(p.psot/1.8, 0.75)), 1, 99),
@@ -512,7 +516,7 @@ function dayRows(){ return ROWS.filter(r=>r.gm.day===F.day); }
 function dayGames(){ return GAMES.filter(g=>g.day===F.day); }
 
 function sortedRows(){
-  const k = F.stat, tie = { G:"pg", A:"pa", T:"psot", S:"psh" }[k];
+  const k = F.stat, tie = { G:"pg", A:"pa", T:"psot", S:"psh", GA:"pga" }[k];
   return dayRows().sort((x,y)=> y.sc[k] - x.sc[k] || y.p[tie] - x.p[tie]);
 }
 function filtered(list){
@@ -537,6 +541,7 @@ function projCell(r){
   const p = r.p;
   if(F.stat==="G") return '<div class="yproj">to score<b>'+pct(r.sc.pG)+'</b></div>';
   if(F.stat==="A") return '<div class="yproj">to assist<b>'+pct(r.sc.pA)+'</b></div>';
+  if(F.stat==="GA") return '<div class="yproj">g or a<b>'+pct(r.sc.pGA)+'</b></div>';
   if(F.stat==="T") return '<div class="yproj">proj sot<b>'+p.psot.toFixed(1)+'</b></div>';
   return '<div class="yproj">proj shots<b>'+p.psh.toFixed(1)+'</b></div>';
 }
@@ -558,6 +563,12 @@ function detailHTML(r){
        + bar("Expected minutes", p.min/80, p.min+"'")
        + bar("Opp. chances allowed", p.dfn, p.dfn.toFixed(2)+"×")
        + bar("Team attack", p.att, p.att.toFixed(2)+"×");
+  } else if(F.stat==="GA"){
+    h += bar("Non-penalty xG / 90", rt.npxg/0.3, rt.npxg.toFixed(2))
+       + bar("xA / 90", rt.xa/0.15, rt.xa.toFixed(2))
+       + bar("Expected minutes", p.min/80, p.min+"'")
+       + bar("Team attack", p.att, p.att.toFixed(2)+"×")
+       + bar("Opp. chances allowed", p.dfn, p.dfn.toFixed(2)+"×");
   } else if(F.stat==="A"){
     h += bar("xA / 90", rt.xa/0.15, rt.xa.toFixed(2))
        + bar("Assists / 90", rt.a/0.15, rt.a.toFixed(2))
@@ -585,7 +596,7 @@ function detailHTML(r){
   return h;
 }
 
-const RSTATS = [["G","Goals","goals"],["T","SOT","shots on target"],["S","Shots","shots"],["A","Assists","assists"]];
+const RSTATS = [["G","Goals","goals"],["T","SOT","shots on target"],["S","Shots","shots"],["A","Assists","assists"],["GA","TSOA","goals plus assists"]];
 const FAVKEY = "hq.futbol.fav";
 /* ===== results dashboard: shared by every HQ site; RSTATS and FAVKEY are set per site ===== */
 let HIST = null, HPL = null, HW = "7", HG = "T10", HV = "trend", HD = null, HDAY = {}, HSORT = "picks", RS = null;
@@ -935,7 +946,7 @@ function render(){
     + '<div class="ctrl"><label>Tier</label><select id="f-tier"><option value="all">All</option>'
     + ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"].map(t=>'<option'+(F.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'
     + '</div>';
-  h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+(F.stat==="G"?"Goal":F.stat==="A"?"Assist":F.stat==="T"?"SOT":"Shots")+' Score</div></div>';
+  h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+(F.stat==="G"?"Goal":F.stat==="A"?"Assist":F.stat==="GA"?"TSOA":F.stat==="T"?"SOT":"Shots")+' Score</div></div>';
   h += rows.length ? pinnedHTML(rows) + rows.slice(0, SHOWN).map((r,i)=>rowHTML(r,i)).join("")
      : '<div class="status"><div class="big">⚽</div><h2>'+(games.length?'No players match':'No matches')+'</h2><p>'+(games.length?'Loosen the filters to see the board.':'Nothing on this day in the leagues we cover.')+'</p></div>';
   if(rows.length > SHOWN) h += '<div style="text-align:center;margin:14px 0"><button class="navbtn" id="btn-more">Show more ('+(rows.length-SHOWN)+' left)</button></div>';
