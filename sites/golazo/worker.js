@@ -466,7 +466,7 @@ function sportsMenuHTML(){
 const TABS = [["G","GOALS"],["T","SOT"],["S","SHOTS"],["A","ASSISTS"]];
 const STATNAME = { G:"Goals", T:"Shots on target", S:"Shots", A:"Assists" };
 const POSNAME = { 1:"DEF", 2:"MID", 3:"FWD" };
-const LU = { starting:"XI", predicted:"PRED", last11:"", likely:"", bench:"BENCH", "":"" };
+const LU = { starting:"XI", predicted:"", last11:"", likely:"", bench:"BENCH", "":"" };
 const PAGE = 120;
 
 let BOARD = null, GAMES = [], ROWS = [], SHOWN = PAGE;
@@ -861,13 +861,19 @@ function wireTop(){
   }
 }
 
+// long names lose the first name to an initial so the badges still fit: Erling Haaland -> E. Haaland
+function shortName(n){
+  const parts = String(n).split(" ");
+  return n.length <= 10 || parts.length < 2 ? n : parts[0][0] + ". " + parts.slice(1).join(" ");
+}
+
 function rowHTML(r, n){
   const p = r.p, sc = r.sc[F.stat], tier = tierOf(sc), lu = LU[p.st] || "";
   return '<div class="row" data-i="'+n+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
-    + '<div class="who"><div class="pname"><span class="pn">'+esc(p.n)+'</span><span class="pbadge">'+(POSNAME[p.pos]||"")+'</span>'+(lu?'<span class="pbadge lu-'+p.st+'">'+lu+'</span>':'')+(p.pen>=0.5?'<span class="pbadge">PK</span>':'')+'</div>'
-    + '<div class="meta">'+esc(r.team)+' · '+(p.home?'vs ':'@ ')+esc(r.opp)+'<span class="gametag">'+kickoff(r.gm.t)+'</span>'+defTag(r)+'</div></div>'
+    + '<div class="who"><div class="pname"><span class="pn">'+esc(shortName(p.n))+'</span>'+(lu?'<span class="pbadge lu-'+p.st+'">'+lu+'</span>':'')+(p.pen>=0.5?'<span class="pbadge">PK</span>':'')+'</div>'
+    + '<div class="meta">'+(POSNAME[p.pos] ? POSNAME[p.pos]+' · ' : '')+esc(r.team)+' · '+(p.home?'vs ':'@ ')+esc(r.opp)+'<span class="gametag">'+kickoff(r.gm.t)+'</span>'+defTag(r)+'</div></div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
     + projCell(r)
     + '<div><div class="ball t-'+tier+'">'+ballSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
