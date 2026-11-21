@@ -467,7 +467,7 @@ function sportsMenuHTML(){
     + '</div></div>';
 }
 
-const TABS = [["G","GOALS"],["T","SOT"],["S","SHOTS"],["A","ASSISTS"],["GA","TSOA"]];
+const TABS = [["G","GOALS"],["A","ASSISTS"],["GA","TSOA"],["T","SOT"],["S","SHOTS"]];
 const STATNAME = { G:"Goals", T:"Shots on target", S:"Shots", A:"Assists", GA:"TSOA" };
 const POSNAME = { 1:"DEF", 2:"MID", 3:"FWD" };
 const LU = { starting:"Starting", predicted:"", last11:"", likely:"", bench:"Bench", "":"" };
@@ -596,7 +596,7 @@ function detailHTML(r){
   return h;
 }
 
-const RSTATS = [["G","Goals","goals"],["T","SOT","shots on target"],["S","Shots","shots"],["A","Assists","assists"],["GA","TSOA","goals plus assists"]];
+const RSTATS = [["G","Goals","goals"],["A","Assists","assists"],["GA","TSOA","goals plus assists"],["T","SOT","shots on target"],["S","Shots","shots"]];
 const FAVKEY = "hq.futbol.fav";
 /* ===== results dashboard: shared by every HQ site; RSTATS and FAVKEY are set per site ===== */
 let HIST = null, HPL = null, HW = "7", HG = "T10", HV = "trend", HD = null, HDAY = {}, HSORT = "picks", RS = null;
