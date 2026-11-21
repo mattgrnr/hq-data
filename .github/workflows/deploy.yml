@@ -44,7 +44,8 @@ jobs:
           if [ -z "$before" ] || ! git cat-file -e "$before" 2>/dev/null; then
             list=$(ls -d sites/*/ | cut -d/ -f2 | while read d; do [ -f "sites/$d/wrangler.toml" ] && echo "$d"; done | tr '\n' ' ')
           else
-            list=$(git diff --name-only "$before" HEAD | grep -E '^sites/[a-z]+/(worker\.js|wrangler\.toml)$' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+            # a site folder that was renamed or removed has nothing left to deploy
+            list=$(git diff --name-only "$before" HEAD | grep -E '^sites/[a-z]+/(worker\.js|wrangler\.toml)$' | cut -d/ -f2 | sort -u | while read d; do [ -f "sites/$d/wrangler.toml" ] && echo "$d"; done | tr '\n' ' ')
           fi
           echo "list=$list" >> "$GITHUB_OUTPUT"
 
