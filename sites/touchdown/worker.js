@@ -1097,6 +1097,12 @@ function rangeText(days){
   const span = a === b ? fmtDay(a) : fmtDay(a)+" to "+fmtDay(b);
   return "Showing "+span+" ("+days.length+" "+(days.length === 1 ? slateWord().slice(0,-1) : slateWord())+").";
 }
+// each range lists how many graded slates it holds, so an early-season "Season" that equals "Last 30" reads as such
+function rangeOptions(){
+  const opts = HIST.weekly ? [["7","Last week"],["30","Last 4 weeks"],["season","Season"]] : [["7","Last 7 days"],["30","Last 30 days"],["season","Season"]];
+  const keep = HW;
+  return opts.map(o=>{ HW = o[0]; const n = rangeDays().length; HW = keep; return [o[0], o[1]+" ("+n+")"]; });
+}
 function resultsHTML(){
   const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
   if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
@@ -1105,7 +1111,7 @@ function resultsHTML(){
   let h = '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. '+rangeText(days)+'</p>';
   h += tabs;
   h += '<div class="dash-filters">'
-    + '<div class="ctrl"><label>Range</label><select id="d-range">'+(HIST.weekly ? [["7","Last week"],["30","Last 4 weeks"],["season","Season"]] : [["7","Last 7 days"],["30","Last 30 days"],["season","Season"]]).map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
+    + '<div class="ctrl"><label>Range</label><select id="d-range">'+rangeOptions().map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Picks</label><select id="d-group">'+GROUPS.map(o=>'<option value="'+o[0]+'"'+(HG===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
     + '</div>';
   h += kpisHTML(days);

@@ -236,6 +236,10 @@ body{background:
 #app .gametag{border:0;background:none;padding:0;margin-left:0;font-family:inherit;font-size:12px;color:var(--faint)}
 #app .gametag::before{content:" · "}
 #app .dtag{display:block;margin:3px 0 0;border:0;background:none;padding:0;font-size:12px}
+#app .dline{display:block;margin-top:3px;font-size:12px}
+#app .dline .dtag{display:inline;margin:0}
+#app .dline b{font-weight:600;color:var(--strong)}
+#app .dline b.lu-bench{color:var(--faint)}
 #app .meta{line-height:1.5}
 /* header buttons never wrap */
 #app .navbtn{white-space:nowrap;padding:8px 12px;font-size:12.5px}
@@ -466,7 +470,7 @@ function sportsMenuHTML(){
 const TABS = [["G","GOALS"],["T","SOT"],["S","SHOTS"],["A","ASSISTS"]];
 const STATNAME = { G:"Goals", T:"Shots on target", S:"Shots", A:"Assists" };
 const POSNAME = { 1:"DEF", 2:"MID", 3:"FWD" };
-const LU = { starting:"XI", predicted:"", last11:"", likely:"", bench:"BENCH", "":"" };
+const LU = { starting:"Starting", predicted:"", last11:"", likely:"", bench:"Bench", "":"" };
 const PAGE = 120;
 
 let BOARD = null, GAMES = [], ROWS = [], SHOWN = PAGE;
@@ -526,7 +530,7 @@ function filtered(list){
 function defTag(r){
   const v = F.stat==="T" ? r.p.sdf : r.p.dfn;
   const cls = v >= 1.25 ? "d-vsoft" : v >= 1.08 ? "d-soft" : v <= 0.85 ? "d-tough" : "d-avg";
-  const word = v >= 1.25 ? "very soft D" : v >= 1.08 ? "soft D" : v <= 0.85 ? "tough D" : "avg D";
+  const word = v >= 1.25 ? "very soft defense" : v >= 1.08 ? "soft defense" : v <= 0.85 ? "tough defense" : "average defense";
   return '<span class="dtag '+cls+'">'+esc(r.opp)+' '+word+'</span>';
 }
 function projCell(r){
@@ -754,6 +758,12 @@ function rangeText(days){
   const span = a === b ? fmtDay(a) : fmtDay(a)+" to "+fmtDay(b);
   return "Showing "+span+" ("+days.length+" "+(days.length === 1 ? slateWord().slice(0,-1) : slateWord())+").";
 }
+// each range lists how many graded slates it holds, so an early-season "Season" that equals "Last 30" reads as such
+function rangeOptions(){
+  const opts = HIST.weekly ? [["7","Last week"],["30","Last 4 weeks"],["season","Season"]] : [["7","Last 7 days"],["30","Last 30 days"],["season","Season"]];
+  const keep = HW;
+  return opts.map(o=>{ HW = o[0]; const n = rangeDays().length; HW = keep; return [o[0], o[1]+" ("+n+")"]; });
+}
 function resultsHTML(){
   const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
   if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
@@ -762,7 +772,7 @@ function resultsHTML(){
   let h = '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. '+rangeText(days)+'</p>';
   h += tabs;
   h += '<div class="dash-filters">'
-    + '<div class="ctrl"><label>Range</label><select id="d-range">'+(HIST.weekly ? [["7","Last week"],["30","Last 4 weeks"],["season","Season"]] : [["7","Last 7 days"],["30","Last 30 days"],["season","Season"]]).map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
+    + '<div class="ctrl"><label>Range</label><select id="d-range">'+rangeOptions().map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Picks</label><select id="d-group">'+GROUPS.map(o=>'<option value="'+o[0]+'"'+(HG===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
     + '</div>';
   h += kpisHTML(days);
@@ -872,8 +882,8 @@ function rowHTML(r, n){
   return '<div class="row" data-i="'+n+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
-    + '<div class="who"><div class="pname"><span class="pn">'+esc(shortName(p.n))+'</span>'+(lu?'<span class="pbadge lu-'+p.st+'">'+lu+'</span>':'')+(p.pen>=0.5?'<span class="pbadge">PK</span>':'')+'</div>'
-    + '<div class="meta">'+(POSNAME[p.pos] ? POSNAME[p.pos]+' · ' : '')+esc(r.team)+' · '+(p.home?'vs ':'@ ')+esc(r.opp)+'<span class="gametag">'+kickoff(r.gm.t)+'</span>'+defTag(r)+'</div></div>'
+    + '<div class="who"><div class="pname"><span class="pn">'+esc(shortName(p.n))+'</span>'+(p.pen>=0.5?'<span class="pbadge">PK</span>':'')+'</div>'
+    + '<div class="meta">'+(POSNAME[p.pos] ? POSNAME[p.pos]+' · ' : '')+esc(r.team)+' · '+(p.home?'vs ':'@ ')+esc(r.opp)+'<span class="gametag">'+kickoff(r.gm.t)+'</span><span class="dline">'+(lu?'<b class="lu-'+p.st+'">'+lu+'</b> · ':'')+defTag(r)+'</span></div></div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
     + projCell(r)
     + '<div><div class="ball t-'+tier+'">'+ballSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
