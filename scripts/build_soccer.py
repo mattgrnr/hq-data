@@ -30,20 +30,15 @@ BUDGET = float(os.environ.get("BUDGET_MIN", "30")) * 60
 DELAY = 1.0
 START = time.time()
 
-# FotMob league ids, in backfill priority order
+# FotMob league ids, in backfill priority order. The board covers the big five leagues;
+# the European and domestic cups are kept so their players' form counts every competition.
 LEAGUES = [
     (47, "Premier League"), (87, "LaLiga"), (55, "Serie A"), (54, "Bundesliga"), (53, "Ligue 1"),
-    (42, "Champions League"), (73, "Europa League"), (10216, "Conference League"), (130, "MLS"),
-    (48, "Championship"), (57, "Eredivisie"), (61, "Liga Portugal"), (64, "Scottish Prem"),
-    (40, "Belgian Pro League"), (71, "Süper Lig"), (230, "Liga MX"), (268, "Brasileirão"),
-    (112, "Liga Profesional"), (536, "Saudi Pro League"), (146, "2. Bundesliga"), (140, "LaLiga2"),
-    (86, "Serie B"), (110, "Ligue 2"), (108, "League One"), (135, "Greek Super League"),
-    (38, "Austrian Bundesliga"), (69, "Swiss Super League"), (46, "Superligaen"), (59, "Eliteserien"),
-    (67, "Allsvenskan"), (223, "J. League"), (113, "A-League"), (132, "FA Cup"), (133, "EFL Cup"),
-    (138, "Copa del Rey"), (141, "Coppa Italia"), (209, "DFB Pokal"), (134, "Coupe de France"),
-    (45, "Libertadores"), (299, "Sudamericana"), (297, "Concacaf Champions Cup"),
-    (9806, "Nations League A"), (9807, "Nations League B"), (9808, "Nations League C"),
+    (42, "Champions League"), (73, "Europa League"), (10216, "Conference League"),
+    (132, "FA Cup"), (133, "EFL Cup"), (138, "Copa del Rey"), (141, "Coppa Italia"),
+    (209, "DFB Pokal"), (134, "Coupe de France"),
 ]
+SLATE = {47, 87, 55, 54, 53}
 LNAME = dict(LEAGUES)
 FIELDS = ["mid", "date", "lid", "pid", "team", "opp", "home", "start", "min", "g", "a",
           "xg", "npxg", "xa", "sh", "sot", "tib", "penw"]
@@ -423,6 +418,8 @@ def build_board(state, rows):
     days = [now_ct.date(), now_ct.date() + timedelta(days=1)]
     games = []
     for lid, _ in LEAGUES:
+        if lid not in SLATE:
+            continue
         fx = state["fixtures"].get(lid)
         if not fx or not fx["seasons"]:
             continue
@@ -507,7 +504,7 @@ def build_board(state, rows):
                                                   if any(str(g["id"]) == k for g in out_games)},
                                                  separators=(",", ":")))
     board = {"date": days[0].isoformat(), "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-             "leagues": [{"id": lid, "name": n} for lid, n in LEAGUES], "games": out_games,
+             "leagues": [{"id": lid, "name": n} for lid, n in LEAGUES if lid in SLATE], "games": out_games,
              "players": out_players}
     (OUT / "board.json").write_text(json.dumps(board, separators=(",", ":"), ensure_ascii=False))
     print(f"board: {len(out_games)} matches, {len(out_players)} players")
