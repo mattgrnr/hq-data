@@ -1197,9 +1197,12 @@ function renderEmpty(date){
 }
 function renderOff(){
   stopBar();
-  app.innerHTML='<div class="status"><h2>'+T("offTitle")+'</h2>'+
+  app.innerHTML='<div class="hero"><div><h1>MOONSHOT<span class="hq">HQ</span></h1></div>'+
+    '<div class="navbar">'+sportsMenuHTML()+'</div></div>'+
+    '<div class="status"><h2>'+T("offTitle")+'</h2>'+
     '<p>'+T("offBody")+'</p><p style="margin-top:6px;color:var(--faint)">'+T("offJoke")+'</p>'+
     '<div class="navbar" style="justify-content:center;margin-top:20px"><a class="navbtn" href="https://total-hq.com" style="text-decoration:none">See today\\u2019s boards on Total HQ</a></div></div>';
+  wireSports();
 }
 function renderError(msg){
   stopBar();
