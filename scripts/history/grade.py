@@ -131,7 +131,7 @@ SPORT = {
     "nhl": {"site": "slapshot", "actuals": nhl_actuals},
     "nba": {"site": "slam", "actuals": nba_actuals},
     "nfl": {"site": "touchdown", "actuals": nfl_actuals},
-    "soccer": {"site": "golazo", "actuals": soccer_actuals},
+    "soccer": {"site": "futbol", "actuals": soccer_actuals},
 }
 
 

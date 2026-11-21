@@ -9,7 +9,8 @@ const REGISTRY = {
     { key:"mlb", league:"MLB", name:"Moonshot HQ",  word:"Moonshot",  icon:"⚾", cadence:"Daily",  status:"live", url:"https://moonshot-hq.com",  accent:"#FFC24B" },
     { key:"nfl", league:"NFL", name:"Touchdown HQ", word:"Touchdown", icon:"🏈", cadence:"Weekly", status:"live", url:"https://touchdown-hq.com", accent:"#FF4D3D" },
     { key:"nhl", league:"NHL", name:"Slapshot HQ",  word:"Slapshot",  icon:"🏒", cadence:"Daily",  status:"live", url:"https://slapshot-hq.com",  accent:"#7CC8FF" },
-    { key:"nba", league:"NBA", name:"Slam HQ",      word:"Slam",      icon:"🏀", cadence:"Daily",  status:"live", url:"https://slam-hq.com",      accent:"#FF8A3D" }
+    { key:"nba", league:"NBA", name:"Slam HQ",      word:"Slam",      icon:"🏀", cadence:"Daily",  status:"live", url:"https://slam-hq.com",      accent:"#FF8A3D" },
+    { key:"soc", league:"SOC", name:"Futbol HQ",    word:"Futbol",    icon:"⚽", cadence:"Daily",  status:"live", url:"https://futbol-hq.com",    accent:"#4ADE80" }
   ]
 };
 
@@ -227,7 +228,8 @@ var SEASONS = {
   mlb: { from:[3, 20], to:[11, 5],  back:"Back for Opening Day" },
   nfl: { from:[9, 1],  to:[2, 15],  back:"Back in September" },
   nhl: { from:[10, 1], to:[6, 25],  back:"Back in October" },
-  nba: { from:[10, 15], to:[6, 25], back:"Back in October" }
+  nba: { from:[10, 15], to:[6, 25], back:"Back in October" },
+  soc: { from:[8, 8],  to:[5, 31],  back:"Back in August" }
 };
 function inSeason(key, d){
   var s = SEASONS[key];

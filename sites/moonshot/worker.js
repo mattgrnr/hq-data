@@ -403,7 +403,8 @@ var SPORTS = [
   { icon:"⚾", name:"Moonshot HQ", tag:"MLB", url:"", cur:true },
   { icon:"🏈", name:"Touchdown HQ", tag:"NFL", url:"https://touchdown-hq.com" },
   { icon:"🏒", name:"Slapshot HQ", tag:"NHL", url:"https://slapshot-hq.com" },
-  { icon:"🏀", name:"Slam HQ", tag:"NBA", url:"https://slam-hq.com" }
+  { icon:"🏀", name:"Slam HQ", tag:"NBA", url:"https://slam-hq.com" },
+  { icon:"⚽", name:"Futbol HQ", tag:"SOC", url:"https://futbol-hq.com" }
 ];
 function sportsMenuHTML(){
   return '<div class="sportwrap">'

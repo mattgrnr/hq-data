@@ -42,7 +42,7 @@ const SITES = {
     games: bd => bd.games.map(g => ({ key: g.away + "@" + g.home, start: g.ko * 1000, home: g.home, away: g.away })),
     file: (bd, g) => bd.season + "-w" + String(bd.week).padStart(2, "0"),
   },
-  golazo: {
+  futbol: {
     stats: ["G", "T", "S", "A"],
     run: `BOARD = bd; buildRows();
       ROWS.map(r => ({ id: r.p.id, n: r.p.n, t: r.team, pos: r.p.pos, g: String(r.gm.id),
