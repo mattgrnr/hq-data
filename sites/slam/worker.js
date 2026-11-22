@@ -1015,6 +1015,13 @@ function wireTop(){
   }
 }
 
+// tabs shown as a chance instead of a projection: label, and how many it takes
+const ONEPLUS = { "3PM":["2+ threes",2], BLK:["1+ block",1], STL:["1+ steal",1] };
+function chanceN(x, n){   // chance of at least n, Poisson
+  x = Math.max(0, x||0); let p = 0, t = Math.exp(-x);
+  for(let k=0; k<n; k++){ p += t; t *= x/(k+1); }
+  return Math.round(100*(1-p))+"%";
+}
 function rowHTML(r, n){
   const p = r.p, k = KEY[F.stat], sc = r.score[k], tier = tierOf(sc);
   const rk = r.rk[k];
@@ -1024,7 +1031,8 @@ function rowHTML(r, n){
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+(POSNAME[p.pos]||p.pos)+'</span>'+injBadge(p)+'</div>'
     + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(rk?'<span class="dtag '+rankClass(rk.rank,rk.of)+'">'+esc(r.oppN)+' '+ordn(rk.rank)+' vs '+p.pos+'</span>':'')+'</div>'+statLine(r, k)+'</div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
-    + '<div class="yproj">proj '+F.stat.toLowerCase()+'<b>'+r.proj[k].toFixed(1)+'</b></div>'
+    + (ONEPLUS[F.stat] ? '<div class="yproj">'+ONEPLUS[F.stat][0]+'<b>'+chanceN(r.proj[k], ONEPLUS[F.stat][1])+'</b></div>'
+                       : '<div class="yproj">proj '+F.stat.toLowerCase()+'<b>'+r.proj[k].toFixed(1)+'</b></div>')
     + '<div><div class="ball t-'+tier+'">'+ballSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
     + '</div>'
     + detailHTML(r)

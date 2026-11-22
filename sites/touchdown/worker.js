@@ -1217,6 +1217,7 @@ function wireTop(){
   }
 }
 
+function chance1(x){ return Math.round(100*(1-Math.exp(-Math.max(0, x||0))))+"%"; }   // chance of at least one
 function rowHTML(r, n){
   const p = r.p, c = cur(r);
   return '<div class="row'+(p.td?' scored':'')+'" data-i="'+n+'" data-pid="'+esc(p.id)+'" data-g="'+r.gm.id+'">'
@@ -1225,7 +1226,8 @@ function rowHTML(r, n){
     + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+p.pos+'</span>'+(p.st?'<span class="pbadge inj-'+p.st+'">'+p.st+'</span>':'')+tdTag(p)+'</div>'
     + '<div class="meta">'+esc(p.team)+((p.newteam && WEEKNO<=4)?' <span class="pbadge" style="color:#e3b341;border-color:#5c4a1f">NEW</span>':'')+' \\u00b7 '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(c.rk?'<span class="dtag '+rankClass(c.rk.rank,c.rk.of)+'">'+esc(r.oppN)+' '+ordn(c.rk.rank)+' vs '+p.pos+'</span>':'')+'</div></div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
-    + '<div class="yproj">proj '+(F.stat==="REC" ? "rec" : F.stat==="PTD" ? "pass tds" : F.stat==="TD" ? "tds" : "yds")+'<b>'+c.proj+'</b></div>'
+    + (F.stat==="TD" ? '<div class="yproj">anytime td<b>'+chance1(r.projTD)+'</b></div>'
+       : '<div class="yproj">proj '+(F.stat==="REC" ? "rec" : F.stat==="PTD" ? "pass tds" : "yds")+'<b>'+c.proj+'</b></div>')
     + '<div><div class="ball t-'+c.tier+'">'+ballSVG()+'<span class="num">'+c.score+'</span></div><span class="tierlabel">'+c.tier+'</span></div>'
     + '</div>'
     + detailHTML(r)

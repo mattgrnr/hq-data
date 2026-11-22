@@ -977,14 +977,15 @@ function wireTop(){
   }
 }
 
+function chance1(x){ return Math.round(100*(1-Math.exp(-Math.max(0, x||0))))+"%"; }   // chance of at least one
 function rowHTML(r, n){
   const p = r.p, sc = scoreOf(r), tier = tierOf(sc), pr = r.prk[F.stat];
   const tag = pr ? '<span class="dtag '+rankClass(pr.rank,pr.of)+'">'+esc(r.oppN)+' '+ordn(pr.rank)+' vs '+r.sl+'</span>'
             : (r.rk ? '<span class="dtag '+rankClass(r.rk.rank,r.rk.of)+'">'+esc(r.oppN)+' '+ordn(r.rk.rank)+' defense</span>' : '');
-  const proj = F.stat === "A" ? '<div class="yproj">proj ast<b>'+(r.projA != null ? r.projA.toFixed(2) : "—")+'</b></div>'
-             : F.stat === "P" ? '<div class="yproj">proj pts<b>'+(r.projP != null ? r.projP.toFixed(2) : "—")+'</b></div>'
+  const proj = F.stat === "A" ? '<div class="yproj">to assist<b>'+(r.projA != null ? chance1(r.projA) : "—")+'</b></div>'
+             : F.stat === "P" ? '<div class="yproj">to get a point<b>'+(r.projP != null ? chance1(r.projP) : "—")+'</b></div>'
              : F.stat === "S" ? '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>'
-             : '<div class="yproj">proj g<b>'+r.projG.toFixed(2)+'</b></div>';
+             : '<div class="yproj">to score<b>'+chance1(r.projG)+'</b></div>';
   return '<div class="row'+(p.gl?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
