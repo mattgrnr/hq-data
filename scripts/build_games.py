@@ -15,7 +15,7 @@ import json
 import math
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -362,6 +362,8 @@ def attach_odds(sport, bd, lam=None):
                 p["over_book"] = round(ours, 3)
                 add_value("Total", f"Over {tl:g}", ours, t2[0], t2[1])
                 add_value("Total", f"Under {tl:g}", 1 - ours, 1 - t2[0], t2[2])
+        if ev.get("lk"):
+            p["links"] = {bk: u for bk, u in ev["lk"].items() if bk not in OFFSHORE}
         if book:
             p["book"] = book
             p["value"] = sorted(value, key=lambda v: v["book"] - v["ours"])
@@ -388,62 +390,77 @@ def pname(n):
 
 
 def attach_props(sport, bd):
-    """Book prices for player props, as 'at least k' lines: props[name][stat] = [[k, fair, price, book, books, two_sided]]."""
+    """Book prices for player props, as 'at least k' lines: props[name][stat] = [[k, fair, price, book, books, over_under, prices]].
+
+    Books post the same bet in different shapes ("Raphinha", "Yes" + Raphinha, "Over 0.5"), so every shape of
+    'at least k' for a player is merged into one line carrying every book's price.
+    """
     import re
     import statistics
     f = ROOT / sport / "odds.json"
     if not f.exists():
         return 0
-    out = {}
-    for ev in json.loads(f.read_text()).get("events", []):
+    # (player, stat, k, kickoff) -> {"yes": {book: price}, "no": {book: price}, "ou": bool}
+    # A player can be priced for more than one upcoming game; each game stays separate and the next one is used.
+    now = datetime.now(timezone.utc)
+    lines = {}
+    events = json.loads(f.read_text()).get("events", [])
+    evlinks = {str(ev.get("id")): {bk: u for bk, u in (ev.get("lk") or {}).items() if bk not in OFFSHORE} for ev in events}
+    for ev in events:
+        try:
+            t = datetime.fromisoformat(str(ev.get("t")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if t < now - timedelta(hours=3):
+            continue
         for mk, stat in PROP_STAT[sport].items():
-            pairs = {}
             for name, desc, point, prices in ev["m"].get(mk, []):
-                who = desc or name
-                if name in ("Over", "Under") and point is not None:
-                    pairs.setdefault((pname(who), point), {})[name] = prices
-                    continue
-                m = re.match(r"(\d+)\+", name or "")
-                k = int(m.group(1)) if m else 1
-                if name == "No":
-                    continue
-                imp = statistics.median(implied(v) for v in prices.values()) / ONE_SIDED_VIG
-                best = best_of(prices)
-                if not best:
-                    continue
-                out.setdefault(pname(who), {}).setdefault(stat, []).append([k, round(min(imp, 0.99), 3), best[1], best[0], len(prices), 0, best[2]])
-            for (who, point), sides in pairs.items():
-                if "Over" not in sides or "Under" not in sides:
-                    continue
-                fair = []
-                for bk in set(sides["Over"]) & set(sides["Under"]):
-                    x, y = implied(sides["Over"][bk]), implied(sides["Under"][bk])
-                    fair.append(x / (x + y))
-                if not fair:
-                    continue
-                best = best_of(sides["Over"])
-                if not best:
-                    continue
-                out.setdefault(who, {}).setdefault(stat, []).append(
-                    [math.floor(point) + 1, round(statistics.median(fair), 3), best[1], best[0], len(fair), 1, best[2]])
-    # only our board's players; per stat the books' main over/under line plus the yes-only rungs we show chances for
+                who = pname(desc or name)
+                if name in ("Over", "Under"):
+                    if point is None:
+                        continue
+                    k, side, ou = math.floor(point) + 1, "yes" if name == "Over" else "no", True
+                else:
+                    m = re.match(r"(\d+)\+", name or "")
+                    k, side, ou = (int(m.group(1)) if m else 1), "no" if name == "No" else "yes", False
+                ln = lines.setdefault((who, stat, k, t), {"yes": {}, "no": {}, "ou": False, "ev": ev.get("id")})
+                ln[side].update(prices)
+                ln["ou"] = ln["ou"] or ou
+    nxt = {}
+    for (who, stat, k, t) in lines:
+        if (who, stat, k) not in nxt or t < nxt[(who, stat, k)]:
+            nxt[(who, stat, k)] = t
+    out = {}
+    for (who, stat, k, t), ln in lines.items():
+        if t != nxt[(who, stat, k)]:
+            continue
+        best = best_of(ln["yes"]) if ln["yes"] else None
+        if not best:
+            continue
+        both = set(ln["yes"]) & set(ln["no"])
+        if both:       # the book's margin netted out where a book posts both sides
+            fair = statistics.median(implied(ln["yes"][b]) / (implied(ln["yes"][b]) + implied(ln["no"][b])) for b in both)
+        else:
+            fair = statistics.median(implied(v) for v in ln["yes"].values()) / ONE_SIDED_VIG
+        out.setdefault(who, {}).setdefault(stat, []).append(
+            [k, round(min(fair, 0.99), 3), best[1], best[0], len(ln["yes"]), 1 if ln["ou"] else 0, best[2], str(ln["ev"])])
+    # only our board's players; volume stats keep the books' main line, chance stats the low rungs we show
     ours = {pname(p.get("name") or p.get("n") or "") for p in bd.get("players", [])}
     keep = {}
     for who, st in out.items():
         if who not in ours:
             continue
         for stat, rows in st.items():
-            two = [x for x in rows if x[5]]
-            main = max(two, key=lambda x: x[4]) if two else None
+            rows.sort(key=lambda x: x[0])
             if stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "REC"):
-                # volume props read against the main line; yardage ladders only when there is no main line
-                one = [] if main else sorted(sorted((x for x in rows if not x[5]), key=lambda x: -x[4])[:5])
+                two = [x for x in rows if x[5]]
+                keep.setdefault(who, {})[stat] = [max(two, key=lambda x: x[4])] if two else sorted(rows, key=lambda x: -x[4])[:5]
             else:
-                one = sorted({x[0]: x for x in rows if not x[5] and x[0] <= 3}.values())
-            keep.setdefault(who, {})[stat] = ([main] if main else []) + one
+                keep.setdefault(who, {})[stat] = [x for x in rows if x[0] <= 3]
     bd["props"] = keep
+    used = {x[7] for st in keep.values() for rows in st.values() for x in rows}
+    bd["evlinks"] = {e: evlinks[e] for e in used if evlinks.get(e)}
     return len(keep)
-    return len(out)
 
 
 def cover_at(sport, p, line, lam):

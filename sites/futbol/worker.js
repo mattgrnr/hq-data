@@ -378,11 +378,14 @@ body{background:
 #plbar .pl-note{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.4}
 #plbar .pl-where{margin-top:12px}
 #plbar .pl-wt{font-size:11.5px;color:var(--faint);margin-bottom:4px}
-#plbar .pl-bk{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--ink)}
-#plbar .pl-bk.top{background:rgba(74,222,128,.1);box-shadow:inset 0 0 0 1px rgba(74,222,128,.4)}
+#plbar .pl-bk{width:100%;display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 10px;margin-bottom:4px;border-radius:8px;font:inherit;font-size:13.5px;color:var(--ink);background:transparent;border:1px solid var(--line);cursor:pointer;text-align:left}
+#plbar .pl-bk.on{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.55)}
 #plbar .pl-bk b{font-variant-numeric:tabular-nums}
-#plbar .pl-bk.part{color:var(--faint);font-size:12.5px}
-#plbar .pl-bk.part i{font-style:normal;text-align:right;font-size:11.5px}
+#plbar .pl-bk.part{color:var(--faint)}
+#plbar .pl-bk i{font-style:normal;font-size:11.5px}
+#plbar .pl-no{font-size:11px;font-weight:400;color:#fbbf24}
+#plbar .pl-leg a{color:#4ade80;text-decoration:none}
+#plbar .pl-go{text-align:center;text-decoration:none;background:#4ade80;color:#0c1a10;border-color:#4ade80;font-weight:700}
 #plbar .pl-warn{color:#fbbf24}
 #plbar .pl-acts{display:flex;gap:8px;margin-top:10px}
 #plbar .pl-acts .navbtn{flex:1}
@@ -794,8 +797,9 @@ function atLeast(stat, lam, k){
   for(let i=0; i<k; i++){ p += t; t *= lam/(i+1); }
   return Math.max(0, 1-p);
 }
+function boardData(){ return typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO : null); }
 function bookPick(o){
-  const b = typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD.props : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO.props : null);
+  const bd = boardData(), b = bd && bd.props;
   if(!b || !o) return null;
   const rows = (b[pName(o.name)]||{})[o.stat]; if(!rows || !rows.length) return null;
   let x;
@@ -803,14 +807,14 @@ function bookPick(o){
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
   if(!x) return null;
   const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
-  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], all:x[6] || { [x[3]]: x[2] }, ours };
+  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], all:x[6] || { [x[3]]: x[2] }, links:(bd.evlinks||{})[x[7]] || {}, ours };
 }
 function bookHTML(r){
   const o = bookOf(r), x = bookPick(o); if(!x) return "";
   const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
   const edge = x.ours - x.book;
   const line = PONE[o.stat] ? (o.stat==="3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
-  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, game:gInfo(r) });
+  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, game:gInfo(r) });
   return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
     + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
 }
@@ -821,9 +825,9 @@ const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", T
   PTD:"pass TDs", S:"shots on goal" };
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
-function betOf(name, label, ours, book, price, bk, kind, game, all){
+function betOf(name, label, ours, book, price, bk, kind, game, all, links){
   const adj = book + 0.5*(ours - book);
-  return { name, label, ours, book, adj, price, bk, kind, game, all, ev: adj*dec(price) - 1 };
+  return { name, label, ours, book, adj, price, bk, kind, game, all, links, ev: adj*dec(price) - 1 };
 }
 function bestBets(g){
   const out = [], seen = {};
@@ -834,7 +838,7 @@ function bestBets(g){
       // a volume line far from our projection usually means the books know about a role change we don't
       if(!PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
       const line = PONE[st] ? (st==="3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
-      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all));
+      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links));
     }
   }
   for(const v of (g.proj.value||[])){
@@ -842,7 +846,7 @@ function bestBets(g){
       : v.mk === "Total" ? [v.side, GKIND === "soccer" ? "goals" : GKIND === "hockey" ? "goals" : "points"]
       : v.mk === "Both score" ? ["Both teams to score:", v.side] : [v.side, ""];
     out.push(betOf(what[0], what[1], v.ours, v.book, v.price, v.bk, "game",
-      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all));
+      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links));
   }
   return out.filter(b=>b.adj >= 0.2 && b.ours > b.book && b.ev > 0)
     .sort((a,c)=>c.ev - a.ev)
@@ -862,7 +866,7 @@ function plFresh(v){ return v.filter(l=>!l.t || l.t > Date.now() - 6*3600e3); }
 function plRead(){ try { const v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
 function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""); }
 function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
-let PLU = 0;
+let PLU = 0, PLBK = null;
 let PL = (function(){
   let st = plRead();
   const m = /[#&]pl=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -872,12 +876,13 @@ let PL = (function(){
     try { history.replaceState(null, "", location.pathname + location.search); } catch(e) {}
   }
   PLU = st.u || 0;
+  PLBK = st.bk || null;
   return plFresh(st.legs || []);
 })();
-function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v })); } catch(e){} plLinks(); }
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK })); } catch(e){} plLinks(); }
 // every link to another HQ site carries the slip
 function plLinks(){
-  const tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL }) : "";
+  const tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK }) : "";
   document.querySelectorAll("a[href]").forEach(a=>{
     let u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
     if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
@@ -890,12 +895,15 @@ try { new MutationObserver(()=>{ clearTimeout(PLMO); PLMO = setTimeout(plLinks, 
 let PLOPEN = false;
 function legOf(label, b){
   return { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
-           p:b.price, b:b.bk, a:b.all || { [b.bk]: b.price }, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
+           p:b.price, b:b.bk, a:b.all || { [b.bk]: b.price }, u:b.links || {}, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
 }
 function plBtn(leg){
   const on = PL.some(l=>l.i===leg.i);
   return '<button class="pl-add'+(on?" on":"")+'" data-leg="'+encodeURIComponent(JSON.stringify(leg))+'" aria-label="Add to parlay">'+(on?"✓":"+")+'</button>';
 }
+const BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fanduel.com", MGM:"https://sports.betmgm.com",
+  CZR:"https://sportsbook.caesars.com", FAN:"https://sportsbook.fanatics.com", ESPN:"https://espnbet.com", BR:"https://www.betrivers.com",
+  HR:"https://app.hardrock.bet" };
 const BKNAME = { DK:"DraftKings", FD:"FanDuel", MGM:"BetMGM", CZR:"Caesars", FAN:"Fanatics", ESPN:"ESPN Bet", BR:"BetRivers", HR:"Hard Rock", BOV:"Bovada", PIN:"Pinnacle" };
 function amer(d){ return d >= 2 ? Math.round((d-1)*100) : Math.round(-100/(d-1)); }
 // a parlay is placed at one book, so it is priced book by book from that book's own prices
@@ -914,20 +922,38 @@ function plBar(){
   let el = document.getElementById("plbar");
   if(!el){ el = document.createElement("div"); el.id = "plbar"; document.body.appendChild(el); }
   if(!PL.length){ el.innerHTML = ""; el.className = ""; return; }
-  const m = plMath(PL), top = m.best;
+  const m = plMath(PL), all = m.full.concat(m.partial);
+  const pick = all.find(b=>b.bk===PLBK) || m.best || all[0];
+  const full = pick && pick.n === PL.length;
   el.className = "on"+(PLOPEN?" open":"");
-  const legPrice = l => top ? gPrice(m.at(top.bk)(l))+' <em>'+esc(top.bk)+'</em>' : gPrice(l.p)+' <em>'+esc(l.b)+'</em>';
-  const where = (m.full.length ? '<div class="pl-where"><div class="pl-wt">Where to place it</div>'
-        + m.full.slice(0, 5).map((b,i)=>'<div class="pl-bk'+(i?"":" top")+'"><span>'+esc(BKNAME[b.bk]||b.bk)+'</span><b>'+gPrice(b.price)+'</b></div>').join("") + '</div>'
-      : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one the book below has.</p>')
-    + (m.partial.length && PL.length > 1 ? '<div class="pl-where">'+m.partial.slice(0, 3).map(b=>'<div class="pl-bk part"><span>'+esc(BKNAME[b.bk]||b.bk)+'</span><i>missing '+b.missing.map(l=>esc(l.l)).join(", ")+'</i></div>').join("")+'</div>' : '');
-  el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map((l,i)=>'<div class="pl-leg"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+'</span></div><div class="pl-p">'+(top && m.at(top.bk)(l) == null ? '—' : legPrice(l))+'</div><button class="pl-x" data-i="'+i+'" aria-label="Remove">✕</button></div>').join("")
-      + where
+  const at = pick ? m.at(pick.bk) : (l=>l.p);
+  const legLine = (l,i)=>{
+    const p = at(l), url = pick && l.u && l.u[pick.bk];
+    const px = p == null ? '<span class="pl-no">not at '+esc(BKNAME[pick.bk]||pick.bk)+'</span>' : gPrice(p)+' <em>'+esc(pick.bk)+'</em>';
+    return '<div class="pl-leg"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+(url ? ' · <a href="'+esc(url)+'" target="_blank" rel="noopener">open game</a>' : '')+'</span></div>'
+      + '<div class="pl-p">'+px+'</div><button class="pl-x" data-i="'+i+'" aria-label="Remove">✕</button></div>';
+  };
+  const bookRow = b=>'<button class="pl-bk'+(pick&&b.bk===pick.bk?" on":"")+(b.n<PL.length?" part":"")+'" data-bk="'+b.bk+'"><span>'+esc(BKNAME[b.bk]||b.bk)+'</span>'
+    + (b.n === PL.length ? '<b>'+gPrice(b.price)+'</b>' : '<i>'+b.n+' of '+PL.length+' legs</i>')+'</button>';
+  const games = [...new Set(PL.map(l=>l.g))];
+  const oneGameUrl = pick && games.length === 1 ? (PL.find(l=>l.u && l.u[pick.bk])||{u:{}}).u[pick.bk] : null;
+  const placeUrl = pick ? (oneGameUrl || BKHOME[pick.bk]) : null;
+  el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map(legLine).join("")
+      + '<div class="pl-where"><div class="pl-wt">Tap a sportsbook to price your parlay there</div>'+all.slice(0, 8).map(bookRow).join("")+'</div>'
+      + (m.full.length ? '' : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
-      + '<p class="pl-note">Your parlay follows you to every HQ site through the HQ menu and Total HQ.</p>'
-      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn pl-go" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
-    + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(top ? ' · best at '+esc(BKNAME[top.bk]||top.bk) : '')+'</span>'
-    + '<b>'+(top ? gPrice(top.price) : '—')+'</b><span class="pl-ch">'+(top ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : 'No single book has every leg')+'</span></button>';
+      + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" href="'+esc(placeUrl)+'" target="_blank" rel="noopener">Place at '+esc(BKNAME[pick.bk]||pick.bk)+'</a>' : '')
+      + '<button class="navbtn" id="pl-copy">Copy legs</button></div>'
+      + '<p class="pl-note">'+(oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')+'Your parlay follows you to every HQ site.</p>'
+      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
+    + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
+    + '<b>'+(full ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
+  el.querySelectorAll(".pl-bk[data-bk]").forEach(b=> b.onclick = ()=>{ PLBK = b.dataset.bk; plSave(PL); plBar(); });
+  const cp = document.getElementById("pl-copy");
+  if(cp) cp.onclick = ()=>{
+    const txt = PL.map(l=>l.l+" ("+(l.g||"")+")"+(at(l)!=null ? " "+gPrice(at(l)) : "")).join("\\n") + (full ? "\\nParlay "+gPrice(pick.price)+" at "+(BKNAME[pick.bk]||pick.bk) : "");
+    try { navigator.clipboard.writeText(txt).then(()=>{ cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy legs"; }, 1500); }); } catch(e) {}
+  };
   document.getElementById("pl-toggle").onclick = ()=>{ PLOPEN = !PLOPEN; plBar(); };
   el.querySelectorAll(".pl-x").forEach(b=> b.onclick = ()=>{ PL.splice(+b.dataset.i, 1); plSave(PL); plBar(); plSync(); });
   const c = document.getElementById("pl-clear"); if(c) c.onclick = ()=>{ PL = []; plSave(PL); PLOPEN = false; plBar(); plSync(); };

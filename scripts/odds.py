@@ -51,11 +51,13 @@ def get(path, **params):
 
 def slim(ev, key):
     """One event, kept to the books above: market -> [[name, player, point, {book: price}]]."""
-    rows = {}
+    rows, links = {}, {}
     for b in ev.get("bookmakers") or []:
         bk = BOOKS.get(b.get("key"))
         if not bk:
             continue
+        if b.get("link"):
+            links[bk] = b["link"]
         for m in b.get("markets") or []:
             if m.get("period") not in (None, "", "full_game", "ft") or m.get("team"):
                 continue
@@ -72,7 +74,7 @@ def slim(ev, key):
         return m.group(1).upper() if m else None
     return {"id": ev.get("id"), "sk": key, "h": ev.get("home_team"), "a": ev.get("away_team"),
             "hk": abbr(ev.get("home_team_logo_url")), "ak": abbr(ev.get("away_team_logo_url")),
-            "t": ev.get("commence_time"), "m": mk}
+            "t": ev.get("commence_time"), "lk": links, "m": mk}
 
 
 def main():
@@ -83,7 +85,7 @@ def main():
     keys, markets = SPORTS[sport]
     events = []
     for key in keys:
-        data = get(f"sports/{key}/odds", markets=",".join(markets))
+        data = get(f"sports/{key}/odds", markets=",".join(markets), includeLinks="true")
         if data is None:
             continue
         evs = data if isinstance(data, list) else data.get("events") or data.get("data") or [data]

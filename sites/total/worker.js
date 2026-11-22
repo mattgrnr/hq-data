@@ -194,11 +194,16 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-leg button{background:none;border:0;color:var(--dim);font-size:14px;cursor:pointer}
 .pl-note{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.5}
 .pl-acts{display:flex;gap:16px;margin-top:12px}
-.pl-bk{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 10px;border-radius:8px;font-size:14px}
-.pl-bk.top{background:rgba(74,222,128,.1);box-shadow:inset 0 0 0 1px rgba(74,222,128,.4)}
+.pl-bk{width:100%;display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 10px;margin-top:6px;border-radius:8px;font:inherit;font-size:14px;color:var(--paper);background:transparent;border:1px solid var(--rule);cursor:pointer;text-align:left}
+.pl-bk.on{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.55)}
 .pl-bk b{font-weight:500;font-variant-numeric:tabular-nums}
-.pl-bk.part{color:var(--dim);font-size:12.5px}
-.pl-bk.part i{font-style:normal;text-align:right;font-size:11.5px}
+.pl-bk.part{color:var(--dim)}
+.pl-bk i{font-style:normal;font-size:11.5px}
+.pl-leg a{color:var(--open);text-decoration:none}
+.pl-leg .no{font-style:normal;font-size:11px;color:#fbbf24}
+.pl-place{display:flex;gap:10px;margin-top:14px}
+.pl-go{flex:1;text-align:center;padding:11px;border-radius:10px;background:var(--open);color:#0c1a10;font-weight:600;text-decoration:none;font-size:14px}
+.pl-cp{padding:11px 14px;border-radius:10px;border:1px solid var(--rule);background:transparent;color:var(--paper);font:inherit;font-size:14px;cursor:pointer}
 .pl-warn{color:#fbbf24}
 .pl-acts button{background:none;border:0;padding:0;font:inherit;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--mute);cursor:pointer}
 
@@ -350,7 +355,7 @@ function plFresh(v){ return v.filter(function(l){ return !l.t || l.t > Date.now(
 function plRead(){ try { var v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
 function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""); }
 function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
-var PLU = 0;
+var PLU = 0, PLBK = null;
 var PL = (function(){
   var st = plRead();
   var m = /[#&](?:pl|parlay)=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -360,11 +365,12 @@ var PL = (function(){
     history.replaceState(null, "", location.pathname);
   }
   PLU = st.u || 0;
+  PLBK = st.bk || null;
   return plFresh(st.legs || []);
 })();
-function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v })); } catch(e){} plLinks(); }
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK })); } catch(e){} plLinks(); }
 function plLinks(){
-  var tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL }) : "";
+  var tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK }) : "";
   document.querySelectorAll("a[href]").forEach(function(a){
     var u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
     if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
@@ -389,45 +395,57 @@ function byBook(legs){
   out.sort(function(a, c){ return c.n - a.n || c.d - a.d; });
   return out;
 }
+var BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fanduel.com", MGM:"https://sports.betmgm.com",
+  CZR:"https://sportsbook.caesars.com", FAN:"https://sportsbook.fanatics.com", ESPN:"https://espnbet.com", BR:"https://www.betrivers.com",
+  HR:"https://app.hardrock.bet" };
 function renderParlay(){
   var el = document.getElementById("parlay");
   if(!PL.length){ el.innerHTML = ""; return; }
   var ours = 1, book = 1, games = {}, same = false;
   PL.forEach(function(l){ ours *= l.o; book *= l.k; if(games[l.g]) same = true; games[l.g] = 1; });
-  var books = byBook(PL), full = books.filter(function(b){ return b.n === PL.length; }), part = books.filter(function(b){ return b.n < PL.length; });
-  var top = full[0];
+  var books = byBook(PL), hasFull = books.length && books[0].n === PL.length;
+  var pick = books.filter(function(b){ return b.bk === PLBK; })[0] || books[0];
+  var full = pick && pick.n === PL.length;
+  var nm = function(bk){ return BKNAME[bk] || bk; };
   var sports = [];
   PL.forEach(function(l){ if(sports.indexOf(l.s) < 0) sports.push(l.s); });
   var h = '<div class="pl"><div class="pl-top"><div><div class="t">Your parlay</div><div class="pl-sub">' + PL.length + ' leg' + (PL.length > 1 ? "s" : "")
-    + ' · ours ' + pct(ours) + ' · book ' + pct(book) + (top ? ' · best at ' + esc(BKNAME[top.bk] || top.bk) : '') + '</div></div>'
-    + '<div class="px">' + (top ? amer(top.d) : '—') + '</div></div>';
+    + (full ? ' · ours ' + pct(ours) + ' · book ' + pct(book) : '') + (pick ? ' · at ' + esc(nm(pick.bk)) : '') + '</div></div>'
+    + '<div class="px">' + (full ? amer(pick.d) : '—') + '</div></div>';
   sports.forEach(function(sp){
     h += '<div class="pl-sport">' + esc(sp) + ' HQ</div>';
     PL.forEach(function(l, i){
       if(l.s !== sp) return;
-      var p = top ? legPrices(l)[top.bk] : l.p, bk = top ? top.bk : l.b;
-      h += '<div class="pl-leg"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + ' · ours ' + pct(l.o) + ' vs book ' + pct(l.k) + '</span></div>'
-        + '<div class="p">' + price(p) + '<em>' + esc(bk) + '</em></div><button data-i="' + i + '" aria-label="Remove">✕</button></div>';
+      var p = pick ? legPrices(l)[pick.bk] : l.p, url = pick && l.u && l.u[pick.bk];
+      h += '<div class="pl-leg"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + ' · ours ' + pct(l.o) + ' vs book ' + pct(l.k)
+        + (url ? ' · <a href="' + esc(url) + '" target="_blank" rel="noopener">open game</a>' : '') + '</span></div>'
+        + '<div class="p">' + (p == null ? '<i class="no">not at ' + esc(nm(pick.bk)) + '</i>' : price(p) + '<em>' + esc(pick ? pick.bk : l.b) + '</em>') + '</div>'
+        + '<button data-i="' + i + '" aria-label="Remove">✕</button></div>';
     });
   });
-  if(full.length){
-    h += '<div class="pl-sport">Where to place it</div>' + full.slice(0, 5).map(function(b, i){
-      return '<div class="pl-bk' + (i ? '' : ' top') + '"><span>' + esc(BKNAME[b.bk] || b.bk) + '</span><b>' + amer(b.d) + '</b></div>';
-    }).join("");
-  } else {
-    h += '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one a book below has.</p>';
-  }
-  if(part.length && PL.length > 1){
-    h += part.slice(0, 3).map(function(b){
-      return '<div class="pl-bk part"><span>' + esc(BKNAME[b.bk] || b.bk) + '</span><i>missing ' + b.missing.map(function(l){ return esc(l.l); }).join(", ") + '</i></div>';
-    }).join("");
-  }
-  h += (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
+  h += '<div class="pl-sport">Tap a sportsbook to price your parlay there</div>' + books.slice(0, 8).map(function(b){
+    return '<button class="pl-bk' + (pick && b.bk === pick.bk ? ' on' : '') + (b.n < PL.length ? ' part' : '') + '" data-bk="' + b.bk + '"><span>' + esc(nm(b.bk)) + '</span>'
+      + (b.n === PL.length ? '<b>' + amer(b.d) + '</b>' : '<i>' + b.n + ' of ' + PL.length + ' legs</i>') + '</button>';
+  }).join("");
+  if(!hasFull) h += '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>';
+  var gs = Object.keys(games), one = pick && gs.length === 1 ? (PL.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
+  var place = pick ? (one || BKHOME[pick.bk]) : null;
+  h += '<div class="pl-place">' + (place ? '<a class="pl-go" href="' + esc(place) + '" target="_blank" rel="noopener">Place at ' + esc(nm(pick.bk)) + '</a>' : '')
+    + '<button id="pl-copy" class="pl-cp">Copy legs</button></div>'
+    + '<p class="pl-note">' + (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '. ' : 'Opens ' + esc(pick ? nm(pick.bk) : 'the book') + '; add each leg there, or use "open game" on a leg. ') + '</p>'
+    + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
     + '<p class="pl-note">Add legs from any sport’s board with +. Your parlay follows you between the HQ sites.</p>'
     + '<div class="pl-acts"><button id="pl-clear">Clear parlay</button></div></div>';
   el.innerHTML = h;
   el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ PL.splice(+b.dataset.i, 1); plSave(PL); renderParlay(); }; });
+  el.querySelectorAll(".pl-bk[data-bk]").forEach(function(b){ b.onclick = function(){ PLBK = b.dataset.bk; plSave(PL); renderParlay(); }; });
   document.getElementById("pl-clear").onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+  var cp = document.getElementById("pl-copy");
+  cp.onclick = function(){
+    var txt = PL.map(function(l){ var p = pick ? legPrices(l)[pick.bk] : l.p; return l.l + " (" + (l.g || "") + ")" + (p != null ? " " + price(p) : ""); }).join("\\n")
+      + (full ? "\\nParlay " + amer(pick.d) + " at " + nm(pick.bk) : "");
+    try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy legs"; }, 1500); }); } catch(e) {}
+  };
 }
 renderParlay();
 plLinks();
