@@ -999,7 +999,6 @@ const BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.
 function slipUrl(bk, legs){
   const ids = legs.map(l=>(l.x||{})[bk]);
   if(!ids.length || ids.some(x=>!x)) return null;
-  if(bk === "FD") return "https://sportsbook.fanduel.com/addToBetslip?" + ids.map((x,i)=>{ const [m, s] = String(x).split(":"); return "marketId["+i+"]="+encodeURIComponent(m)+"&selectionId["+i+"]="+encodeURIComponent(s); }).join("&");
   if(bk === "DK") return "https://sportsbook.draftkings.com/?outcomes=" + ids.map(encodeURIComponent).join("+");
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
@@ -1046,7 +1045,7 @@ function plBar(){
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" href="'+esc(placeUrl)+'" target="_blank" rel="noopener">'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-copy">Copy legs</button></div>'
       + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
-        + 'FanDuel, DraftKings and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
+        + 'DraftKings and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
     + '<b>'+(full ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';

@@ -21,7 +21,7 @@ API = "https://api.prop-line.com/v1"
 
 GAME = ["h2h", "spreads", "totals"]
 # US books people actually bet at, plus Pinnacle as the sharp reference
-SLIP = {"FD", "DK", "MGM"}   # books whose bet slip takes selections in a link; their bet ids are kept
+SLIP = {"DK", "MGM"}   # books whose bet slip takes selections in a link; their bet ids are kept (FanDuel rejects the feed's ids)
 BOOKS = {"draftkings": "DK", "fanduel": "FD", "betmgm": "MGM", "williamhill_us": "CZR", "caesars": "CZR", "fanatics": "FAN",
          "espnbet": "ESPN", "betrivers": "BR", "hardrock": "HR", "bovada": "BOV", "pinnacle": "PIN"}
 SPORTS = {

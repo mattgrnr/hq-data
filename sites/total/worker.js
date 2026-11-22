@@ -401,7 +401,6 @@ var BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fa
 function slipUrl(bk, legs){
   var ids = legs.map(function(l){ return (l.x || {})[bk]; });
   if(!ids.length || ids.some(function(x){ return !x; })) return null;
-  if(bk === "FD") return "https://sportsbook.fanduel.com/addToBetslip?" + ids.map(function(x, i){ var p = String(x).split(":"); return "marketId[" + i + "]=" + encodeURIComponent(p[0]) + "&selectionId[" + i + "]=" + encodeURIComponent(p[1]); }).join("&");
   if(bk === "DK") return "https://sportsbook.draftkings.com/?outcomes=" + ids.map(encodeURIComponent).join("+");
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
@@ -442,7 +441,7 @@ function renderParlay(){
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" href="' + esc(place) + '" target="_blank" rel="noopener">' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button id="pl-copy" class="pl-cp">Copy legs</button></div>'
     + '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '. ' : 'Opens ' + esc(pick ? nm(pick.bk) : 'the book') + '; add each leg there, or use "open game" on a leg. ')
-      + 'FanDuel, DraftKings and BetMGM can load the whole slip.') + '</p>'
+      + 'DraftKings and BetMGM can load the whole slip.') + '</p>'
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
     + '<p class="pl-note">Add legs from any sport’s board with +. Your parlay follows you between the HQ sites.</p>'
     + '<div class="pl-acts"><button id="pl-clear">Clear parlay</button></div></div>';
