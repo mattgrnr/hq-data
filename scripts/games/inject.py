@@ -24,9 +24,9 @@ BOOKOF = {
               'const BSTATS = ["G","A","GA"]; function hurt(r){ return r.p.st === "bench"; }\n',
 }
 GLUE = {
-    "slapshot": 'const GKIND = "hockey", PSITE = "Slapshot";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.start }; }\n',
-    "slam": 'const GKIND = "points", PSITE = "Slam";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.start }; }\n',
-    "touchdown": 'const GKIND = "points", PSITE = "Touchdown";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.ko ? g.ko*1000 : null, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.ko ? r.gm.ko*1000 : null }; }\n',
+    "slapshot": 'const GKIND = "hockey", PSITE = "Slapshot";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final }; }\n',
+    "slam": 'const GKIND = "points", PSITE = "Slam";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final }; }\n',
+    "touchdown": 'const GKIND = "points", PSITE = "Touchdown";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.ko ? g.ko*1000 : null, fin:g.final, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.ko ? r.gm.ko*1000 : null, f:r.gm.final }; }\n',
     "futbol": 'const GKIND = "soccer", PSITE = "Futbol";\nfunction gList(){ return dayGames().filter(g=>F.lg==="all" || String(g.lid)===F.lg).map(g=>({ id:String(g.id), home:g.h, away:g.a, lg:g.league,\n  when:new Date(g.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }), t:Date.parse(g.t), proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.h+" v "+r.gm.a, t:Date.parse(r.gm.t) }; }\n',
 }
 

@@ -237,6 +237,10 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-leg .no{font-style:normal;font-size:11px;color:#fbbf24}
 .pl-place{display:flex;gap:10px;margin-top:14px}
 .pl-chips{margin-top:8px}
+.lv{font-style:normal;display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#dc2626;vertical-align:2px}
+.gm.live{opacity:.6}
+.pl-leg.gone{opacity:.6}
+.pl-link{background:none;border:0;padding:0;font:inherit;color:var(--open);text-decoration:underline;cursor:pointer}
 .pl-chip{display:inline-block;margin:0 6px 6px 0;padding:6px 11px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
 .pl-chip.on{color:#0c1a10;background:var(--open);border-color:var(--open);font-weight:600}
 .pl-go{flex:1;text-align:center;padding:11px;border-radius:10px;background:var(--open);color:#0c1a10;font-weight:600;text-decoration:none;font-size:14px}
@@ -381,8 +385,9 @@ function gameHTML(key, url, g){
   var wf = soc ? w[0] : w[1], ws = soc ? w[2] : w[0];
   var bar = soc ? '<i class="h" style="flex:' + w[0] + '"></i><i class="d" style="flex:' + w[1] + '"></i><i class="a" style="flex:' + w[2] + '"></i>'
                 : '<i class="a" style="flex:' + w[1] + '"></i><i class="h" style="flex:' + w[0] + '"></i>';
-  return '<a class="gm" href="' + esc(url) + '/?game=' + encodeURIComponent(g.k) + '">'
-    + '<div class="tm">' + esc(first) + '<span>' + (soc ? 'v' : '@') + '</span>' + esc(second) + '</div>'
+  var live = g.t && Date.now() >= Date.parse(g.t);
+  return '<a class="gm' + (live ? ' live' : '') + '" href="' + esc(url) + '/?game=' + encodeURIComponent(g.k) + '">'
+    + '<div class="tm">' + esc(first) + '<span>' + (soc ? 'v' : '@') + '</span>' + esc(second) + (live ? ' <i class="lv">Live</i>' : '') + '</div>'
     + '<div class="wn">' + esc(first) + ' <b>' + pct(wf) + '</b>' + (soc ? ' · draw <b>' + pct(w[1]) + '</b>' : '') + ' · ' + esc(second) + ' <b>' + pct(ws) + '</b></div>'
     + '<div class="pr">' + bar + '</div></a>';
 }
@@ -464,11 +469,16 @@ function renderParlay(){
   PL.forEach(function(l){ if(sports.indexOf(l.s) < 0) sports.push(l.s); });
   var h = '<div class="pl"><div class="pl-top"><div><div class="t">Your parlay</div><div class="pl-sub">' + PL.length + ' leg' + (PL.length > 1 ? "s" : "")
     + (full ? ' · ours ' + pct(ours) + ' · book ' + pct(book) : '') + (pick ? ' · at ' + esc(nm(pick.bk)) : '') + '</div></div>'
-    + '<div class="px">' + (full ? amer(pick.d) : '—') + '</div></div>';
+    + '<div class="px">' + (full && !PL.some(function(l){ return l.t && Date.now() >= l.t; }) ? amer(pick.d) : '—') + '</div></div>';
   sports.forEach(function(sp){
     h += '<div class="pl-sport">' + esc(sp) + ' HQ</div>';
     PL.forEach(function(l, i){
       if(l.s !== sp) return;
+      var gone = l.t && Date.now() >= l.t;
+      if(gone){
+        h += '<div class="pl-leg gone"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + '</span></div><div class="p"><i class="lv">Started</i></div><button data-i="' + i + '" aria-label="Remove">✕</button></div>';
+        return;
+      }
       var p = pick ? legPrices(l)[pick.bk] : l.p, url = pick && l.u && l.u[pick.bk];
       h += '<div class="pl-leg"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + ' · ours ' + pct(l.o) + ' vs book ' + pct(l.k)
         + (url ? ' · <a href="' + esc(url) + '" target="_blank" rel="noopener">open game</a>' : '') + '</span></div>'
@@ -484,7 +494,9 @@ function renderParlay(){
     + ["FD", "DK", "FAN", "HR", "MGM", "BR"].map(function(bk){ return '<button class="pl-chip' + (PLMY.indexOf(bk) >= 0 ? ' on' : '') + '" data-my="' + bk + '">' + esc(nm(bk)) + '</button>'; }).join("") + '</div>';
   if(!hasFull) h += '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>';
   var gs = Object.keys(games), one = pick && gs.length === 1 ? (PL.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
-  var slip = full ? slipUrl(pick.bk, PL) : null;
+  var started = PL.filter(function(l){ return l.t && Date.now() >= l.t; });
+  var slip = full && !started.length ? slipUrl(pick.bk, PL) : null;
+  if(started.length) h += '<p class="pl-note pl-warn">' + started.length + ' leg' + (started.length > 1 ? 's have' : ' has') + ' started and can\u2019t be bet anymore. <button class="pl-link" id="pl-drop">Remove started legs</button></p>';
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button id="pl-copy" class="pl-cp">Copy legs</button></div>'
@@ -511,6 +523,8 @@ function renderParlay(){
     }).catch(function(){});
   }
   document.getElementById("pl-clear").onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+  var dr = document.getElementById("pl-drop");
+  if(dr) dr.onclick = function(){ PL = PL.filter(function(l){ return !(l.t && Date.now() >= l.t); }); plSave(PL); renderParlay(); };
   var cp = document.getElementById("pl-copy");
   cp.onclick = function(){
     var txt = PL.map(function(l){ var p = pick ? legPrices(l)[pick.bk] : l.p; return l.l + " (" + (l.g || "") + ")" + (p != null ? " " + price(p) : ""); }).join("\\n")

@@ -394,6 +394,17 @@ body{background:
 #plbar .pl-acts{display:flex;gap:8px;margin-top:10px}
 #plbar .pl-acts .navbtn{flex:1}
 body{padding-bottom:84px}
+#app .g-tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;vertical-align:1px}
+#app .g-tag.live,#plbar .g-tag.live{color:#fff;background:#dc2626}
+#app .g-tag.final{color:var(--faint);border:1px solid var(--line)}
+#plbar .g-tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700;text-transform:uppercase}
+#app .bk-off{padding-left:0;color:var(--faint)}
+#app .row:has(.bk-off){opacity:.55}
+#app .gcard.gc-off{opacity:.6}
+#app .gc-closed{margin-top:8px;font-size:12px;color:var(--faint)}
+#plbar .pl-gone{opacity:.6}
+#plbar .pl-gone b{text-decoration:line-through}
+#plbar .pl-link{background:none;border:0;padding:0;font:inherit;color:#4ade80;text-decoration:underline;cursor:pointer}
 /* ===== end games view ===== */
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
@@ -682,6 +693,9 @@ function detailHTML(r){
 const RSTATS = [["G","Goals","goals"],["A","Assists","assists"],["GA","TSOA","goals plus assists"],["T","SOT","shots on target"],["S","Shots","shots"]];
 const FAVKEY = "hq.futbol.fav";
 /* ===== games view: shared by every HQ site; gList, gRows, GKIND are set per site ===== */
+// a game is "pre" until its start time, then "live", then "final"; only pre-game bets can be added
+function gState(t, fin){ return fin ? "final" : (t && Date.now() >= t ? "live" : "pre"); }
+function gTag(st){ return st === "pre" ? "" : '<span class="g-tag '+st+'">'+(st === "final" ? "Final" : "Live")+'</span>'; }
 let GV = false, GOPEN = {}, GQ = null, GJUMP = null;
 // arriving from Total HQ with ?game=<home team or match id> opens the Games tab on that game
 try { GQ = new URLSearchParams(location.search).get("game"); if(GQ) GV = true; } catch(e) {}
@@ -744,10 +758,11 @@ function gMarkets(g){
 }
 
 function gCard(g){
-  const p = g.proj, open = !!GOPEN[g.id];
+  const p = g.proj, open = !!GOPEN[g.id], st = gState(g.t, g.fin);
   const score = p.hs.toFixed(1)+' – '+p.as.toFixed(1);
-  let h = '<div class="gcard'+(open?" open":"")+'" data-gid="'+esc(g.id)+'">'
-    + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+esc(g.when||"")+'</div></div>'
+  let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+'" data-gid="'+esc(g.id)+'">'
+    + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+(st !== "pre" ? gTag(st) : esc(g.when||""))+'</div></div>'
+    + (st !== "pre" ? '<div class="gc-closed">Game started · these bets can\\'t be added anymore</div>' : '')
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
     + gWinBar(g)
     + '<div class="gc-proj">Projected <b>'+esc(g.home)+' '+score+' '+esc(g.away)+'</b></div>';
@@ -772,7 +787,7 @@ function gamesHTML(){
   if(GQ){ const hit = list.find(g=>g.home===GQ || String(g.id)===GQ); if(hit){ GOPEN[hit.id] = true; GJUMP = hit.id; } GQ = null; }
   if(!list.length) return '<div class="status"><h2>No game projections yet</h2><p>They appear once today\\'s teams have played enough to rate.</p></div>';
   return '<p class="g-intro">Every game, projected by the same model as the board. Each game shows its best bet: where our chance beats the sportsbooks\\' by the most at the best price out there. Tap a game for its top three, every market and the top player picks.</p>'
-    + list.map(gCard).join("");
+    + list.slice().sort((a,c)=>(gState(a.t, a.fin) !== "pre") - (gState(c.t, c.fin) !== "pre")).map(gCard).join("");     // started games sink below upcoming ones
 }
 
 function wireGames(){
@@ -821,6 +836,8 @@ function bookPick(o){
   return { k:x[0], book:x[1], price:top[1], bk:top[0], n:x[4], two:!!x[5], all, links:(bd.evlinks||{})[x[7]] || {}, ids:x[8] || {}, ours };
 }
 function bookHTML(r){
+  const gi = gInfo(r), st = gState(gi.t, gi.f);
+  if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\\'t be added</div>';
   const o = bookOf(r), x = bookPick(o); if(!x) return "";
   const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
   const edge = x.ours - x.book;
@@ -842,6 +859,7 @@ function betOf(name, label, ours, book, price, bk, kind, game, all, links, ids){
 }
 function bestBets(g){
   const out = [], seen = {};
+  if(gState(g.t, g.fin) !== "pre") return out;
   for(const r of gRows(g.id)){
     if(hurt(r)) continue;
     for(const st of BSTATS){
@@ -970,6 +988,8 @@ function plBar(){
   el.className = "on"+(PLOPEN?" open":"");
   const at = pick ? m.at(pick.bk) : (l=>l.p);
   const legLine = (l,i)=>{
+    if(l.t && Date.now() >= l.t)
+      return '<div class="pl-leg pl-gone"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+'</span></div><div class="pl-p"><span class="g-tag live">Started</span></div><button class="pl-x" data-i="'+i+'" aria-label="Remove">✕</button></div>';
     const p = at(l), url = pick && l.u && l.u[pick.bk];
     const px = p == null ? '<span class="pl-no">not at '+esc(BKNAME[pick.bk]||pick.bk)+'</span>' : gPrice(p)+' <em>'+esc(pick.bk)+'</em>';
     return '<div class="pl-leg"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+(url ? ' · <a href="'+esc(url)+'" target="_blank" rel="noopener">open game</a>' : '')+'</span></div>'
@@ -979,12 +999,14 @@ function plBar(){
     + (b.n === PL.length ? '<b>'+gPrice(b.price)+'</b>' : '<i>'+b.n+' of '+PL.length+' legs</i>')+'</button>';
   const games = [...new Set(PL.map(l=>l.g))];
   const oneGameUrl = pick && games.length === 1 ? (PL.find(l=>l.u && l.u[pick.bk])||{u:{}}).u[pick.bk] : null;
-  const slip = pick && full ? slipUrl(pick.bk, PL) : null;
+  const gone = PL.filter(l=>l.t && Date.now() >= l.t);
+  const slip = pick && full && !gone.length ? slipUrl(pick.bk, PL) : null;
   const placeUrl = pick ? (slip || oneGameUrl || BKHOME[pick.bk]) : null;
   el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map(legLine).join("")
       + '<div class="pl-where"><div class="pl-wt">Tap a sportsbook to price your parlay there</div>'+all.slice(0, 8).map(bookRow).join("")+'</div>'
       + '<div class="pl-my"><div class="pl-wt">My books <span>'+(PLMY.length ? 'only these are priced' : 'tap the ones you use')+'</span></div>'
       + MYBOOKS.map(bk=>'<button class="pl-chip'+(PLMY.includes(bk)?" on":"")+'" data-my="'+bk+'">'+esc(BKNAME[bk])+'</button>').join("")+'</div>'
+      + (gone.length ? '<p class="pl-note pl-warn">'+gone.length+' leg'+(gone.length>1?"s have":" has")+' started and can\\'t be bet anymore. <button class="pl-link" id="pl-drop">Remove started legs</button></p>' : '')
       + (m.full.length ? '' : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
@@ -993,7 +1015,7 @@ function plBar(){
         + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
-    + '<b>'+(full ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
+    + '<b>'+(full && !gone.length ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(gone.length ? gone.length+' leg'+(gone.length>1?"s":"")+' started · tap to fix' : full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
   el.querySelectorAll(".pl-bk[data-bk]").forEach(b=> b.onclick = ()=>{ PLBK = b.dataset.bk; plSave(PL); plBar(); });
   el.querySelectorAll(".pl-chip[data-my]").forEach(b=> b.onclick = ()=>{
     const bk = b.dataset.my;
@@ -1010,6 +1032,8 @@ function plBar(){
       const a = document.getElementById("pl-go"); if(a) a.setAttribute("href", d.link);
     }).catch(()=>{});
   }
+  const dr = document.getElementById("pl-drop");
+  if(dr) dr.onclick = ()=>{ PL = PL.filter(l=>!(l.t && Date.now() >= l.t)); plSave(PL); plBar(); plSync(); };
   const cp = document.getElementById("pl-copy");
   if(cp) cp.onclick = ()=>{
     const txt = PL.map(l=>l.l+" ("+(l.g||"")+")"+(at(l)!=null ? " "+gPrice(at(l)) : "")).join("\\n") + (full ? "\\nParlay "+gPrice(pick.price)+" at "+(BKNAME[pick.bk]||pick.bk) : "");
