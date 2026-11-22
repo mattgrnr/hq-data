@@ -21,7 +21,7 @@ API = "https://api.prop-line.com/v1"
 
 GAME = ["h2h", "spreads", "totals"]
 # US books people actually bet at, plus Pinnacle as the sharp reference
-SLIP = {"DK", "MGM"}   # books whose bet slip takes selections in a link; their bet ids are kept (FanDuel rejects the feed's ids)
+SLIP = {"DK", "FD", "FAN", "MGM"}   # books whose bet slip can be loaded by link; DK/FD/FAN keep PropLine's outcome id, BetMGM its own
 BOOKS = {"draftkings": "DK", "fanduel": "FD", "betmgm": "MGM", "williamhill_us": "CZR", "caesars": "CZR", "fanatics": "FAN",
          "espnbet": "ESPN", "betrivers": "BR", "hardrock": "HR", "bovada": "BOV", "pinnacle": "PIN"}
 SPORTS = {
@@ -67,7 +67,7 @@ def slim(ev, key):
                     continue
                 k = (m["key"], o.get("name"), o.get("description") or "", o.get("point"))
                 rows.setdefault(k, [{}, {}])[0][bk] = o["price"]
-                oid = o.get("book_outcome_id")
+                oid = o.get("outcome_id") if bk != "MGM" else o.get("book_outcome_id")
                 if bk in SLIP and oid:
                     if bk == "MGM":       # BetMGM's slip wants fixture-market-option
                         fx = o.get("book_fixture_id") or b.get("book_event_id")

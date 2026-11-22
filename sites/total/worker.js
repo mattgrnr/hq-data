@@ -39,6 +39,7 @@ export default {
     if (asset) return asset;
 
     if (path === "/slate") return slate();
+    if (path === "/betlink") return betLink(url, request, env);
 
     if (path === "/registry.json") {
       return new Response(JSON.stringify(REGISTRY), {
@@ -58,6 +59,30 @@ export default {
 
 const RAW = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/";
 const SPORT_DIR = { nhl: "nhl", nba: "nba", nfl: "nfl", soc: "soccer" };
+
+// One tap from a parlay to a sportsbook's bet slip with every leg loaded. PropLine builds the link
+// from its own bet ids (FanDuel's slip needs market ids the odds feed doesn't carry); the key is a Worker secret.
+const SLIP_BOOKS = { DK: "https://sportsbook.draftkings.com", FD: "https://sportsbook.fanduel.com", FAN: "https://sportsbook.fanatics.com" };
+const HQ_REF = /^https:\/\/([a-z0-9-]+\.)?(total|moonshot|touchdown|slapshot|slam|futbol)-hq\.com\//;
+async function betLink(url, request, env) {
+  const bk = url.searchParams.get("bk") || "", ids = url.searchParams.get("ids") || "";
+  const home = SLIP_BOOKS[bk];
+  if (!home || !/^\d{4,20}(,\d{4,20}){0,11}$/.test(ids)) return new Response("Bad request", { status: 400 });
+  if (!HQ_REF.test(request.headers.get("Referer") || "")) return Response.redirect(home, 302);
+  const cache = caches.default, key = new Request("https://total-hq.com/betlink?bk=" + bk + "&ids=" + ids);
+  const hit = await cache.match(key);
+  if (hit) return hit;
+  let to = home;
+  try {
+    if (env && env.PROPLINE_KEY) {
+      const res = await fetch("https://api.prop-line.com/v1/bet-links/parlay?outcome_ids=" + ids + "&apiKey=" + encodeURIComponent(env.PROPLINE_KEY));
+      if (res.ok) { const d = await res.json(); if (d && d.bet_link) to = d.bet_link; }
+    }
+  } catch (e) {}
+  const out = new Response(null, { status: 302, headers: { Location: to, "Cache-Control": to === home ? "no-store" : "public, max-age=600" } });
+  if (to !== home) await cache.put(key, out.clone());
+  return out;
+}
 
 // today's projected games per sport, small enough to load with the page
 async function slate() {
@@ -401,7 +426,7 @@ var BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fa
 function slipUrl(bk, legs){
   var ids = legs.map(function(l){ return (l.x || {})[bk]; });
   if(!ids.length || ids.some(function(x){ return !x; })) return null;
-  if(bk === "DK") return "https://sportsbook.draftkings.com/?outcomes=" + ids.map(encodeURIComponent).join("+");
+  if(bk === "DK" || bk === "FD" || bk === "FAN") return "/betlink?bk=" + bk + "&ids=" + ids.join(",");
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
 }
@@ -441,7 +466,7 @@ function renderParlay(){
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" href="' + esc(place) + '" target="_blank" rel="noopener">' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button id="pl-copy" class="pl-cp">Copy legs</button></div>'
     + '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '. ' : 'Opens ' + esc(pick ? nm(pick.bk) : 'the book') + '; add each leg there, or use "open game" on a leg. ')
-      + 'DraftKings and BetMGM can load the whole slip.') + '</p>'
+      + 'FanDuel, DraftKings, Fanatics and BetMGM can load the whole slip.') + '</p>'
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
     + '<p class="pl-note">Add legs from any sport’s board with +. Your parlay follows you between the HQ sites.</p>'
     + '<div class="pl-acts"><button id="pl-clear">Clear parlay</button></div></div>';

@@ -87,3 +87,12 @@ jobs:
             fi
             echo "::endgroup::"
           done
+
+      - name: Give Total HQ the odds key for bet-slip links
+        if: github.ref_name == 'main' && contains(steps.sites.outputs.list, 'total')
+        env:
+          PROPLINE_KEY: ${{ secrets.PROPLINE_KEY }}
+        run: |
+          if [ -z "$PROPLINE_KEY" ]; then echo "no PROPLINE_KEY secret; skipped"; exit 0; fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then unset CLOUDFLARE_ACCOUNT_ID; fi
+          printf '%s' "$PROPLINE_KEY" | npx --yes wrangler@4 secret put PROPLINE_KEY --name total-hq
