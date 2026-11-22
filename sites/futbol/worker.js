@@ -897,8 +897,20 @@ function legOf(label, b){
   return { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
            p:b.price, b:b.bk, a:b.all || { [b.bk]: b.price }, u:b.links || {}, x:b.ids || {}, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
 }
+// a leg already in the parlay picks up the board's latest prices, links and bet ids whenever its row is drawn
+let PLFIX = null;
+function plRefresh(leg){
+  const at = PL.findIndex(l=>l.i===leg.i);
+  if(at < 0) return false;
+  const old = PL[at];
+  if(JSON.stringify([old.a, old.x, old.u, old.p]) !== JSON.stringify([leg.a, leg.x, leg.u, leg.p])){
+    PL[at] = Object.assign({}, old, { p:leg.p, b:leg.b, a:leg.a, u:leg.u, x:leg.x, o:leg.o, k:leg.k });
+    clearTimeout(PLFIX); PLFIX = setTimeout(()=>{ plSave(PL); plBar(); }, 0);
+  }
+  return true;
+}
 function plBtn(leg){
-  const on = PL.some(l=>l.i===leg.i);
+  const on = plRefresh(leg);
   return '<button class="pl-add'+(on?" on":"")+'" data-leg="'+encodeURIComponent(JSON.stringify(leg))+'" aria-label="Add to parlay">'+(on?"✓":"+")+'</button>';
 }
 const BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fanduel.com", MGM:"https://sports.betmgm.com",
