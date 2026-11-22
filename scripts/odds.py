@@ -8,6 +8,7 @@ usage: odds.py <nhl|nba|nfl|soccer>
 """
 import json
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -19,6 +20,9 @@ ROOT = Path(__file__).resolve().parent.parent
 API = "https://api.prop-line.com/v1"
 
 GAME = ["h2h", "spreads", "totals"]
+# US books people actually bet at, plus Pinnacle as the sharp reference
+BOOKS = {"draftkings": "DK", "fanduel": "FD", "betmgm": "MGM", "williamhill_us": "CZR", "caesars": "CZR", "fanatics": "FAN",
+         "espnbet": "ESPN", "betrivers": "BR", "hardrock": "HR", "bovada": "BOV", "pinnacle": "PIN"}
 SPORTS = {
     "nhl": (["hockey_nhl"], GAME + ["player_goals", "player_points_1plus", "player_shots_on_goal"]),
     "nba": (["basketball_nba"], GAME + ["player_points", "player_rebounds", "player_assists", "player_points_rebounds_assists",
@@ -45,6 +49,32 @@ def get(path, **params):
     return None
 
 
+def slim(ev, key):
+    """One event, kept to the books above: market -> [[name, player, point, {book: price}]]."""
+    rows = {}
+    for b in ev.get("bookmakers") or []:
+        bk = BOOKS.get(b.get("key"))
+        if not bk:
+            continue
+        for m in b.get("markets") or []:
+            if m.get("period") not in (None, "", "full_game", "ft") or m.get("team"):
+                continue
+            for o in m.get("outcomes") or []:
+                if o.get("price") is None:
+                    continue
+                k = (m["key"], o.get("name"), o.get("description") or "", o.get("point"))
+                rows.setdefault(k, {})[bk] = o["price"]
+    mk = {}
+    for (m, name, desc, point), prices in rows.items():
+        mk.setdefault(m, []).append([name, desc, point, prices])
+    def abbr(url):
+        m = re.search(r"/([a-z]+)\.png", url or "")
+        return m.group(1).upper() if m else None
+    return {"id": ev.get("id"), "sk": key, "h": ev.get("home_team"), "a": ev.get("away_team"),
+            "hk": abbr(ev.get("home_team_logo_url")), "ak": abbr(ev.get("away_team_logo_url")),
+            "t": ev.get("commence_time"), "m": mk}
+
+
 def main():
     sport = sys.argv[1]
     if not os.environ.get("PROPLINE_KEY"):
@@ -58,9 +88,8 @@ def main():
             continue
         evs = data if isinstance(data, list) else data.get("events") or data.get("data") or [data]
         for ev in evs:
-            if isinstance(ev, dict):
-                ev["sport_key"] = key
-                events.append(ev)
+            if isinstance(ev, dict) and not ev.get("live"):
+                events.append(slim(ev, key))
     out = {"fetched": datetime.now(timezone.utc).isoformat(timespec="seconds"), "events": events}
     (ROOT / sport / "odds.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
     print(f"{sport}: {len(events)} events with odds")
