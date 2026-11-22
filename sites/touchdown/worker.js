@@ -1177,11 +1177,40 @@ function betHTML(b, top){
     + '<div class="bb-num">'+gPct(b.ours)+' <span>vs book '+gPct(b.book)+'</span></div>'
     + '<div class="bb-px">'+gPrice(b.price)+' <em>'+b.bk+'</em></div></div>';
 }
-// ---------- parlay slip: collected here, combined across sports on Total HQ ----------
-const PLKEY = "hq.parlay";
-function plLoad(){ try { const v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return v.filter(l=>!l.t || l.t > Date.now() - 6*3600e3); } catch(e){ return []; } }
-function plSave(v){ try { localStorage.setItem(PLKEY, JSON.stringify(v)); } catch(e){} }
-let PL = plLoad(), PLOPEN = false;
+// ---------- parlay slip: one slip that travels with you between the HQ sites ----------
+// Each site keeps it in its own storage; every link to another HQ site carries it in the address,
+// and whichever copy was changed last wins.
+const PLKEY = "hq.parlay", HQ_HOSTS = /(^|\\.)(total|moonshot|touchdown|slapshot|slam|futbol)-hq\\.com$/;
+function plFresh(v){ return v.filter(l=>!l.t || l.t > Date.now() - 6*3600e3); }
+function plRead(){ try { const v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
+function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""); }
+function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
+let PLU = 0;
+let PL = (function(){
+  let st = plRead();
+  const m = /[#&]pl=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if(m){
+    try { const inc = plDec(m[1]); if(inc && (inc.u||0) >= (st.u||0)) st = inc; } catch(e) {}
+    try { localStorage.setItem(PLKEY, JSON.stringify(st)); } catch(e) {}
+    try { history.replaceState(null, "", location.pathname + location.search); } catch(e) {}
+  }
+  PLU = st.u || 0;
+  return plFresh(st.legs || []);
+})();
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v })); } catch(e){} plLinks(); }
+// every link to another HQ site carries the slip
+function plLinks(){
+  const tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL }) : "";
+  document.querySelectorAll("a[href]").forEach(a=>{
+    let u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
+    if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
+    u.hash = tag;
+    a.setAttribute("href", u.toString());
+  });
+}
+let PLMO = null;
+try { new MutationObserver(()=>{ clearTimeout(PLMO); PLMO = setTimeout(plLinks, 50); }).observe(document.documentElement, { childList:true, subtree:true }); } catch(e) {}
+let PLOPEN = false;
 function legOf(label, b){
   return { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
            p:b.price, b:b.bk, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
@@ -1204,15 +1233,13 @@ function plBar(){
   el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map((l,i)=>'<div class="pl-leg"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+'</span></div><div class="pl-p">'+gPrice(l.p)+' <em>'+esc(l.b)+'</em></div><button class="pl-x" data-i="'+i+'" aria-label="Remove">✕</button></div>').join("")
       + (m.sameGame ? '<p class="pl-note">Two legs share a game. Books price same-game parlays differently, so the combined odds here are a guide.</p>' : '')
       + '<p class="pl-note">Best prices can sit at different books; one book\\'s parlay may pay a little less.</p>'
-      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><button class="navbtn pl-go" id="pl-send">Add other sports on Total HQ</button></div></div>' : '')
+      + '<p class="pl-note">Your parlay follows you to every HQ site through the HQ menu and Total HQ.</p>'
+      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn pl-go" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+'</span><b>'+gPrice(m.price)+'</b><span class="pl-ch">ours '+gPct(m.ours)+' · book '+gPct(m.book)+'</span></button>';
   document.getElementById("pl-toggle").onclick = ()=>{ PLOPEN = !PLOPEN; plBar(); };
   el.querySelectorAll(".pl-x").forEach(b=> b.onclick = ()=>{ PL.splice(+b.dataset.i, 1); plSave(PL); plBar(); plSync(); });
   const c = document.getElementById("pl-clear"); if(c) c.onclick = ()=>{ PL = []; plSave(PL); PLOPEN = false; plBar(); plSync(); };
-  const g = document.getElementById("pl-send"); if(g) g.onclick = ()=>{
-    const enc = btoa(unescape(encodeURIComponent(JSON.stringify(PL)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
-    PL = []; plSave(PL); location.href = "https://total-hq.com/#parlay=" + enc;
-  };
+  plLinks();
 }
 function plSync(){ document.querySelectorAll(".pl-add").forEach(b=>{ const l = JSON.parse(decodeURIComponent(b.dataset.leg)); const on = PL.some(x=>x.i===l.i); b.classList.toggle("on", on); b.textContent = on ? "✓" : "+"; }); }
 document.addEventListener("click", e=>{

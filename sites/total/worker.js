@@ -338,23 +338,34 @@ function gameHTML(key, url, g){
     + '<div class="wn">' + esc(first) + ' <b>' + pct(wf) + '</b>' + (soc ? ' · draw <b>' + pct(w[1]) + '</b>' : '') + ' · ' + esc(second) + ' <b>' + pct(ws) + '</b></div>'
     + '<div class="pr">' + bar + '</div></a>';
 }
-// ---------- parlay: legs arrive in the link from each sport and stay here ----------
-var PLKEY = "hq.parlay";
-function plLoad(){ try { return JSON.parse(localStorage.getItem(PLKEY) || "[]").filter(function(l){ return !l.t || l.t > Date.now() - 6*3600e3; }); } catch(e){ return []; } }
-function plSave(v){ try { localStorage.setItem(PLKEY, JSON.stringify(v)); } catch(e){} }
-var PL = plLoad();
-(function(){
-  var m = /#parlay=([A-Za-z0-9_-]+)/.exec(location.hash);
-  if(!m) return;
-  try {
-    var b = m[1].replace(/-/g,"+").replace(/_/g,"/"); while(b.length % 4) b += "=";
-    JSON.parse(decodeURIComponent(escape(atob(b)))).forEach(function(l){
-      if(l && l.i && !PL.some(function(x){ return x.i === l.i; })) PL.push(l);
-    });
-    plSave(PL);
-  } catch(e) {}
-  history.replaceState(null, "", location.pathname);
+// ---------- parlay: one slip that travels between the HQ sites in their links; the newest copy wins ----------
+var PLKEY = "hq.parlay", HQ_HOSTS = /(^|\\.)(total|moonshot|touchdown|slapshot|slam|futbol)-hq\\.com$/;
+function plFresh(v){ return v.filter(function(l){ return !l.t || l.t > Date.now() - 6*3600e3; }); }
+function plRead(){ try { var v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
+function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""); }
+function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
+var PLU = 0;
+var PL = (function(){
+  var st = plRead();
+  var m = /[#&](?:pl|parlay)=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if(m){
+    try { var inc = plDec(m[1]); if(Array.isArray(inc)) inc = { u: Date.now(), legs: inc }; if(inc && (inc.u||0) >= (st.u||0)) st = inc; } catch(e) {}
+    try { localStorage.setItem(PLKEY, JSON.stringify(st)); } catch(e) {}
+    history.replaceState(null, "", location.pathname);
+  }
+  PLU = st.u || 0;
+  return plFresh(st.legs || []);
 })();
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v })); } catch(e){} plLinks(); }
+function plLinks(){
+  var tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL }) : "";
+  document.querySelectorAll("a[href]").forEach(function(a){
+    var u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
+    if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
+    u.hash = tag;
+    a.setAttribute("href", u.toString());
+  });
+}
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 function amer(d){ return d >= 2 ? "+" + Math.round((d-1)*100) : String(Math.round(-100/(d-1))); }
 function price(a){ return a > 0 ? "+" + a : String(a); }
@@ -383,6 +394,7 @@ function renderParlay(){
   document.getElementById("pl-clear").onclick = function(){ PL = []; plSave(PL); renderParlay(); };
 }
 renderParlay();
+plLinks();
 
 var SLATE = null;
 function fillGames(){
@@ -393,6 +405,7 @@ function fillGames(){
     el.innerHTML = (list.length ? list.map(function(g){ return gameHTML(b.key, b.url, g); }).join("") : '<div class="none">No games left today.</div>')
       + '<a class="all" href="' + esc(b.url) + '">Open ' + esc(b.word) + ' HQ →</a>';
   });
+  plLinks();
 }
 fetch("/slate").then(function(r){ return r.json(); }).then(function(s){ SLATE = s; fillGames(); }).catch(function(){
   SLATE = {}; fillGames();
