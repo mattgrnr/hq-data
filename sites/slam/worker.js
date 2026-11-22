@@ -1037,7 +1037,10 @@ const BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.
 function slipUrl(bk, legs){
   const ids = legs.map(l=>(l.x||{})[bk]);
   if(!ids.length || ids.some(x=>!x)) return null;
-  if(bk === "DK" || bk === "FD" || bk === "FAN") return "https://total-hq.com/betlink?bk=" + bk + "&ids=" + ids.join(",");
+  if(bk === "DK" || bk === "FD" || bk === "FAN"){
+    if(ids.length > 12 || ids.some(x=>!/^\\d{4,20}$/.test(String(x)))) return null;     // legs saved before the current ids
+    return "https://total-hq.com/betlink?bk=" + bk + "&ids=" + ids.join(",");
+  }
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
 }

@@ -67,7 +67,8 @@ const HQ_REF = /^https:\/\/([a-z0-9-]+\.)?(total|moonshot|touchdown|slapshot|sla
 async function betLink(url, request, env) {
   const bk = url.searchParams.get("bk") || "", ids = url.searchParams.get("ids") || "";
   const home = SLIP_BOOKS[bk];
-  if (!home || !/^\d{4,20}(,\d{4,20}){0,11}$/.test(ids)) return new Response("Bad request", { status: 400 });
+  if (!home) return Response.redirect("https://total-hq.com/", 302);
+  if (!/^\d{4,20}(,\d{4,20}){0,11}$/.test(ids)) return Response.redirect(home, 302);
   if (!HQ_REF.test(request.headers.get("Referer") || "")) return Response.redirect(home, 302);
   const cache = caches.default, key = new Request("https://total-hq.com/betlink?bk=" + bk + "&ids=" + ids);
   const hit = await cache.match(key);
@@ -426,7 +427,10 @@ var BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fa
 function slipUrl(bk, legs){
   var ids = legs.map(function(l){ return (l.x || {})[bk]; });
   if(!ids.length || ids.some(function(x){ return !x; })) return null;
-  if(bk === "DK" || bk === "FD" || bk === "FAN") return "/betlink?bk=" + bk + "&ids=" + ids.join(",");
+  if(bk === "DK" || bk === "FD" || bk === "FAN"){
+    if(ids.length > 12 || ids.some(function(x){ return !/^\\d{4,20}$/.test(String(x)); })) return null;
+    return "/betlink?bk=" + bk + "&ids=" + ids.join(",");
+  }
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
 }
