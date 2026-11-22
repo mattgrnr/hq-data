@@ -149,6 +149,7 @@ async function loadModel() {
     const sched = api("/api/v1/schedule?sportId=1&date=" + d).dates[0].games;
     const board = await ctx.__build(sched, d, () => {});
     if (!board.results.length) { console.log(d + ": no scored hitters"); continue; }
+    if (process.env.DUMP) fs.writeFileSync(process.env.DUMP, JSON.stringify(board));
     if (process.env.DEBUG) console.log(JSON.stringify(board.results.slice(0, 3).map(r => [r.name, r.ix, r.wx && r.wx.index])));
     const out = { key: d, stats: ["HR"], games: {}, picks: {}, scored: new Date(Math.min(...byDate[d].map(g => Date.parse(g.t))) - 3600e3).toISOString(), replay: true };
     for (const g of byDate[d]) {

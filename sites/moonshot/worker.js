@@ -182,6 +182,8 @@ body{overflow-x:hidden}
 .board-head{display:flex;justify-content:space-between;padding:0 14px 8px;font-size:9px;
 letter-spacing:.1em;text-transform:uppercase;color:var(--mut);border-bottom:1px solid var(--line)}
 details.row{border-bottom:1px solid var(--line)}
+.hrchance{margin-left:auto;text-align:right;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);line-height:1.3;white-space:nowrap}
+.hrchance b{display:block;letter-spacing:0;font-size:16px;color:var(--ink);margin-top:3px;font-variant-numeric:tabular-nums}
 summary.rowmain{display:flex;align-items:center;gap:12px;padding:12px 14px;
 list-style:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 summary.rowmain::-webkit-details-marker{display:none}
@@ -1167,6 +1169,11 @@ async function loadBvP(row){
     el.textContent=hr+" HR / "+ab+" AB · "+fmtISO(ab>0?h/ab:null);
   }catch(e){ el.textContent=T("unavail"); }
 }
+// chance he homers: league rate per PA, times PAs for his lineup spot, times the board's index (score/50)
+function hrChance(r){
+  const pas = 4.65 - 0.11*((r.spot||5) - 1);
+  return Math.round(100*(1 - Math.exp(-LG.HR_PER_PA*pas*r.score/50)))+"%";
+}
 function rowHTML(r, rank){
   const t=tierMeta(r.score);
   const tag = r.status==="confirmed" ? '<span class="tag conf">conf</span>' : '<span class="tag proj">proj</span>';
@@ -1181,6 +1188,7 @@ function rowHTML(r, rank){
         '<div class="meta">'+r.teamAbbr+' · '+T("bats")+' '+r.batSide+' · '+(r.status==="confirmed"?"":"~")+T("inOrder",{o:ord(r.spot)})+'</div>'+
         '<div class="matchup">vs '+esc(r.pitcherName)+' · '+r.pitcherHand+'HP · '+wxTag(r.wx)+'</div>'+
       '</div>'+
+      '<div class="hrchance">to homer<b>'+hrChance(r)+'</b></div>'+
       '<div class="right">'+
         '<div class="score '+t.ring+'">'+ballSVG(r.score)+'</div>'+
         '<div class="tier '+t.c+'">'+t.l+'</div>'+
