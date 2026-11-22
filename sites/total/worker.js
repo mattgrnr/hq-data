@@ -178,6 +178,24 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .lane.build .nm{color:var(--dim)}
 .lane.build .lg{color:#343941}
 
+/* the parlay slip: legs sent over from each sport */
+#parlay{margin-top:34px}
+#parlay:empty{display:none}
+.pl{border-radius:14px;padding:16px 16px 14px;background:linear-gradient(180deg,rgba(74,222,128,.07),rgba(74,222,128,.02));box-shadow:inset 0 0 0 1px rgba(74,222,128,.35)}
+.pl-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.pl-top .t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:24px;letter-spacing:.02em}
+.pl-top .px{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:30px;color:var(--open)}
+.pl-sub{font-size:12px;color:var(--mute);margin-top:2px}
+.pl-sport{margin-top:14px;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.pl-leg{display:grid;grid-template-columns:1fr auto 26px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.pl-leg span{display:block;font-size:11.5px;color:var(--dim)}
+.pl-leg .p{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.pl-leg .p em{display:block;font-style:normal;font-size:10.5px;color:var(--dim)}
+.pl-leg button{background:none;border:0;color:var(--dim);font-size:14px;cursor:pointer}
+.pl-note{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.5}
+.pl-acts{display:flex;gap:16px;margin-top:12px}
+.pl-acts button{background:none;border:0;padding:0;font:inherit;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--mute);cursor:pointer}
+
 /* a sport opens into today's games */
 .lane .st .chev{display:inline-block;transition:transform .28s cubic-bezier(.4,0,.2,1);font-size:12px}
 .lane.open .st .chev{transform:rotate(90deg)}
@@ -247,6 +265,8 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
     <h1>TOTAL<span class="badge">HQ</span></h1>
     <p class="thesis">One board per sport. Every player on the slate, scored <b>0 to 100</b>.</p>
   </header>
+
+  <div id="parlay"></div>
 
   <div class="boardhead"><span class="hl">League</span><span class="hb">Board</span><span class="hs">Status</span></div>
   <div id="board"></div>
@@ -318,6 +338,52 @@ function gameHTML(key, url, g){
     + '<div class="wn">' + esc(first) + ' <b>' + pct(wf) + '</b>' + (soc ? ' · draw <b>' + pct(w[1]) + '</b>' : '') + ' · ' + esc(second) + ' <b>' + pct(ws) + '</b></div>'
     + '<div class="pr">' + bar + '</div></a>';
 }
+// ---------- parlay: legs arrive in the link from each sport and stay here ----------
+var PLKEY = "hq.parlay";
+function plLoad(){ try { return JSON.parse(localStorage.getItem(PLKEY) || "[]").filter(function(l){ return !l.t || l.t > Date.now() - 6*3600e3; }); } catch(e){ return []; } }
+function plSave(v){ try { localStorage.setItem(PLKEY, JSON.stringify(v)); } catch(e){} }
+var PL = plLoad();
+(function(){
+  var m = /#parlay=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if(!m) return;
+  try {
+    var b = m[1].replace(/-/g,"+").replace(/_/g,"/"); while(b.length % 4) b += "=";
+    JSON.parse(decodeURIComponent(escape(atob(b)))).forEach(function(l){
+      if(l && l.i && !PL.some(function(x){ return x.i === l.i; })) PL.push(l);
+    });
+    plSave(PL);
+  } catch(e) {}
+  history.replaceState(null, "", location.pathname);
+})();
+function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
+function amer(d){ return d >= 2 ? "+" + Math.round((d-1)*100) : String(Math.round(-100/(d-1))); }
+function price(a){ return a > 0 ? "+" + a : String(a); }
+function renderParlay(){
+  var el = document.getElementById("parlay");
+  if(!PL.length){ el.innerHTML = ""; return; }
+  var d = 1, ours = 1, book = 1, games = {}, same = false;
+  PL.forEach(function(l){ d *= dec(l.p); ours *= l.o; book *= l.k; if(games[l.g]) same = true; games[l.g] = 1; });
+  var sports = [];
+  PL.forEach(function(l){ if(sports.indexOf(l.s) < 0) sports.push(l.s); });
+  var h = '<div class="pl"><div class="pl-top"><div><div class="t">Your parlay</div><div class="pl-sub">' + PL.length + ' leg' + (PL.length > 1 ? "s" : "")
+    + ' · ours ' + pct(ours) + ' · book ' + pct(book) + '</div></div><div class="px">' + amer(d) + '</div></div>';
+  sports.forEach(function(sp){
+    h += '<div class="pl-sport">' + esc(sp) + ' HQ</div>';
+    PL.forEach(function(l, i){
+      if(l.s !== sp) return;
+      h += '<div class="pl-leg"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + ' · ours ' + pct(l.o) + ' vs book ' + pct(l.k) + '</span></div>'
+        + '<div class="p">' + price(l.p) + '<em>' + esc(l.b) + '</em></div><button data-i="' + i + '" aria-label="Remove">✕</button></div>';
+    });
+  });
+  h += (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays differently, so treat the combined odds as a guide.</p>' : '')
+    + '<p class="pl-note">Prices are the best we found for each leg, which can be at different books. Add more legs from any sport’s board with +, then send them here.</p>'
+    + '<div class="pl-acts"><button id="pl-clear">Clear parlay</button></div></div>';
+  el.innerHTML = h;
+  el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ PL.splice(+b.dataset.i, 1); plSave(PL); renderParlay(); }; });
+  document.getElementById("pl-clear").onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+}
+renderParlay();
+
 var SLATE = null;
 function fillGames(){
   BOARDS.forEach(function(b){

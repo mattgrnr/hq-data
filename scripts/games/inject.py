@@ -14,16 +14,20 @@ DASH_JS, DASH_CSS = "/* ===== results dashboard:", "/* ===== results dashboard +
 
 ROWS_OF = {"slapshot": "sortedRows()", "slam": "sorted()", "touchdown": "tabRows()", "futbol": "sortedRows()"}
 BOOKOF = {
-    "slapshot": 'function bookOf(r){ return { name:r.p.name, stat:F.stat, lam:{ G:r.projG, A:r.projA, P:r.projP, S:r.projS }[F.stat] }; }\n',
-    "slam": 'function bookOf(r){ return { name:r.p.name, stat:F.stat, lam:r.proj[KEY[F.stat]] }; }\n',
-    "touchdown": 'function bookOf(r){ const x = r.tab && r.tab[F.stat]; return { name:r.p.name, stat:F.stat, lam:F.stat==="TD" ? r.projTD : x && x.proj }; }\n',
-    "futbol": 'function bookOf(r){ const p = r.p; return { name:p.n, stat:F.stat, lam:{ G:p.pg, A:p.pa, GA:p.pg+p.pa, T:p.psot, S:p.psh }[F.stat] }; }\n',
+    "slapshot": 'function bookOf(r, st){ st = st || F.stat; return { name:r.p.name, stat:st, lam:{ G:r.projG, A:r.projA, P:r.projP, S:r.projS }[st] }; }\n'
+                'const BSTATS = ["G","A","P","S"]; function hurt(r){ return false; }\n',
+    "slam": 'function bookOf(r, st){ st = st || F.stat; return { name:r.p.name, stat:st, lam:r.proj[KEY[st]] }; }\n'
+            'const BSTATS = STATS; function hurt(r){ return !!injOf(r.p); }\n',
+    "touchdown": 'function bookOf(r, st){ st = st || F.stat; const x = r.tab && r.tab[st]; return { name:r.p.name, stat:st, lam:st==="TD" ? r.projTD : x && x.proj }; }\n'
+                 'const BSTATS = ["TD","CYD","RYD","REC","PYD","PTD"]; function hurt(r){ return !!r.p.st; }\n',
+    "futbol": 'function bookOf(r, st){ st = st || F.stat; const p = r.p; return { name:p.n, stat:st, lam:{ G:p.pg, A:p.pa, GA:p.pg+p.pa, T:p.psot, S:p.psh }[st] }; }\n'
+              'const BSTATS = ["G","A","GA"]; function hurt(r){ return r.p.st === "bench"; }\n',
 }
 GLUE = {
-    "slapshot": 'const GKIND = "hockey";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, proj:g.proj })); }\n',
-    "slam": 'const GKIND = "points";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, proj:g.proj })); }\n',
-    "touchdown": 'const GKIND = "points";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, proj:g.proj })); }\n',
-    "futbol": 'const GKIND = "soccer";\nfunction gList(){ return dayGames().filter(g=>F.lg==="all" || String(g.lid)===F.lg).map(g=>({ id:String(g.id), home:g.h, away:g.a, lg:g.league,\n  when:new Date(g.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }), proj:g.proj })); }\n',
+    "slapshot": 'const GKIND = "hockey", PSITE = "Slapshot";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.start }; }\n',
+    "slam": 'const GKIND = "points", PSITE = "Slam";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.start }; }\n',
+    "touchdown": 'const GKIND = "points", PSITE = "Touchdown";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.ko ? g.ko*1000 : null, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.ko ? r.gm.ko*1000 : null }; }\n',
+    "futbol": 'const GKIND = "soccer", PSITE = "Futbol";\nfunction gList(){ return dayGames().filter(g=>F.lg==="all" || String(g.lid)===F.lg).map(g=>({ id:String(g.id), home:g.h, away:g.a, lg:g.league,\n  when:new Date(g.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }), t:Date.parse(g.t), proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.h+" v "+r.gm.a, t:Date.parse(r.gm.t) }; }\n',
 }
 
 

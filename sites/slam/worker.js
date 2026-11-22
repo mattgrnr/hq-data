@@ -355,6 +355,36 @@ body{background:
 #app .bk{margin-top:4px;font-size:11.5px;color:var(--faint);line-height:1.35;font-variant-numeric:tabular-nums}
 #app .bk b{color:var(--ink);font-weight:600}
 #app .bk em{font-style:normal;font-size:10.5px}
+#app .bb{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
+#app .bb.top{border-color:rgba(74,222,128,.45);background:rgba(74,222,128,.06)}
+#app .bb-what{font-size:14px;color:var(--ink)}
+#app .bb-what b{font-weight:700}
+#app .bb-px{grid-row:1 / 3;grid-column:2;align-self:center;text-align:right;font-weight:700;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
+#app .bb-px em{display:block;font-style:normal;font-weight:400;font-size:10.5px;color:var(--faint)}
+#app .bb-num{font-size:12px;color:#4ade80;font-variant-numeric:tabular-nums}
+#app .bb-num span{color:var(--faint)}
+#app .bb{position:relative;padding-left:42px}
+#app .bk{position:relative;padding-left:30px;min-height:24px}
+#app .bk .pl-add{position:absolute;left:0;top:-2px}
+#app .bb .pl-add{position:absolute;left:9px;top:50%;transform:translateY(-50%)}
+.pl-add{width:24px;height:24px;border-radius:7px;border:1px solid rgba(255,255,255,.22);background:transparent;color:var(--ink);font-size:15px;line-height:1;cursor:pointer;padding:0}
+.pl-add.on{background:#4ade80;border-color:#4ade80;color:#0c1a10;font-weight:700}
+#plbar{position:fixed;left:0;right:0;bottom:0;z-index:60;display:none;padding:0 12px calc(10px + env(safe-area-inset-bottom))}
+#plbar.on{display:block}
+#plbar .pl-head{width:100%;max-width:640px;margin:0 auto;display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;padding:11px 14px;border-radius:14px;border:1px solid rgba(74,222,128,.5);background:#0f1a14;color:var(--ink);font:inherit;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#plbar .pl-head span{font-size:13px;font-weight:600}
+#plbar .pl-head b{grid-row:1 / 3;grid-column:2;align-self:center;font-size:19px;font-variant-numeric:tabular-nums}
+#plbar .pl-head .pl-ch{font-size:11.5px;font-weight:400;color:var(--faint)}
+#plbar .pl-legs{max-width:640px;margin:0 auto 8px;max-height:55vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 12px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#plbar .pl-leg{display:grid;grid-template-columns:1fr auto 28px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink)}
+#plbar .pl-leg span{display:block;font-size:11.5px;color:var(--faint)}
+#plbar .pl-p{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+#plbar .pl-p em{display:block;font-style:normal;font-weight:400;font-size:10.5px;color:var(--faint)}
+#plbar .pl-x{background:none;border:0;color:var(--faint);font-size:14px;cursor:pointer}
+#plbar .pl-note{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.4}
+#plbar .pl-acts{display:flex;gap:8px;margin-top:10px}
+#plbar .pl-acts .navbtn{flex:1}
+body{padding-bottom:84px}
 /* ===== end games view ===== */
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
@@ -834,8 +864,10 @@ function gCard(g){
     + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+esc(g.when||"")+'</div></div>'
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
     + gWinBar(g)
-    + '<div class="gc-proj">Projected <b>'+esc(g.home)+' '+score+' '+esc(g.away)+'</b>'
-    + ((p.value||[]).length ? '<span class="g-val">'+p.value.length+' edge'+(p.value.length>1?"s":"")+'</span>' : '')+'</div>';
+    + '<div class="gc-proj">Projected <b>'+esc(g.home)+' '+score+' '+esc(g.away)+'</b></div>';
+  const bets = bestBets(g);
+  if(bets.length && !open) h += '<div class="gc-sub">Best bet</div>' + betHTML(bets[0], true);
+  if(bets.length && open) h += '<div class="gc-sub">Best bets in this game</div>' + bets.map((b,i)=>betHTML(b, i===0)).join("");
   if(open){
     h += '<div class="gc-mk">'+gMarkets(g).join("")
       + (p.book && !p.book.src ? '<p class="gm-note">Book = the sportsbooks\\' fair chance with their margin removed. Best price = the best odds across DraftKings, FanDuel, BetMGM, Caesars and others. A green tag means we rate that side higher than the books do.</p>' : '')
@@ -853,7 +885,7 @@ function gamesHTML(){
   const list = gList().filter(g=>g.proj);
   if(GQ){ const hit = list.find(g=>g.home===GQ || String(g.id)===GQ); if(hit){ GOPEN[hit.id] = true; GJUMP = hit.id; } GQ = null; }
   if(!list.length) return '<div class="status"><h2>No game projections yet</h2><p>They appear once today\\'s teams have played enough to rate.</p></div>';
-  return '<p class="g-intro">Every game, projected by the same model as the board. Tap a game for its markets and the best player picks in it.</p>'
+  return '<p class="g-intro">Every game, projected by the same model as the board. Each game shows its best bet: where our chance beats the sportsbooks\\' by the most at the best price out there. Tap a game for its top three, every market and the top player picks.</p>'
     + list.map(gCard).join("");
 }
 
@@ -883,24 +915,117 @@ function atLeast(stat, lam, k){
   for(let i=0; i<k; i++){ p += t; t *= lam/(i+1); }
   return Math.max(0, 1-p);
 }
-function bookHTML(r){
+function bookPick(o){
   const b = typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD.props : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO.props : null);
-  if(!b) return "";
-  const o = bookOf(r); if(!o) return "";
-  const rows = (b[pName(o.name)]||{})[o.stat]; if(!rows || !rows.length) return "";
+  if(!b || !o) return null;
+  const rows = (b[pName(o.name)]||{})[o.stat]; if(!rows || !rows.length) return null;
   let x;
   if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
-  if(!x) return "";
-  const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return "";
-  const lbl = PONE[o.stat] ? "" : '<b>'+(x[5] ? "o"+(x[0]-0.5) : x[0]+"+")+'</b> ';
-  const edge = ours - x[1];
-  return '<div class="bk">Book '+lbl+gPct(x[1])+' · ours '+gPct(ours)+' · '+gPrice(x[2])+' <em>'+x[3]+'</em>'
+  if(!x) return null;
+  const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
+  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], ours };
+}
+function bookHTML(r){
+  const o = bookOf(r), x = bookPick(o); if(!x) return "";
+  const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
+  const edge = x.ours - x.book;
+  const line = PONE[o.stat] ? (o.stat==="3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
+  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, game:gInfo(r) });
+  return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
     + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
 }
-const GKIND = "points";
-function gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, proj:g.proj })); }
-function bookOf(r){ return { name:r.p.name, stat:F.stat, lam:r.proj[KEY[F.stat]] }; }
+
+// ---------- best bets: every priced bet in a game on one scale ----------
+const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
+  "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
+  PTD:"pass TDs", S:"shots on goal" };
+function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
+// our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
+function betOf(name, label, ours, book, price, bk, kind, game){
+  const adj = book + 0.5*(ours - book);
+  return { name, label, ours, book, adj, price, bk, kind, game, ev: adj*dec(price) - 1 };
+}
+function bestBets(g){
+  const out = [], seen = {};
+  for(const r of gRows(g.id)){
+    if(hurt(r)) continue;
+    for(const st of BSTATS){
+      const o = bookOf(r, st), x = bookPick(o); if(!x || x.n < 2) continue;      // priced by at least two books
+      // a volume line far from our projection usually means the books know about a role change we don't
+      if(!PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
+      const line = PONE[st] ? (st==="3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
+      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r)));
+    }
+  }
+  for(const v of (g.proj.value||[])){
+    const what = v.mk === "Moneyline" || v.mk === "Result" ? [v.side, v.side === "Draw" ? "" : "to win"]
+      : v.mk === "Total" ? [v.side, GKIND === "soccer" ? "goals" : GKIND === "hockey" ? "goals" : "points"]
+      : v.mk === "Both score" ? ["Both teams to score:", v.side] : [v.side, ""];
+    out.push(betOf(what[0], what[1], v.ours, v.book, v.price, v.bk, "game",
+      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }));
+  }
+  return out.filter(b=>b.adj >= 0.2 && b.ours > b.book && b.ev > 0)
+    .sort((a,c)=>c.ev - a.ev)
+    .filter(b=>{ if(b.kind==="prop"){ if(seen[b.name]) return false; seen[b.name] = 1; } return true; })
+    .slice(0, 3);
+}
+function betHTML(b, top){
+  return '<div class="bb'+(top?" top":"")+'">'+plBtn(legOf(b.name+" "+b.label, b))+'<div class="bb-what"><b>'+esc(b.name)+'</b> '+esc(b.label)+'</div>'
+    + '<div class="bb-num">'+gPct(b.ours)+' <span>vs book '+gPct(b.book)+'</span></div>'
+    + '<div class="bb-px">'+gPrice(b.price)+' <em>'+b.bk+'</em></div></div>';
+}
+// ---------- parlay slip: collected here, combined across sports on Total HQ ----------
+const PLKEY = "hq.parlay";
+function plLoad(){ try { const v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return v.filter(l=>!l.t || l.t > Date.now() - 6*3600e3); } catch(e){ return []; } }
+function plSave(v){ try { localStorage.setItem(PLKEY, JSON.stringify(v)); } catch(e){} }
+let PL = plLoad(), PLOPEN = false;
+function legOf(label, b){
+  return { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
+           p:b.price, b:b.bk, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
+}
+function plBtn(leg){
+  const on = PL.some(l=>l.i===leg.i);
+  return '<button class="pl-add'+(on?" on":"")+'" data-leg="'+encodeURIComponent(JSON.stringify(leg))+'" aria-label="Add to parlay">'+(on?"✓":"+")+'</button>';
+}
+function plMath(legs){
+  const d = legs.reduce((a,l)=>a*dec(l.p), 1), ours = legs.reduce((a,l)=>a*l.o, 1), book = legs.reduce((a,l)=>a*l.k, 1);
+  const am = d >= 2 ? Math.round((d-1)*100) : Math.round(-100/(d-1));
+  return { price: am, ours, book, sameGame: new Set(legs.map(l=>l.g)).size < legs.length };
+}
+function plBar(){
+  let el = document.getElementById("plbar");
+  if(!el){ el = document.createElement("div"); el.id = "plbar"; document.body.appendChild(el); }
+  if(!PL.length){ el.innerHTML = ""; el.className = ""; return; }
+  const m = plMath(PL);
+  el.className = "on"+(PLOPEN?" open":"");
+  el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map((l,i)=>'<div class="pl-leg"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+'</span></div><div class="pl-p">'+gPrice(l.p)+' <em>'+esc(l.b)+'</em></div><button class="pl-x" data-i="'+i+'" aria-label="Remove">✕</button></div>').join("")
+      + (m.sameGame ? '<p class="pl-note">Two legs share a game. Books price same-game parlays differently, so the combined odds here are a guide.</p>' : '')
+      + '<p class="pl-note">Best prices can sit at different books; one book\\'s parlay may pay a little less.</p>'
+      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><button class="navbtn pl-go" id="pl-send">Add other sports on Total HQ</button></div></div>' : '')
+    + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+'</span><b>'+gPrice(m.price)+'</b><span class="pl-ch">ours '+gPct(m.ours)+' · book '+gPct(m.book)+'</span></button>';
+  document.getElementById("pl-toggle").onclick = ()=>{ PLOPEN = !PLOPEN; plBar(); };
+  el.querySelectorAll(".pl-x").forEach(b=> b.onclick = ()=>{ PL.splice(+b.dataset.i, 1); plSave(PL); plBar(); plSync(); });
+  const c = document.getElementById("pl-clear"); if(c) c.onclick = ()=>{ PL = []; plSave(PL); PLOPEN = false; plBar(); plSync(); };
+  const g = document.getElementById("pl-send"); if(g) g.onclick = ()=>{
+    const enc = btoa(unescape(encodeURIComponent(JSON.stringify(PL)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+    PL = []; plSave(PL); location.href = "https://total-hq.com/#parlay=" + enc;
+  };
+}
+function plSync(){ document.querySelectorAll(".pl-add").forEach(b=>{ const l = JSON.parse(decodeURIComponent(b.dataset.leg)); const on = PL.some(x=>x.i===l.i); b.classList.toggle("on", on); b.textContent = on ? "✓" : "+"; }); }
+document.addEventListener("click", e=>{
+  const b = e.target.closest && e.target.closest(".pl-add"); if(!b) return;
+  e.stopPropagation(); e.preventDefault();
+  const l = JSON.parse(decodeURIComponent(b.dataset.leg)), at = PL.findIndex(x=>x.i===l.i);
+  if(at >= 0) PL.splice(at, 1); else PL.push(l);
+  plSave(PL); plSync(); plBar();
+}, true);
+setTimeout(plBar, 0);
+const GKIND = "points", PSITE = "Slam";
+function gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, proj:g.proj })); }
+function gInfo(r){ return { n:r.gm.short, t:r.gm.start }; }
+function bookOf(r, st){ st = st || F.stat; return { name:r.p.name, stat:st, lam:r.proj[KEY[st]] }; }
+const BSTATS = STATS; function hurt(r){ return !!injOf(r.p); }
 function gRows(id){ return sorted().filter(r=>String(r.gm.id)===String(id)); }
 /* ===== end games view ===== */
 /* ===== results dashboard: shared by every HQ site; RSTATS and FAVKEY are set per site ===== */
