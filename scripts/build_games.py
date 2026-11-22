@@ -352,6 +352,79 @@ def attach_odds(sport, bd, lam=None):
     return n
 
 
+# ---------- player props ----------
+
+PROP_STAT = {
+    "nhl": {"player_goals": "G", "player_points_1plus": "P", "player_shots_on_goal": "S"},
+    "nba": {"player_points": "PTS", "player_rebounds": "REB", "player_assists": "AST", "player_points_rebounds_assists": "PRA",
+            "player_threes": "3PM", "player_blocks": "BLK", "player_steals": "STL"},
+    "nfl": {"player_anytime_td": "TD", "player_pass_tds": "PTD", "player_pass_yds": "PYD", "player_reception_yds": "CYD",
+            "player_rush_yds": "RYD", "player_receptions": "REC"},
+    "soccer": {"anytime_goal_scorer": "G", "player_assists": "A", "goal_or_assist": "GA"},
+}
+ONE_SIDED_VIG = 1.07     # a yes-only price carries the book's margin with nothing to net it against
+
+
+def pname(n):
+    n = norm(n)
+    return " ".join(w for w in n.split() if w not in ("jr", "sr", "ii", "iii", "iv"))
+
+
+def attach_props(sport, bd):
+    """Book prices for player props, as 'at least k' lines: props[name][stat] = [[k, fair, price, book, books, two_sided]]."""
+    import re
+    import statistics
+    f = ROOT / sport / "odds.json"
+    if not f.exists():
+        return 0
+    out = {}
+    for ev in json.loads(f.read_text()).get("events", []):
+        for mk, stat in PROP_STAT[sport].items():
+            pairs = {}
+            for name, desc, point, prices in ev["m"].get(mk, []):
+                who = desc or name
+                if name in ("Over", "Under") and point is not None:
+                    pairs.setdefault((pname(who), point), {})[name] = prices
+                    continue
+                m = re.match(r"(\d+)\+", name or "")
+                k = int(m.group(1)) if m else 1
+                if name == "No":
+                    continue
+                imp = statistics.median(implied(v) for v in prices.values()) / ONE_SIDED_VIG
+                best = max(prices.items(), key=lambda kv: kv[1])
+                out.setdefault(pname(who), {}).setdefault(stat, []).append([k, round(min(imp, 0.99), 3), best[1], best[0], len(prices), 0])
+            for (who, point), sides in pairs.items():
+                if "Over" not in sides or "Under" not in sides:
+                    continue
+                fair = []
+                for bk in set(sides["Over"]) & set(sides["Under"]):
+                    x, y = implied(sides["Over"][bk]), implied(sides["Under"][bk])
+                    fair.append(x / (x + y))
+                if not fair:
+                    continue
+                best = max(sides["Over"].items(), key=lambda kv: kv[1])
+                out.setdefault(who, {}).setdefault(stat, []).append(
+                    [math.floor(point) + 1, round(statistics.median(fair), 3), best[1], best[0], len(fair), 1])
+    # only our board's players; per stat the books' main over/under line plus the yes-only rungs we show chances for
+    ours = {pname(p.get("name") or p.get("n") or "") for p in bd.get("players", [])}
+    keep = {}
+    for who, st in out.items():
+        if who not in ours:
+            continue
+        for stat, rows in st.items():
+            two = [x for x in rows if x[5]]
+            main = max(two, key=lambda x: x[4]) if two else None
+            if stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "REC"):
+                # volume props read against the main line; yardage ladders only when there is no main line
+                one = [] if main else sorted(sorted((x for x in rows if not x[5]), key=lambda x: -x[4])[:5])
+            else:
+                one = sorted({x[0]: x for x in rows if not x[5] and x[0] <= 3}.values())
+            keep.setdefault(who, {})[stat] = ([main] if main else []) + one
+    bd["props"] = keep
+    return len(keep)
+    return len(out)
+
+
 def cover_at(sport, p, line, lam):
     """Our chance the home side covers `line` (home perspective, -1.5 = home gives 1.5)."""
     if sport == "nhl":
@@ -379,7 +452,7 @@ def main():
         return
     {"nhl": nhl, "nba": nba, "nfl": nfl, "soccer": soccer}[sport](bd)
     n = sum(1 for g in bd["games"] if g.get("proj"))
-    print(f"{sport}: book lines on {attach_odds(sport, bd)} games")
+    print(f"{sport}: book lines on {attach_odds(sport, bd)} games, props for {attach_props(sport, bd)} players")
     path.write_text(json.dumps(bd, separators=(",", ":"), ensure_ascii=False))
     print(f"{sport}: {n} of {len(bd['games'])} games projected")
 
