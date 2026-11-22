@@ -913,6 +913,10 @@ function slipUrl(bk, legs){
     if(ids.length > 12 || ids.some(x=>!/^\\d{4,20}$/.test(String(x)))) return null;     // legs saved before the current ids
     return "https://total-hq.com/betlink?bk=" + bk + "&ids=" + ids.join(",");
   }
+  if(bk === "HR"){       // Hard Rock's own share-link format, from its bet ids
+    if(ids.some(x=>!/^\\d{6,25}$/.test(String(x)))) return null;
+    return "https://share.hardrock.bet/Pt0T/bet?deep_link_value=hardrock://betslip/" + ids.join(",");
+  }
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
 }
@@ -958,7 +962,7 @@ function plBar(){
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-copy">Copy legs</button></div>'
       + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
-        + 'FanDuel, DraftKings, Fanatics and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
+        + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
     + '<b>'+(full ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
