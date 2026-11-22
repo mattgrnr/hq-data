@@ -3,7 +3,7 @@
 
 A pick is Over when the player's actual number for that tab's stat reached our projection, Under otherwise.
 
-usage: grade.py <nhl|nba|nfl|soccer>              grade finished slates that are not graded yet
+usage: grade.py <nhl|nba|nfl|soccer|mlb>              grade finished slates that are not graded yet
        grade.py <sport> --backfill               first rebuild picks from the board's git history
 """
 import csv
@@ -128,11 +128,22 @@ def soccer_actuals(slate, cache={}):
     return {k: cache["rows"][k] for k in slate["games"] if k in cache["rows"]}
 
 
+def mlb_actuals(slate, cache={}):
+    if "hr" not in cache:
+        idx = defaultdict(lambda: defaultdict(lambda: {"HR": 0.0}))
+        with gzip.open(ROOT / "mlb" / "raw" / "pa.csv.gz", "rt", newline="") as fh:
+            for r in csv.DictReader(fh):
+                idx[r["pk"]][int(r["b"])]["HR"] += r["hit"] == "4"
+        cache["hr"] = idx
+    return {k: cache["hr"][k] for k in slate["games"] if k in cache["hr"]}
+
+
 SPORT = {
     "nhl": {"site": "slapshot", "actuals": nhl_actuals},
     "nba": {"site": "slam", "actuals": nba_actuals},
     "nfl": {"site": "touchdown", "actuals": nfl_actuals},
     "soccer": {"site": "futbol", "actuals": soccer_actuals},
+    "mlb": {"site": "moonshot", "actuals": mlb_actuals},
 }
 
 

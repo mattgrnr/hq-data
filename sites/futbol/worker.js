@@ -675,12 +675,13 @@ function trendSVG(days){
     g += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" class="grid"/><text x="'+(L-6)+'" y="'+(y+3.5)+'" class="ax" text-anchor="end">'+Math.round(v*100)+'%</text>';
   }
   let bars = '', pts = [];
+  const mixed = list.some(d=>d.replay) && list.some(d=>!d.replay);   // hatch replays only when they sit beside live days
   list.forEach((d,i)=>{
     const gp = groupOf(d), r = gp[1]/gp[0], e = gp[2]/gp[0];
     const x = L + i*bw + gap/2, h = Math.max(2, ih*r), y = T + ih - h;
     const on = HD === d.date;
     bars += '<g class="tbar" data-day="'+d.date+'"><rect x="'+(L+i*bw)+'" y="'+T+'" width="'+bw+'" height="'+ih+'" fill="transparent"/>'
-      + '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-gap).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="2" fill="'+(d.replay ? "url(#rp-hatch)" : groupColor())+'" opacity="'+(HD && !on ? .45 : 1)+'"><title>'+fmtDay(d.date)+(d.replay ? " (replay)" : "")+': '+gp[1]+' of '+gp[0]+' over</title></rect></g>';
+      + '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-gap).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="2" fill="'+(d.replay && mixed ? "url(#rp-hatch)" : groupColor())+'" opacity="'+(HD && !on ? .45 : 1)+'"><title>'+fmtDay(d.date)+(d.replay ? " (replay)" : "")+': '+gp[1]+' of '+gp[0]+' over</title></rect></g>';
     pts.push((L + i*bw + bw/2).toFixed(1)+","+(T + ih*(1-e)).toFixed(1));
   });
   const lab = d=> HIST.weekly ? "Wk "+(+d.split("-w")[1]) : new Date(d+"T12:00:00").toLocaleDateString([], {month:"short", day:"numeric"});
@@ -689,7 +690,7 @@ function trendSVG(days){
   return '<svg viewBox="0 0 '+W+' '+H+'" class="chart" role="img" aria-label="Over rate by '+(HIST.weekly?"week":"night")+'">'
     + '<defs><pattern id="rp-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="'+groupColor()+'" opacity=".35"/><rect width="2.5" height="5" fill="'+groupColor()+'"/></pattern></defs>'+g+bars
     + (pts.length > 1 ? '<polyline points="'+pts.join(" ")+'" class="expline"/>' : '')+ticks+'</svg>'
-    + '<div class="legend-row"><span><i style="background:'+groupColor()+'"></i>Over rate</span><span><i class="dash"></i>Model expected</span>'+(list.some(d=>d.replay) ? '<span><i class="rp-key"></i>Replay</span>' : '')+'<span class="tip">Tap a bar to open it</span></div>';
+    + '<div class="legend-row"><span><i style="background:'+groupColor()+'"></i>Over rate</span><span><i class="dash"></i>Model expected</span>'+(mixed ? '<span><i class="rp-key"></i>Replay</span>' : '')+'<span class="tip">Tap a bar to open it</span></div>';
 }
 
 function tiersHTML(days){
@@ -785,7 +786,7 @@ function resultsHTML(){
   if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
   if(HIST.error) return tabs + '<div class="status"><h2>No results yet</h2><p>The first graded '+(HIST.weekly?"week":"night")+' shows up here the morning after.</p></div>';
   const days = rangeDays();
-  let h = '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. '+rangeText(days)+(days.some(d=>d.replay) ? ' Days marked <span class="rp-tag">replay</span> were rebuilt afterward using only what was known the day before.' : '')+'</p>';
+  let h = '<p class="tr-intro">Every pick is graded after the game. '+(rstat()==="HR" ? '<b>Over</b> means he homered, <b>Under</b> means he didn\\'t. ' : '<b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. ')+rangeText(days)+(days.some(d=>d.replay) ? ' Days marked <span class="rp-tag">replay</span> were rebuilt afterward using only what was known the day before.' : '')+'</p>';
   h += tabs;
   h += '<div class="dash-filters">'
     + '<div class="ctrl"><label>Range</label><select id="d-range">'+rangeOptions().map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'
