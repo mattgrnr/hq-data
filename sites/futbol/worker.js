@@ -580,7 +580,7 @@ function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
 function tierOf(s){ return s>=80?"ELITE":s>=68?"STRONG":s>=56?"SOLID":s>=44?"FRINGE":"LONGSHOT"; }
 function pct(p){ return Math.round(100*p)+"%"; }
 function kickoff(t){
-  return new Date(t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
+  return new Date(t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit", timeZoneName:"short" });
 }
 
 // Goals and assists are scored on the chance of at least one; shots on the projected count.

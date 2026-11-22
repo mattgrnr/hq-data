@@ -704,6 +704,9 @@ function project(p, game){
 
 function tierOf(s){ return s>=80?"ELITE":s>=68?"STRONG":s>=56?"SOLID":s>=44?"FRINGE":"LONGSHOT"; }
 
+function localTime(ms){   // the viewer's own time zone, e.g. "6:00 PM CST"
+  try { return new Date(ms).toLocaleTimeString([], { hour:"numeric", minute:"2-digit", timeZoneName:"short" }); } catch(e){ return ""; }
+}
 function parseSlate(bd){
   return (bd.games||[]).map(function(g,ix){ return {
     proj: g.proj,
@@ -711,7 +714,7 @@ function parseSlate(bd){
     short: g.away + " @ " + g.home,
     home: g.home, away: g.away,
     start: Date.parse(g.start.replace("Z", ":00Z")) || null,
-    detail: g.final ? "Final" : (g.gametime ? g.gametime + " ET" : ""),
+    detail: g.final ? "Final" : (Date.parse(g.start.replace("Z", ":00Z")) ? localTime(Date.parse(g.start.replace("Z", ":00Z"))) : (g.gametime ? g.gametime + " ET" : "")),
     final: !!g.final,
     opp: function(p){ return p.team === this.home ? this.away : this.home; }
   };});

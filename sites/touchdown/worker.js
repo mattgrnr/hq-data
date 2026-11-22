@@ -652,6 +652,13 @@ function sportsMenuHTML(){
     + '</div></div>';
 }
 
+function localDay(ms){   // kickoff in the viewer's own time zone, e.g. "Sun 11/23 · 12:00 PM CST"
+  try {
+    const d = new Date(ms);
+    return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()] + " " + (d.getMonth()+1) + "/" + d.getDate()
+      + " \\u00b7 " + d.toLocaleTimeString([], { hour:"numeric", minute:"2-digit", timeZoneName:"short" });
+  } catch(e){ return ""; }
+}
 function dayLabel(iso, time){
   try{
     const d = new Date(iso + "T12:00:00");
@@ -923,7 +930,7 @@ function parseSlate(sl){
     id: "g"+ix,
     short: g.away + " @ " + g.home,
     home: g.home, away: g.away,
-    detail: g.final ? (g.statsIn ? "Final" : "Final \\u00b7 updating") : dayLabel(g.gameday, g.gametime),
+    detail: g.final ? (g.statsIn ? "Final" : "Final \\u00b7 updating") : (g.ko ? localDay(g.ko*1000) : dayLabel(g.gameday, g.gametime)),
     final: !!g.final,
     statsIn: !!g.statsIn,
     ko: g.ko || null,
