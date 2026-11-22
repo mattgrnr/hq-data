@@ -231,6 +231,9 @@ def label_of(key):
     return "Week " + str(int(key.split("-w")[1])) if "-w" in key else key
 
 
+BIG_FIVE = {"Premier League", "LaLiga", "Serie A", "Bundesliga", "Ligue 1"}
+
+
 def home_teams(days):
     """The team each player suits up for most, so a national-team week doesn't relabel him."""
     seen = defaultdict(Counter)
@@ -244,6 +247,14 @@ def summarize(sport):
     """Over rates by stat and tier over several windows, per-slate splits, and the most-backed players."""
     hdir = ROOT / sport / "history"
     days = [json.loads(f.read_text()) for f in sorted((hdir / "graded").glob("*.json"))]
+    if sport == "soccer":
+        # Futbol covers the big five leagues only; older picks from other competitions stay on file but out of the results
+        for d in days:
+            pf = hdir / "picks" / f"{d['key']}.json"
+            games = json.loads(pf.read_text())["games"] if pf.exists() else {}
+            keep = {k for k, g in games.items() if g.get("league") in BIG_FIVE}
+            d["rows"] = [r for r in d["rows"] if r["g"] in keep]
+            d["games"] = len({r["g"] for r in d["rows"]})
     days = [d for d in days if d["rows"]]
     if not days:
         return
