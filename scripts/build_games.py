@@ -311,6 +311,7 @@ def attach_odds(sport, bd, lam=None):
             bt = two_way(m.get("both_teams_to_score", []), lambda r: r[0] == "Yes", lambda r: r[0] == "No")
             if bt:
                 book["btts"] = round(bt[0], 3)
+                book["bttsp"] = [[bt[1][1], bt[1][0]], [bt[2][1], bt[2][0]]]
                 add_value("Both score", "Yes", p["btts"], bt[0], bt[1])
                 add_value("Both score", "No", 1 - p["btts"], 1 - bt[0], bt[2])
         else:
