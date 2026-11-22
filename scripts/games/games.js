@@ -99,4 +99,36 @@ function wireGames(){
   if(typeof wireStars === "function") wireStars();
   if(GJUMP){ const el = document.querySelector('.gcard[data-gid="'+GJUMP+'"]'); GJUMP = null; if(el) el.scrollIntoView({ block:"start" }); }
 }
+// ---------- book prices on player rows ----------
+const PONE = { G:1, A:1, P:1, GA:1, TD:1, BLK:1, STL:1, "3PM":2 };           // tabs shown as a chance of at least this many
+const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
+              CYD:x=>0.55*x+8, RYD:x=>0.55*x+8, PYD:x=>0.25*x+30 };            // spread of volume stats; the rest are counts
+function pName(n){
+  n = String(n||"").normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase();
+  [" fc","fc "," cf"," afc"," city"," united"," club","1. ","ac "," calcio","as ","ssc ","rc "].forEach(w=>{ n = n.split(w).join(" "); });
+  return n.replace(/[.\-]/g," ").split(/\s+/).filter(w=>w && !["jr","sr","ii","iii","iv"].includes(w)).join(" ");
+}
+function erfc1(x){ const t = 1/(1+0.3275911*Math.abs(x)), y = t*(0.254829592+t*(-0.284496736+t*(1.421413741+t*(-1.453152027+t*1.061405429))))*Math.exp(-x*x); return x >= 0 ? y : 2-y; }
+function atLeast(stat, lam, k){
+  if(lam == null || !(lam >= 0)) return null;
+  if(PSD[stat]){ const sd = Math.max(0.8, PSD[stat](lam)); return 0.5*erfc1((k-0.5-lam)/(sd*Math.SQRT2)); }
+  let p = 0, t = Math.exp(-lam);
+  for(let i=0; i<k; i++){ p += t; t *= lam/(i+1); }
+  return Math.max(0, 1-p);
+}
+function bookHTML(r){
+  const b = typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD.props : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO.props : null);
+  if(!b) return "";
+  const o = bookOf(r); if(!o) return "";
+  const rows = (b[pName(o.name)]||{})[o.stat]; if(!rows || !rows.length) return "";
+  let x;
+  if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
+  else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
+  if(!x) return "";
+  const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return "";
+  const lbl = PONE[o.stat] ? "" : '<b>'+(x[5] ? "o"+(x[0]-0.5) : x[0]+"+")+'</b> ';
+  const edge = ours - x[1];
+  return '<div class="bk">Book '+lbl+gPct(x[1])+' · ours '+gPct(ours)+' · '+gPrice(x[2])+' <em>'+x[3]+'</em>'
+    + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
+}
 /* ===== end games view ===== */

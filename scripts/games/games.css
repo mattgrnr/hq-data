@@ -30,4 +30,7 @@
 #app .gm-note{margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.45}
 #app .gc-sub{margin:14px 0 8px;font-size:12px;color:var(--faint)}
 #app .gc-all{width:100%;margin-top:4px}
+#app .bk{margin-top:4px;font-size:11.5px;color:var(--faint);line-height:1.35;font-variant-numeric:tabular-nums}
+#app .bk b{color:var(--ink);font-weight:600}
+#app .bk em{font-style:normal;font-size:10.5px}
 /* ===== end games view ===== */
