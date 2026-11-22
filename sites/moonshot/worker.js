@@ -1482,6 +1482,33 @@ function renderResults(){
   document.getElementById("btn-results").onclick = ()=> history.back();
   wireSports(); wireResults(); wireBrand(); loadHistory();
 }
+// parlay slip: Moonshot has no MLB legs in the offseason, but carries the slip between the other HQ sites
+(function(){
+  const KEY = "hq.parlay", HOSTS = /(^|\\.)(total|moonshot|touchdown|slapshot|slam|futbol)-hq\\.com$/;
+  let st = { u:0, legs:[] };
+  try { const v = JSON.parse(localStorage.getItem(KEY) || "[]"); st = Array.isArray(v) ? { u:0, legs:v } : v; } catch(e) {}
+  const m = /[#&]pl=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if(m){
+    try {
+      let x = m[1].replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "=";
+      const inc = JSON.parse(decodeURIComponent(escape(atob(x))));
+      if(inc && (inc.u||0) >= (st.u||0)){ st = inc; localStorage.setItem(KEY, JSON.stringify(st)); }
+    } catch(e) {}
+    try { history.replaceState(null, "", location.pathname + location.search); } catch(e) {}
+  }
+  if(!st.u) return;
+  const tag = "pl=" + btoa(unescape(encodeURIComponent(JSON.stringify(st)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+  function links(){
+    document.querySelectorAll("a[href]").forEach(a=>{
+      let u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
+      if(!HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
+      u.hash = tag; a.setAttribute("href", u.toString());
+    });
+  }
+  let t = null;
+  try { new MutationObserver(()=>{ clearTimeout(t); t = setTimeout(links, 50); }).observe(document.documentElement, { childList:true, subtree:true }); } catch(e) {}
+  links();
+})();
 const app = document.getElementById("app");
 let CURRENT = null;
 
