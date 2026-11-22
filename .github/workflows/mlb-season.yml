@@ -1,0 +1,32 @@
+name: Pull an MLB season
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year"
+        required: true
+        default: "2026"
+
+permissions:
+  contents: write
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python scripts/history/mlb_season.py ${{ inputs.season }}
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mlb/raw
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "MLB ${{ inputs.season }} season data"
+          git pull --rebase -X theirs
+          git push
