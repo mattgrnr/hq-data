@@ -383,7 +383,8 @@ body{background:
 }
 /* long names truncate; badges after them always stay visible */
 #app .pname{display:flex;align-items:center;min-width:0}
-#app .pname .pn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#app .pname .pn.long{font-size:.86em;white-space:normal;line-height:1.15}
+#app .pname .pn{min-width:0;white-space:normal;line-height:1.15}
 #app .pname .pbadge,#app .pname .tdtag{flex:none}
 /* a touchdown today reads like a homer on Moonshot */
 #app .row.scored,#app .row.scored.open{
@@ -1393,13 +1394,18 @@ function wireTop(){
 }
 
 function chance1(x){ return Math.round(100*(1-Math.exp(-Math.max(0, x||0))))+"%"; }   // chance of at least one
+function shortName(n){
+  const parts = String(n).split(" ");
+  return n.length <= 10 || parts.length < 2 ? n : parts[0][0] + ". " + parts.slice(1).join(" ");
+}
+
 function rowHTML(r, n){
   const p = r.p, c = cur(r);
   return '<div class="row'+(p.td?' scored':'')+'" data-i="'+n+'" data-pid="'+esc(p.id)+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
-    + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+p.pos+'</span>'+(p.st?'<span class="pbadge inj-'+p.st+'">'+p.st+'</span>':'')+tdTag(p)+'</div>'
-    + '<div class="meta">'+esc(p.team)+((p.newteam && WEEKNO<=4)?' <span class="pbadge" style="color:#e3b341;border-color:#5c4a1f">NEW</span>':'')+' \\u00b7 '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(c.rk?'<span class="dtag '+rankClass(c.rk.rank,c.rk.of)+'">'+esc(r.oppN)+' '+ordn(c.rk.rank)+' vs '+p.pos+'</span>':'')+'</div>'+bookHTML(r)+'</div>'
+    + '<div class="who"><div class="pname"><span class="pn'+(shortName(p.name).length>14?' long':'')+'">'+esc(shortName(p.name))+'</span>'+(p.st?'<span class="pbadge inj-'+p.st+'">'+p.st+'</span>':'')+tdTag(p)+'</div>'
+    + '<div class="meta">'+p.pos+' \\u00b7 '+esc(p.team)+((p.newteam && WEEKNO<=4)?' <span class="pbadge" style="color:#e3b341;border-color:#5c4a1f">NEW</span>':'')+' \\u00b7 '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(c.rk?'<span class="dtag '+rankClass(c.rk.rank,c.rk.of)+'">'+esc(r.oppN)+' '+ordn(c.rk.rank)+' vs '+p.pos+'</span>':'')+'</div>'+bookHTML(r)+'</div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
     + (F.stat==="TD" ? '<div class="yproj">anytime td<b>'+chance1(r.projTD)+'</b></div>'
        : '<div class="yproj">proj '+(F.stat==="REC" ? "rec" : F.stat==="PTD" ? "pass tds" : "yds")+'<b>'+c.proj+'</b></div>')

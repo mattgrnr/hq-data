@@ -293,7 +293,8 @@ body{background:
 }
 /* long names truncate; badges after them always stay visible */
 #app .pname{display:flex;align-items:center;min-width:0}
-#app .pname .pn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#app .pname .pn.long{font-size:.86em;white-space:normal;line-height:1.15}
+#app .pname .pn{min-width:0;white-space:normal;line-height:1.15}
 #app .pname .pbadge,#app .pname .tdtag{flex:none}
 #app .pbadge.inj-Q{color:#F5C451;border-color:rgba(245,196,81,.45);background:rgba(245,196,81,.08)}
 #app .pbadge.inj-D{color:#FF8A5B;border-color:rgba(255,138,91,.45);background:rgba(255,138,91,.08)}
@@ -1197,14 +1198,19 @@ function chanceN(x, n){   // chance of at least n, Poisson
   for(let k=0; k<n; k++){ p += t; t *= x/(k+1); }
   return Math.round(100*(1-p))+"%";
 }
+function shortName(n){
+  const parts = String(n).split(" ");
+  return n.length <= 10 || parts.length < 2 ? n : parts[0][0] + ". " + parts.slice(1).join(" ");
+}
+
 function rowHTML(r, n){
   const p = r.p, k = KEY[F.stat], sc = r.score[k], tier = tierOf(sc);
   const rk = r.rk[k];
   return '<div class="row" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
-    + '<div class="who"><div class="pname"><span class="pn">'+esc(p.name)+'</span><span class="pbadge">'+(POSNAME[p.pos]||p.pos)+'</span>'+injBadge(p)+'</div>'
-    + '<div class="meta">'+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(rk?'<span class="dtag '+rankClass(rk.rank,rk.of)+'">'+esc(r.oppN)+' '+ordn(rk.rank)+' vs '+p.pos+'</span>':'')+'</div>'+statLine(r, k)+bookHTML(r)+'</div>'
+    + '<div class="who"><div class="pname"><span class="pn'+(shortName(p.name).length>14?' long':'')+'">'+esc(shortName(p.name))+'</span>'+injBadge(p)+'</div>'
+    + '<div class="meta">'+(POSNAME[p.pos]||p.pos)+' · '+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(rk?'<span class="dtag '+rankClass(rk.rank,rk.of)+'">'+esc(r.oppN)+' '+ordn(rk.rank)+' vs '+p.pos+'</span>':'')+'</div>'+statLine(r, k)+bookHTML(r)+'</div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
     + (ONEPLUS[F.stat] ? '<div class="yproj">'+ONEPLUS[F.stat][0]+'<b>'+chanceN(r.proj[k], ONEPLUS[F.stat][1])+'</b></div>'
                        : '<div class="yproj">proj '+F.stat.toLowerCase()+'<b>'+r.proj[k].toFixed(1)+'</b></div>')
