@@ -71,6 +71,10 @@
 #plbar .pl-leg a{color:#4ade80;text-decoration:none}
 #plbar .pl-go{text-align:center;text-decoration:none;background:#4ade80;color:#0c1a10;border-color:#4ade80;font-weight:700}
 #plbar .pl-warn{color:#fbbf24}
+#plbar .pl-my{margin-top:12px}
+#plbar .pl-my .pl-wt span{color:var(--faint);font-weight:400;margin-left:6px}
+#plbar .pl-chip{display:inline-block;margin:0 6px 6px 0;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--faint);font:inherit;font-size:12.5px;cursor:pointer}
+#plbar .pl-chip.on{color:#0c1a10;background:#4ade80;border-color:#4ade80;font-weight:600}
 #plbar .pl-acts{display:flex;gap:8px;margin-top:10px}
 #plbar .pl-acts .navbtn{flex:1}
 body{padding-bottom:84px}

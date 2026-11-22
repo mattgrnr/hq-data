@@ -187,7 +187,7 @@ function plFresh(v){ return v.filter(l=>!l.t || l.t > Date.now() - 6*3600e3); }
 function plRead(){ try { const v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
 function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
 function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
-let PLU = 0, PLBK = null;
+let PLU = 0, PLBK = null, PLMY = [];      // PLMY: the books this person uses (empty = every book)
 let PL = (function(){
   let st = plRead();
   const m = /[#&]pl=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -198,12 +198,13 @@ let PL = (function(){
   }
   PLU = st.u || 0;
   PLBK = st.bk || null;
+  PLMY = st.my || [];
   return plFresh(st.legs || []);
 })();
-function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK })); } catch(e){} plLinks(); }
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY })); } catch(e){} plLinks(); }
 // every link to another HQ site carries the slip
 function plLinks(){
-  const tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK }) : "";
+  const tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK, my:PLMY }) : "";
   document.querySelectorAll("a[href]").forEach(a=>{
     let u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
     if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
@@ -253,13 +254,14 @@ function slipUrl(bk, legs){
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
 }
+const MYBOOKS = ["FD", "DK", "FAN", "HR", "MGM", "BR"];
 const BKNAME = { DK:"DraftKings", FD:"FanDuel", MGM:"BetMGM", CZR:"Caesars", FAN:"Fanatics", ESPN:"ESPN Bet", BR:"BetRivers", HR:"Hard Rock", BOV:"Bovada", PIN:"Pinnacle" };
 function amer(d){ return d >= 2 ? Math.round((d-1)*100) : Math.round(-100/(d-1)); }
 // a parlay is placed at one book, so it is priced book by book from that book's own prices
 function plMath(legs){
   const ours = legs.reduce((a,l)=>a*l.o, 1), book = legs.reduce((a,l)=>a*l.k, 1);
   const prices = l => l.a || { [l.b]: l.p };
-  const books = [...new Set(legs.flatMap(l=>Object.keys(prices(l))))].map(bk=>{
+  const books = [...new Set(legs.flatMap(l=>Object.keys(prices(l))))].filter(bk=>!PLMY.length || PLMY.includes(bk)).map(bk=>{
     const have = legs.filter(l=>prices(l)[bk] != null);
     return { bk, n: have.length, missing: legs.filter(l=>prices(l)[bk] == null), price: amer(have.reduce((a,l)=>a*dec(prices(l)[bk]), 1)) };
   }).sort((a,c)=> c.n - a.n || dec(c.price) - dec(a.price));
@@ -290,6 +292,8 @@ function plBar(){
   const placeUrl = pick ? (slip || oneGameUrl || BKHOME[pick.bk]) : null;
   el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map(legLine).join("")
       + '<div class="pl-where"><div class="pl-wt">Tap a sportsbook to price your parlay there</div>'+all.slice(0, 8).map(bookRow).join("")+'</div>'
+      + '<div class="pl-my"><div class="pl-wt">My books <span>'+(PLMY.length ? 'only these are priced' : 'tap the ones you use')+'</span></div>'
+      + MYBOOKS.map(bk=>'<button class="pl-chip'+(PLMY.includes(bk)?" on":"")+'" data-my="'+bk+'">'+esc(BKNAME[bk])+'</button>').join("")+'</div>'
       + (m.full.length ? '' : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
@@ -300,6 +304,12 @@ function plBar(){
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
     + '<b>'+(full ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
   el.querySelectorAll(".pl-bk[data-bk]").forEach(b=> b.onclick = ()=>{ PLBK = b.dataset.bk; plSave(PL); plBar(); });
+  el.querySelectorAll(".pl-chip[data-my]").forEach(b=> b.onclick = ()=>{
+    const bk = b.dataset.my;
+    PLMY = PLMY.includes(bk) ? PLMY.filter(x=>x!==bk) : PLMY.concat(bk);
+    if(PLBK && PLMY.length && !PLMY.includes(PLBK)) PLBK = null;
+    plSave(PL); plBar();
+  });
   // put the sportsbook's own link on the button, so a tap opens the book's app rather than a browser redirect
   if(slip && !SLIPLINK[slip] && slip.indexOf("/betlink?") > 0){
     fetch(slip + "&json=1").then(r=>r.json()).then(d=>{
