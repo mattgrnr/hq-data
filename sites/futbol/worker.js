@@ -807,14 +807,14 @@ function bookPick(o){
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
   if(!x) return null;
   const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
-  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], all:x[6] || { [x[3]]: x[2] }, links:(bd.evlinks||{})[x[7]] || {}, ours };
+  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], all:x[6] || { [x[3]]: x[2] }, links:(bd.evlinks||{})[x[7]] || {}, ids:x[8] || {}, ours };
 }
 function bookHTML(r){
   const o = bookOf(r), x = bookPick(o); if(!x) return "";
   const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
   const edge = x.ours - x.book;
   const line = PONE[o.stat] ? (o.stat==="3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
-  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, game:gInfo(r) });
+  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
   return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
     + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
 }
@@ -825,9 +825,9 @@ const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", T
   PTD:"pass TDs", S:"shots on goal" };
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
-function betOf(name, label, ours, book, price, bk, kind, game, all, links){
+function betOf(name, label, ours, book, price, bk, kind, game, all, links, ids){
   const adj = book + 0.5*(ours - book);
-  return { name, label, ours, book, adj, price, bk, kind, game, all, links, ev: adj*dec(price) - 1 };
+  return { name, label, ours, book, adj, price, bk, kind, game, all, links, ids, ev: adj*dec(price) - 1 };
 }
 function bestBets(g){
   const out = [], seen = {};
@@ -838,7 +838,7 @@ function bestBets(g){
       // a volume line far from our projection usually means the books know about a role change we don't
       if(!PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
       const line = PONE[st] ? (st==="3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
-      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links));
+      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
     }
   }
   for(const v of (g.proj.value||[])){
@@ -846,7 +846,7 @@ function bestBets(g){
       : v.mk === "Total" ? [v.side, GKIND === "soccer" ? "goals" : GKIND === "hockey" ? "goals" : "points"]
       : v.mk === "Both score" ? ["Both teams to score:", v.side] : [v.side, ""];
     out.push(betOf(what[0], what[1], v.ours, v.book, v.price, v.bk, "game",
-      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links));
+      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links, v.ids));
   }
   return out.filter(b=>b.adj >= 0.2 && b.ours > b.book && b.ev > 0)
     .sort((a,c)=>c.ev - a.ev)
@@ -895,7 +895,7 @@ try { new MutationObserver(()=>{ clearTimeout(PLMO); PLMO = setTimeout(plLinks, 
 let PLOPEN = false;
 function legOf(label, b){
   return { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
-           p:b.price, b:b.bk, a:b.all || { [b.bk]: b.price }, u:b.links || {}, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
+           p:b.price, b:b.bk, a:b.all || { [b.bk]: b.price }, u:b.links || {}, x:b.ids || {}, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
 }
 function plBtn(leg){
   const on = PL.some(l=>l.i===leg.i);
@@ -904,6 +904,15 @@ function plBtn(leg){
 const BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fanduel.com", MGM:"https://sports.betmgm.com",
   CZR:"https://sportsbook.caesars.com", FAN:"https://sportsbook.fanatics.com", ESPN:"https://espnbet.com", BR:"https://www.betrivers.com",
   HR:"https://app.hardrock.bet" };
+// links that drop every leg into a book's bet slip (null when a leg has no id at that book)
+function slipUrl(bk, legs){
+  const ids = legs.map(l=>(l.x||{})[bk]);
+  if(!ids.length || ids.some(x=>!x)) return null;
+  if(bk === "FD") return "https://sportsbook.fanduel.com/addToBetslip?" + ids.map((x,i)=>{ const [m, s] = String(x).split(":"); return "marketId["+i+"]="+encodeURIComponent(m)+"&selectionId["+i+"]="+encodeURIComponent(s); }).join("&");
+  if(bk === "DK") return "https://sportsbook.draftkings.com/?outcomes=" + ids.map(encodeURIComponent).join("+");
+  if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
+  return null;
+}
 const BKNAME = { DK:"DraftKings", FD:"FanDuel", MGM:"BetMGM", CZR:"Caesars", FAN:"Fanatics", ESPN:"ESPN Bet", BR:"BetRivers", HR:"Hard Rock", BOV:"Bovada", PIN:"Pinnacle" };
 function amer(d){ return d >= 2 ? Math.round((d-1)*100) : Math.round(-100/(d-1)); }
 // a parlay is placed at one book, so it is priced book by book from that book's own prices
@@ -937,14 +946,16 @@ function plBar(){
     + (b.n === PL.length ? '<b>'+gPrice(b.price)+'</b>' : '<i>'+b.n+' of '+PL.length+' legs</i>')+'</button>';
   const games = [...new Set(PL.map(l=>l.g))];
   const oneGameUrl = pick && games.length === 1 ? (PL.find(l=>l.u && l.u[pick.bk])||{u:{}}).u[pick.bk] : null;
-  const placeUrl = pick ? (oneGameUrl || BKHOME[pick.bk]) : null;
+  const slip = pick && full ? slipUrl(pick.bk, PL) : null;
+  const placeUrl = pick ? (slip || oneGameUrl || BKHOME[pick.bk]) : null;
   el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map(legLine).join("")
       + '<div class="pl-where"><div class="pl-wt">Tap a sportsbook to price your parlay there</div>'+all.slice(0, 8).map(bookRow).join("")+'</div>'
       + (m.full.length ? '' : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
-      + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" href="'+esc(placeUrl)+'" target="_blank" rel="noopener">Place at '+esc(BKNAME[pick.bk]||pick.bk)+'</a>' : '')
+      + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" href="'+esc(placeUrl)+'" target="_blank" rel="noopener">'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-copy">Copy legs</button></div>'
-      + '<p class="pl-note">'+(oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')+'Your parlay follows you to every HQ site.</p>'
+      + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
+        + 'FanDuel, DraftKings and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
     + '<b>'+(full ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';

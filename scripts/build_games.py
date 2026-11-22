@@ -271,7 +271,8 @@ def two_way(rows, pick_a, pick_b):
     a, b = best_of(pa[0][3]), best_of(pb[0][3])
     if not a or not b:
         return None
-    return statistics.median(fair), a, b
+    ids = lambda r: r[0][4] if len(r[0]) > 4 else {}
+    return statistics.median(fair), a + (ids(pa),), b + (ids(pb),)
 
 
 def main_line(rows, side):
@@ -302,7 +303,7 @@ def attach_odds(sport, bd, lam=None):
         def add_value(mk, side, ours, fair, best):
             if ours - fair >= VALUE:
                 value.append({"mk": mk, "side": side, "ours": round(ours, 3), "book": round(fair, 3), "price": best[1], "bk": best[0],
-                              "all": best[2] if len(best) > 2 else {best[0]: best[1]}})
+                              "all": best[2] if len(best) > 2 else {best[0]: best[1]}, "ids": best[3] if len(best) > 3 else {}})
 
         h2h = m.get("h2h", [])
         if sport == "soccer":
@@ -318,7 +319,8 @@ def attach_odds(sport, bd, lam=None):
                     tot = sum(implied(r[3][bk]) for r in sides.values())
                     for k, r in sides.items():
                         fair[k].append(implied(r[3][bk]) / tot)
-                bests = [best_of(sides[k][3]) for k in ("h", "d", "a")]
+                bests = [best_of(sides[k][3]) + ((sides[k][4] if len(sides[k]) > 4 else {}),) if best_of(sides[k][3]) else None
+                         for k in ("h", "d", "a")]
                 if fair["h"] and all(bests):
                     fm = [statistics.median(fair[k]) for k in ("h", "d", "a")]
                     book["ml"] = [round(x, 3) for x in fm]
@@ -414,7 +416,9 @@ def attach_props(sport, bd):
         if t < now - timedelta(hours=3):
             continue
         for mk, stat in PROP_STAT[sport].items():
-            for name, desc, point, prices in ev["m"].get(mk, []):
+            for row in ev["m"].get(mk, []):
+                name, desc, point, prices = row[:4]
+                ids = row[4] if len(row) > 4 else {}
                 who = pname(desc or name)
                 if name in ("Over", "Under"):
                     if point is None:
@@ -423,8 +427,10 @@ def attach_props(sport, bd):
                 else:
                     m = re.match(r"(\d+)\+", name or "")
                     k, side, ou = (int(m.group(1)) if m else 1), "no" if name == "No" else "yes", False
-                ln = lines.setdefault((who, stat, k, t), {"yes": {}, "no": {}, "ou": False, "ev": ev.get("id")})
+                ln = lines.setdefault((who, stat, k, t), {"yes": {}, "no": {}, "ids": {}, "ou": False, "ev": ev.get("id")})
                 ln[side].update(prices)
+                if side == "yes":
+                    ln["ids"].update(ids)
                 ln["ou"] = ln["ou"] or ou
     nxt = {}
     for (who, stat, k, t) in lines:
@@ -443,7 +449,7 @@ def attach_props(sport, bd):
         else:
             fair = statistics.median(implied(v) for v in ln["yes"].values()) / ONE_SIDED_VIG
         out.setdefault(who, {}).setdefault(stat, []).append(
-            [k, round(min(fair, 0.99), 3), best[1], best[0], len(ln["yes"]), 1 if ln["ou"] else 0, best[2], str(ln["ev"])])
+            [k, round(min(fair, 0.99), 3), best[1], best[0], len(ln["yes"]), 1 if ln["ou"] else 0, best[2], str(ln["ev"]), ln["ids"]])
     # only our board's players; volume stats keep the books' main line, chance stats the low rungs we show
     ours = {pname(p.get("name") or p.get("n") or "") for p in bd.get("players", [])}
     keep = {}

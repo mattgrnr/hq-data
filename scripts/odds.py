@@ -21,6 +21,7 @@ API = "https://api.prop-line.com/v1"
 
 GAME = ["h2h", "spreads", "totals"]
 # US books people actually bet at, plus Pinnacle as the sharp reference
+SLIP = {"FD", "DK", "MGM"}   # books whose bet slip takes selections in a link; their bet ids are kept
 BOOKS = {"draftkings": "DK", "fanduel": "FD", "betmgm": "MGM", "williamhill_us": "CZR", "caesars": "CZR", "fanatics": "FAN",
          "espnbet": "ESPN", "betrivers": "BR", "hardrock": "HR", "bovada": "BOV", "pinnacle": "PIN"}
 SPORTS = {
@@ -65,10 +66,17 @@ def slim(ev, key):
                 if o.get("price") is None:
                     continue
                 k = (m["key"], o.get("name"), o.get("description") or "", o.get("point"))
-                rows.setdefault(k, {})[bk] = o["price"]
+                rows.setdefault(k, [{}, {}])[0][bk] = o["price"]
+                oid = o.get("book_outcome_id")
+                if bk in SLIP and oid:
+                    if bk == "MGM":       # BetMGM's slip wants fixture-market-option
+                        fx = o.get("book_fixture_id") or b.get("book_event_id")
+                        oid = f"{fx}-" + str(oid).replace(":", "-") if fx else None
+                    if oid:
+                        rows[k][1][bk] = str(oid)
     mk = {}
-    for (m, name, desc, point), prices in rows.items():
-        mk.setdefault(m, []).append([name, desc, point, prices])
+    for (m, name, desc, point), (prices, ids) in rows.items():
+        mk.setdefault(m, []).append([name, desc, point, prices, ids])
     def abbr(url):
         m = re.search(r"/([a-z]+)\.png", url or "")
         return m.group(1).upper() if m else None
@@ -85,7 +93,7 @@ def main():
     keys, markets = SPORTS[sport]
     events = []
     for key in keys:
-        data = get(f"sports/{key}/odds", markets=",".join(markets), includeLinks="true")
+        data = get(f"sports/{key}/odds", markets=",".join(markets), includeLinks="true", includeBookIds="true")
         if data is None:
             continue
         evs = data if isinstance(data, list) else data.get("events") or data.get("data") or [data]
