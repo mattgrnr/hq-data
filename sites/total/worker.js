@@ -442,7 +442,7 @@ function slipUrl(bk, legs){
   }
   if(bk === "HR"){
     if(ids.some(function(x){ return !/^\\d{6,25}$/.test(String(x)); })) return null;
-    return "https://share.hardrock.bet/Pt0T/bet?deep_link_value=hardrock://betslip/" + ids.join(",");
+    return "hardrock://betslip/" + ids.join(",");
   }
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;

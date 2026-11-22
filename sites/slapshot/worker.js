@@ -1006,7 +1006,7 @@ function slipUrl(bk, legs){
   }
   if(bk === "HR"){       // Hard Rock's own share-link format, from its bet ids
     if(ids.some(x=>!/^\\d{6,25}$/.test(String(x)))) return null;
-    return "https://share.hardrock.bet/Pt0T/bet?deep_link_value=hardrock://betslip/" + ids.join(",");
+    return "hardrock://betslip/" + ids.join(",");     // the app's own address; the share domain fell back to Safari
   }
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
