@@ -236,6 +236,9 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-leg a{color:var(--open);text-decoration:none}
 .pl-leg .no{font-style:normal;font-size:11px;color:#fbbf24}
 .pl-place{display:flex;gap:10px;margin-top:14px}
+.pl-chips{margin-top:8px}
+.pl-chip{display:inline-block;margin:0 6px 6px 0;padding:6px 11px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
+.pl-chip.on{color:#0c1a10;background:var(--open);border-color:var(--open);font-weight:600}
 .pl-go{flex:1;text-align:center;padding:11px;border-radius:10px;background:var(--open);color:#0c1a10;font-weight:600;text-decoration:none;font-size:14px}
 .pl-cp{padding:11px 14px;border-radius:10px;border:1px solid var(--rule);background:transparent;color:var(--paper);font:inherit;font-size:14px;cursor:pointer}
 .pl-warn{color:#fbbf24}
@@ -389,7 +392,7 @@ function plFresh(v){ return v.filter(function(l){ return !l.t || l.t > Date.now(
 function plRead(){ try { var v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
 function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""); }
 function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
-var PLU = 0, PLBK = null;
+var PLU = 0, PLBK = null, PLMY = [];
 var PL = (function(){
   var st = plRead();
   var m = /[#&](?:pl|parlay)=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -400,11 +403,12 @@ var PL = (function(){
   }
   PLU = st.u || 0;
   PLBK = st.bk || null;
+  PLMY = st.my || [];
   return plFresh(st.legs || []);
 })();
-function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK })); } catch(e){} plLinks(); }
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY })); } catch(e){} plLinks(); }
 function plLinks(){
-  var tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK }) : "";
+  var tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK, my:PLMY }) : "";
   document.querySelectorAll("a[href]").forEach(function(a){
     var u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
     if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
@@ -420,7 +424,7 @@ function legPrices(l){ if(l.a) return l.a; var o = {}; o[l.b] = l.p; return o; }
 // a parlay is placed at one book, so it is priced book by book from that book's own prices
 function byBook(legs){
   var seen = {}, out = [];
-  legs.forEach(function(l){ Object.keys(legPrices(l)).forEach(function(bk){ seen[bk] = 1; }); });
+  legs.forEach(function(l){ Object.keys(legPrices(l)).forEach(function(bk){ if(!PLMY.length || PLMY.indexOf(bk) >= 0) seen[bk] = 1; }); });
   Object.keys(seen).forEach(function(bk){
     var d = 1, missing = [];
     legs.forEach(function(l){ var p = legPrices(l)[bk]; if(p == null) missing.push(l); else d *= dec(p); });
@@ -476,6 +480,8 @@ function renderParlay(){
     return '<button class="pl-bk' + (pick && b.bk === pick.bk ? ' on' : '') + (b.n < PL.length ? ' part' : '') + '" data-bk="' + b.bk + '"><span>' + esc(nm(b.bk)) + '</span>'
       + (b.n === PL.length ? '<b>' + amer(b.d) + '</b>' : '<i>' + b.n + ' of ' + PL.length + ' legs</i>') + '</button>';
   }).join("");
+  h += '<div class="pl-sport">My books' + (PLMY.length ? ' · only these are priced' : ' · tap the ones you use') + '</div><div class="pl-chips">'
+    + ["FD", "DK", "FAN", "HR", "MGM", "BR"].map(function(bk){ return '<button class="pl-chip' + (PLMY.indexOf(bk) >= 0 ? ' on' : '') + '" data-my="' + bk + '">' + esc(nm(bk)) + '</button>'; }).join("") + '</div>';
   if(!hasFull) h += '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>';
   var gs = Object.keys(games), one = pick && gs.length === 1 ? (PL.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
   var slip = full ? slipUrl(pick.bk, PL) : null;
@@ -490,6 +496,12 @@ function renderParlay(){
   el.innerHTML = h;
   el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ PL.splice(+b.dataset.i, 1); plSave(PL); renderParlay(); }; });
   el.querySelectorAll(".pl-bk[data-bk]").forEach(function(b){ b.onclick = function(){ PLBK = b.dataset.bk; plSave(PL); renderParlay(); }; });
+  el.querySelectorAll(".pl-chip[data-my]").forEach(function(b){ b.onclick = function(){
+    var bk = b.dataset.my, at = PLMY.indexOf(bk);
+    if(at >= 0) PLMY.splice(at, 1); else PLMY.push(bk);
+    if(PLBK && PLMY.length && PLMY.indexOf(PLBK) < 0) PLBK = null;
+    plSave(PL); renderParlay();
+  }; });
   // put the sportsbook's own link on the button, so a tap opens the book's app rather than a browser redirect
   if(slip && !SLIPLINK[slip] && slip.indexOf("/betlink?") === 0){
     fetch(slip + "&json=1").then(function(r){ return r.json(); }).then(function(d){

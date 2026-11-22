@@ -930,6 +930,12 @@ function atLeast(stat, lam, k){
   for(let i=0; i<k; i++){ p += t; t *= lam/(i+1); }
   return Math.max(0, 1-p);
 }
+// the best price among the books this person uses (every book when none are picked)
+function myBest(all){
+  let top = null;
+  for(const bk in all) if((!PLMY.length || PLMY.includes(bk)) && (!top || all[bk] > top[1])) top = [bk, all[bk]];
+  return top;
+}
 function boardData(){ return typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO : null); }
 function bookPick(o){
   const bd = boardData(), b = bd && bd.props;
@@ -940,7 +946,8 @@ function bookPick(o){
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
   if(!x) return null;
   const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
-  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], all:x[6] || { [x[3]]: x[2] }, links:(bd.evlinks||{})[x[7]] || {}, ids:x[8] || {}, ours };
+  const all = x[6] || { [x[3]]: x[2] }, top = myBest(all); if(!top) return null;
+  return { k:x[0], book:x[1], price:top[1], bk:top[0], n:x[4], two:!!x[5], all, links:(bd.evlinks||{})[x[7]] || {}, ids:x[8] || {}, ours };
 }
 function bookHTML(r){
   const o = bookOf(r), x = bookPick(o); if(!x) return "";
@@ -975,10 +982,11 @@ function bestBets(g){
     }
   }
   for(const v of (g.proj.value||[])){
+    const top = myBest(v.all || { [v.bk]: v.price }); if(!top) continue;
     const what = v.mk === "Moneyline" || v.mk === "Result" ? [v.side, v.side === "Draw" ? "" : "to win"]
       : v.mk === "Total" ? [v.side, GKIND === "soccer" ? "goals" : GKIND === "hockey" ? "goals" : "points"]
       : v.mk === "Both score" ? ["Both teams to score:", v.side] : [v.side, ""];
-    out.push(betOf(what[0], what[1], v.ours, v.book, v.price, v.bk, "game",
+    out.push(betOf(what[0], what[1], v.ours, v.book, top[1], top[0], "game",
       { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links, v.ids));
   }
   return out.filter(b=>b.adj >= 0.2 && b.ours > b.book && b.ev > 0)
@@ -1121,6 +1129,7 @@ function plBar(){
     PLMY = PLMY.includes(bk) ? PLMY.filter(x=>x!==bk) : PLMY.concat(bk);
     if(PLBK && PLMY.length && !PLMY.includes(PLBK)) PLBK = null;
     plSave(PL); plBar();
+    if(typeof render === "function") render();      // every price on the board follows your books
   });
   // put the sportsbook's own link on the button, so a tap opens the book's app rather than a browser redirect
   if(slip && !SLIPLINK[slip] && slip.indexOf("/betlink?") > 0){
