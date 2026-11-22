@@ -172,7 +172,7 @@ def season_totals(rows):
             g[k] += r[k]
         game_teams[gid].add(tm)
 
-    team = defaultdict(lambda: {"gp": 0, "pace": 0.0, "allow": {g: {k: 0.0 for k in STATS} for g in GROUPS}})
+    team = defaultdict(lambda: {"gp": 0, "pace": 0.0, "pf": 0.0, "pa": 0.0, "allow": {g: {k: 0.0 for k in STATS} for g in GROUPS}})
     for gid, tms in game_teams.items():
         if len(tms) != 2:
             continue
@@ -185,6 +185,8 @@ def season_totals(rows):
             t = team[me]
             t["gp"] += 1
             t["pace"] += pace
+            t["pf"] += sum(tg[(gid, me)]["grp"][g]["pts"] for g in GROUPS)
+            t["pa"] += sum(tg[(gid, op)]["grp"][g]["pts"] for g in GROUPS)
             for g in GROUPS:
                 for k in STATS:
                     t["allow"][g][k] += tg[(gid, op)]["grp"][g][k]
@@ -345,11 +347,16 @@ def main():
             if h else {"opp": want[p["id"]], "gp": 0}
 
     teams = {}
+    tot_gp = sum(t["gp"] for t in team.values())
+    lg_ppg = sum(t.get("pf", 0) for t in team.values()) / tot_gp if tot_gp else 115.0
     for tm in sorted(set(team) | set(prior["team"])):
         c, pr = team.get(tm), prior["team"].get(tm)
         cg = c["gp"] if c else 0
         pace_base = pr["pace"] / pr["gp"] if pr and pr["gp"] else lg["pace"]
         out = {"gp": cg, "pace": round(((c["pace"] if c else 0) + K_TEAM * pace_base) / (cg + K_TEAM), 2), "allow": {}}
+        # points scored and allowed per game, pulled toward the league average early on (for the game projections)
+        for f in ("pf", "pa"):
+            out[f] = round(((c.get(f, 0) if c else 0) + K_TEAM * lg_ppg) / (cg + K_TEAM), 2)
         for g in GROUPS:
             out["allow"][g] = {}
             for k in STATS:
@@ -381,6 +388,8 @@ def main():
     if out.exists():
         old = json.loads(out.read_text())
         old.pop("built", None)
+        for g in old.get("games", []):
+            g.pop("proj", None)   # game projections are added afterward by build_games.py
         if old == json.loads(json.dumps(payload)):
             print("no change")
             return

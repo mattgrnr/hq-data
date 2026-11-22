@@ -360,6 +360,8 @@ def main():
     if out.exists():
         old = json.loads(out.read_text())
         old.pop("built", None)
+        for g in old.get("games", []):
+            g.pop("proj", None)   # game projections are added afterward by build_games.py
         if old == json.loads(json.dumps(payload)):
             print("no change")
             return

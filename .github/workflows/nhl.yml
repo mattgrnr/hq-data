@@ -43,7 +43,7 @@ jobs:
         run: pip install pyarrow
 
       - name: Build board
-        run: python scripts/build_nhl.py
+        run: python scripts/build_nhl.py && python scripts/build_games.py nhl
 
       - name: Save picks for games that haven't started
         run: node scripts/history/score.cjs slapshot nhl/board.json nhl/history/picks

@@ -450,7 +450,7 @@ def build_board(state, rows):
         gi = len(out_games)
         la = lg.get(lid, allavg)
         out_games.append({"id": m["id"], "lid": lid, "league": LNAME[lid], "t": k.isoformat(),
-                          "day": 0 if k.date() == days[0] else 1, "h": m["hn"], "a": m["an"],
+                          "day": 0 if k.date() == days[0] else 1, "h": m["hn"], "a": m["an"], "hid": m["h"], "aid": m["a"],
                           "lu": lu.get("kind", "unavailable")})
         for side, team, opp, home in (("homeTeam", m["h"], m["a"], 1), ("awayTeam", m["a"], m["h"], 0)):
             tf, of = form.get(team), form.get(opp)

@@ -427,9 +427,27 @@ def main():
             "statsIn": final and g["home_team"] in stats_in and g["away_team"] in stats_in,
         })
 
+    # points for and against per team from this season's finished games before this week (for the game projections)
+    tpts = defaultdict(lambda: [0, 0, 0])
+    for g in season_games:
+        if g["game_type"] != "REG" or g["home_score"] in ("", "NA") or int(g["week"]) >= week:
+            continue
+        hs, as_ = int(g["home_score"]), int(g["away_score"])
+        for me, pf, pa in ((g["home_team"], hs, as_), (g["away_team"], as_, hs)):
+            t = tpts[me]
+            t[0] += 1
+            t[1] += pf
+            t[2] += pa
+    gp_all = sum(t[0] for t in tpts.values())
+    lg_ppg = sum(t[1] for t in tpts.values()) / gp_all if gp_all else 22.5
+    teams = {tm: {"gp": t[0], "pf": round((t[1] + 4 * lg_ppg) / (t[0] + 4), 2), "pa": round((t[2] + 4 * lg_ppg) / (t[0] + 4), 2)}
+             for tm, t in sorted(tpts.items())}
+
     payload = {
         "season": season,
         "week": week,
+        "teams": teams,
+        "lg": {"ppg": round(lg_ppg, 2)},
         "label": ROUND_LABELS.get(week, f"Week {week}"),
         "players": players,
         "dvp": dvp,
@@ -439,6 +457,8 @@ def main():
     if dest.exists():
         old = json.loads(dest.read_text())
         old.pop("built", None)
+        for g in old.get("games", []):
+            g.pop("proj", None)   # game projections are added afterward by build_games.py
         if old == json.loads(json.dumps(payload)):
             print("no change")
             return

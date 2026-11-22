@@ -41,7 +41,7 @@ jobs:
       - name: Build board
         env:
           BUDGET_MIN: ${{ inputs.budget || '40' }}
-        run: python scripts/build_soccer.py
+        run: python scripts/build_soccer.py && python scripts/build_games.py soccer
 
       - name: Save picks for games that haven't started
         run: node scripts/history/score.cjs futbol soccer/board.json soccer/history/picks

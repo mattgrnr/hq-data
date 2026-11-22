@@ -40,7 +40,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build board
-        run: python scripts/build_nfl.py
+        run: python scripts/build_nfl.py && python scripts/build_games.py nfl
 
       - name: Save picks for games that haven't started
         run: node scripts/history/score.cjs touchdown nfl/board.json nfl/history/picks
