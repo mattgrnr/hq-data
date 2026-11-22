@@ -8,7 +8,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -47,7 +47,8 @@ def daily(sport, rng):
             print(f"{day}: live picks on file, skipped")
             continue
         try:
-            run(["python", f"scripts/build_{sport}.py"], {"REPLAY": "1", "TODAY": day, "HQ_NO_ESPN": "1"})
+            env = {"REPLAY_DATE": day} if sport == "soccer" else {"REPLAY": "1", "TODAY": day, "HQ_NO_ESPN": "1"}
+            run(["python", f"scripts/build_{sport}.py"], env)
         except subprocess.CalledProcessError:
             print(f"{day}: couldn't build (no games played yet this season?), skipped")
             continue
@@ -55,18 +56,18 @@ def daily(sport, rng):
         if not board.exists():
             continue
         bd = json.loads(board.read_text())
-        starts = [datetime.fromisoformat(str(g["start"]).replace("Z", "+00:00")) for g in bd.get("games", []) if g.get("start")]
+        starts = [datetime.fromisoformat(str(g.get("start") or g.get("t")).replace("Z", "+00:00")) for g in bd.get("games", []) if g.get("start") or g.get("t")]
         if not starts or not bd.get("players"):
             print(f"{day}: no games")
             continue
-        score(sport, board, (min(starts) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        score(sport, board, (min(starts) - timedelta(hours=1)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
 def main():
     sport, rng = sys.argv[1], sys.argv[2]
     if sport == "nfl":
         nfl(rng)
-    elif sport in ("nhl", "nba"):
+    elif sport in ("nhl", "nba", "soccer"):
         daily(sport, rng)
     else:
         raise SystemExit(f"replay for {sport} is not built yet")

@@ -45,6 +45,8 @@
 .legend-row i.dash{width:14px;height:0;border-top:2px dashed rgba(255,255,255,.6);border-radius:0;vertical-align:3px}
 .legend-row i.dash.v{width:0;height:12px;border-top:0;border-left:2px solid rgba(255,255,255,.55);vertical-align:-2px}
 .legend-row .tip{margin-left:auto}
+.legend-row i.rp-key{background:repeating-linear-gradient(45deg,var(--faint) 0 2px,transparent 2px 4px)}
+.rp-tag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.02em;padding:1px 5px;border-radius:4px;color:var(--faint);border:1px solid rgba(255,255,255,.18);vertical-align:1px;margin-left:4px}
 .tr-tiers{padding:0 2px}
 .tr-row{display:grid;grid-template-columns:86px 1fr 84px;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .tr-row:last-child{border-bottom:0}

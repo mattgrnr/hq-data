@@ -449,6 +449,8 @@ body{background:
 .legend-row i.dash{width:14px;height:0;border-top:2px dashed rgba(255,255,255,.6);border-radius:0;vertical-align:3px}
 .legend-row i.dash.v{width:0;height:12px;border-top:0;border-left:2px solid rgba(255,255,255,.55);vertical-align:-2px}
 .legend-row .tip{margin-left:auto}
+.legend-row i.rp-key{background:repeating-linear-gradient(45deg,var(--faint) 0 2px,transparent 2px 4px)}
+.rp-tag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.02em;padding:1px 5px;border-radius:4px;color:var(--faint);border:1px solid rgba(255,255,255,.18);vertical-align:1px;margin-left:4px}
 .tr-tiers{padding:0 2px}
 .tr-row{display:grid;grid-template-columns:86px 1fr 84px;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .tr-row:last-child{border-bottom:0}
@@ -947,6 +949,8 @@ function rstat(){
   return RS;
 }
 function rlabel(){ return RSTATS.find(x=>x[0]===rstat())[1]; }
+function isReplay(date){ return !!(HIST && HIST.daily && (HIST.daily.find(x=>x.date===date)||{}).replay); }
+function replayTag(date){ return isReplay(date) ? ' <span class="rp-tag">replay</span>' : ''; }
 function fmtDay(d){
   if(/-w\\d+$/.test(d)) return "Week " + (+d.split("-w")[1]);
   return new Date(d+"T12:00:00").toLocaleDateString([], { weekday:"short", month:"short", day:"numeric" });
@@ -1005,15 +1009,16 @@ function trendSVG(days){
     const x = L + i*bw + gap/2, h = Math.max(2, ih*r), y = T + ih - h;
     const on = HD === d.date;
     bars += '<g class="tbar" data-day="'+d.date+'"><rect x="'+(L+i*bw)+'" y="'+T+'" width="'+bw+'" height="'+ih+'" fill="transparent"/>'
-      + '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-gap).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="2" fill="'+groupColor()+'" opacity="'+(HD && !on ? .45 : 1)+'"><title>'+fmtDay(d.date)+': '+gp[1]+' of '+gp[0]+' over</title></rect></g>';
+      + '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-gap).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="2" fill="'+(d.replay ? "url(#rp-hatch)" : groupColor())+'" opacity="'+(HD && !on ? .45 : 1)+'"><title>'+fmtDay(d.date)+(d.replay ? " (replay)" : "")+': '+gp[1]+' of '+gp[0]+' over</title></rect></g>';
     pts.push((L + i*bw + bw/2).toFixed(1)+","+(T + ih*(1-e)).toFixed(1));
   });
   const lab = d=> HIST.weekly ? "Wk "+(+d.split("-w")[1]) : new Date(d+"T12:00:00").toLocaleDateString([], {month:"short", day:"numeric"});
   const ticks = [0, Math.floor((list.length-1)/2), list.length-1].filter((v,i,a)=>a.indexOf(v)===i)
     .map(i=>'<text x="'+(i===0 ? L : i===list.length-1 ? W-R : L + i*bw + bw/2)+'" y="'+(H-6)+'" class="ax" text-anchor="'+(i===0 ? "start" : i===list.length-1 ? "end" : "middle")+'">'+lab(list[i].date)+'</text>').join("");
-  return '<svg viewBox="0 0 '+W+' '+H+'" class="chart" role="img" aria-label="Over rate by '+(HIST.weekly?"week":"night")+'">'+g+bars
+  return '<svg viewBox="0 0 '+W+' '+H+'" class="chart" role="img" aria-label="Over rate by '+(HIST.weekly?"week":"night")+'">'
+    + '<defs><pattern id="rp-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="'+groupColor()+'" opacity=".35"/><rect width="2.5" height="5" fill="'+groupColor()+'"/></pattern></defs>'+g+bars
     + (pts.length > 1 ? '<polyline points="'+pts.join(" ")+'" class="expline"/>' : '')+ticks+'</svg>'
-    + '<div class="legend-row"><span><i style="background:'+groupColor()+'"></i>Over rate</span><span><i class="dash"></i>Model expected</span><span class="tip">Tap a bar to open it</span></div>';
+    + '<div class="legend-row"><span><i style="background:'+groupColor()+'"></i>Over rate</span><span><i class="dash"></i>Model expected</span>'+(list.some(d=>d.replay) ? '<span><i class="rp-key"></i>Replay</span>' : '')+'<span class="tip">Tap a bar to open it</span></div>';
 }
 
 function tiersHTML(days){
@@ -1047,7 +1052,7 @@ function pickRow(sc, name, team, a, pj, over){
 function drillHTML(){
   if(!HD) return '';
   const day = HDAY[HD], st = rstat();
-  let h = '<div class="drill"><div class="drill-head"><b>'+fmtDay(HD)+'</b><button class="navbtn" id="drill-x" aria-label="Close">✕</button></div>';
+  let h = '<div class="drill"><div class="drill-head"><b>'+fmtDay(HD)+'</b>'+replayTag(HD)+'<button class="navbtn" id="drill-x" aria-label="Close">✕</button></div>';
   if(!day) return h + '<div class="dash-empty">Loading…</div></div>';
   let rows = day.rows.filter(r=>r.pj[st] && r.act[st] != null).sort((a,b)=>b.s[st]-a.s[st]);
   rows = HG === "T10" ? rows.slice(0,10) : rows.filter(r=>tierOf(r.s[st])===HG);
@@ -1088,7 +1093,7 @@ function favsHTML(){
 function nightsHTML(days){
   const one = HIST.weekly ? "Week" : "Night";
   return '<h3 class="dash-h">'+(HIST.weekly?"Weeks":"Nights")+'</h3><table class="ptable nights"><thead><tr><th>'+one+'</th><th>Games</th><th>Over</th><th>Rate</th></tr></thead><tbody>'
-    + days.map(d=>{ const g = groupOf(d); return '<tr data-day="'+d.date+'" class="'+(HD===d.date?"on":"")+'"><td>'+fmtDay(d.date)+'</td><td>'+d.games+'</td><td>'+(g[0] ? g[1]+" / "+g[0] : "—")+'</td><td>'+pct0(g[1],g[0])+'</td></tr>'; }).join("")
+    + days.map(d=>{ const g = groupOf(d); return '<tr data-day="'+d.date+'" class="'+(HD===d.date?"on":"")+'"><td>'+fmtDay(d.date)+(d.replay ? ' <span class="rp-tag">replay</span>' : '')+'</td><td>'+d.games+'</td><td>'+(g[0] ? g[1]+" / "+g[0] : "—")+'</td><td>'+pct0(g[1],g[0])+'</td></tr>'; }).join("")
     + '</tbody></table>';
 }
 
@@ -1109,7 +1114,7 @@ function resultsHTML(){
   if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
   if(HIST.error) return tabs + '<div class="status"><h2>No results yet</h2><p>The first graded '+(HIST.weekly?"week":"night")+' shows up here the morning after.</p></div>';
   const days = rangeDays();
-  let h = '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. '+rangeText(days)+'</p>';
+  let h = '<p class="tr-intro">Every pick is graded after the game. <b>Over</b> means his actual '+RSTATS.find(x=>x[0]===rstat())[2]+' reached our projection, <b>Under</b> means it fell short. '+rangeText(days)+(days.some(d=>d.replay) ? ' Days marked <span class="rp-tag">replay</span> were rebuilt afterward using only what was known the day before.' : '')+'</p>';
   h += tabs;
   h += '<div class="dash-filters">'
     + '<div class="ctrl"><label>Range</label><select id="d-range">'+rangeOptions().map(o=>'<option value="'+o[0]+'"'+(HW===o[0]?" selected":"")+'>'+o[1]+'</option>').join("")+'</select></div>'

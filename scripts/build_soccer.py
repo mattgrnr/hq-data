@@ -26,6 +26,7 @@ FIX = OUT / "fixtures"
 CT = ZoneInfo("America/Chicago")
 BASE = "https://www.fotmob.com"
 UA = "Mozilla/5.0 (compatible; GolazoHQ/1.0)"
+REPLAY = os.environ.get("REPLAY_DATE")  # rebuild one past CT day from matches before it, no lineups
 BUDGET = float(os.environ.get("BUDGET_MIN", "30")) * 60
 DELAY = 1.0
 START = time.time()
@@ -404,7 +405,7 @@ def build_board(state, rows):
     pos_prior[1] = {"npxg": 0.05, "xa": 0.05, "sh": 0.6, "sot": 0.18, "g": 0.04, "a": 0.05}
     names = state["players"]
 
-    now_ct = datetime.now(CT)
+    now_ct = datetime.fromisoformat(REPLAY + "T06:00:00").replace(tzinfo=CT) if REPLAY else datetime.now(CT)
     # each player's current team (his latest appearance, if recent) and who has been taking penalties
     cutoff = int((now_ct - timedelta(days=150)).strftime("%Y%m%d"))
     roster = defaultdict(list)
@@ -415,7 +416,7 @@ def build_board(state, rows):
         for x in p["log"][:40]:
             if x[9] > 0:
                 team_pens[x[2]][pid] += x[9]
-    days = [now_ct.date(), now_ct.date() + timedelta(days=1)]
+    days = [now_ct.date()] if REPLAY else [now_ct.date(), now_ct.date() + timedelta(days=1)]
     games = []
     for lid, _ in LEAGUES:
         if lid not in SLATE:
@@ -427,7 +428,7 @@ def build_board(state, rows):
             if not m["t"]:
                 continue
             k = datetime.fromisoformat(m["t"].replace("Z", "+00:00")).astimezone(CT)
-            if k.date() in days and not m["fin"]:
+            if k.date() in days and (REPLAY or not m["fin"]):
                 games.append((k, lid, m))
     games.sort(key=lambda g: g[0])
     print(f"slate: {len(games)} matches")
@@ -438,14 +439,14 @@ def build_board(state, rows):
         key = str(m["id"])
         old = lineups.get(key)
         hrs = (k - now_ct).total_seconds() / 3600
-        stale = not old or (old["kind"] != "standard" and (hrs < 3 or time.time() - old.get("at", 0) > 6 * 3600))
+        stale = not REPLAY and (not old or (old["kind"] != "standard" and (hrs < 3 or time.time() - old.get("at", 0) > 6 * 3600)))
         if stale and not out_of_time():
             d = page(f"/match/{m['id']}")
             if d:
                 old = lineup_info(d)
                 old["at"] = time.time()
                 lineups[key] = old
-        lu = old or {"kind": "unavailable"}
+        lu = (None if REPLAY else old) or {"kind": "unavailable"}
         gi = len(out_games)
         la = lg.get(lid, allavg)
         out_games.append({"id": m["id"], "lid": lid, "league": LNAME[lid], "t": k.isoformat(),
@@ -500,13 +501,16 @@ def build_board(state, rows):
                     "l5": [[x[0], round(x[3]), int(x[5]), int(x[6]), int(x[8])] for x in last],
                     "att": round(att, 2), "dfn": round(dfn, 2), "sdf": round(sdf, 2),
                 })
-    (OUT / "lineups.json").write_text(json.dumps({k: v for k, v in lineups.items()
-                                                  if any(str(g["id"]) == k for g in out_games)},
-                                                 separators=(",", ":")))
+    if not REPLAY:
+        (OUT / "lineups.json").write_text(json.dumps({k: v for k, v in lineups.items()
+                                                      if any(str(g["id"]) == k for g in out_games)},
+                                                     separators=(",", ":")))
     board = {"date": days[0].isoformat(), "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
              "leagues": [{"id": lid, "name": n} for lid, n in LEAGUES if lid in SLATE], "games": out_games,
              "players": out_players}
-    (OUT / "board.json").write_text(json.dumps(board, separators=(",", ":"), ensure_ascii=False))
+    dest = OUT / "replay" / f"{REPLAY}.json" if REPLAY else OUT / "board.json"
+    dest.parent.mkdir(exist_ok=True)
+    dest.write_text(json.dumps(board, separators=(",", ":"), ensure_ascii=False))
     print(f"board: {len(out_games)} matches, {len(out_players)} players")
 
 
@@ -515,6 +519,14 @@ def main():
     HIST.mkdir(exist_ok=True)
     FIX.mkdir(exist_ok=True)
     state = {"fixtures": {}, "players": load_json(OUT / "players.json", {})}
+    if REPLAY:
+        for lid, _ in LEAGUES:
+            state["fixtures"][lid] = load_json(FIX / f"{lid}.json", None)
+        cut = REPLAY.replace("-", "")
+        rows = [r for r in load_all_history(state) if r["date"] < cut]
+        print(f"replay {REPLAY}: {len(rows)} history rows before it")
+        build_board(state, rows)
+        return
     for lid, name in LEAGUES:
         f = FIX / f"{lid}.json"
         state["fixtures"][lid] = load_json(f, None)
