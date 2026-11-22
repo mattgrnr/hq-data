@@ -996,6 +996,7 @@ const BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.
   CZR:"https://sportsbook.caesars.com", FAN:"https://sportsbook.fanatics.com", ESPN:"https://espnbet.com", BR:"https://www.betrivers.com",
   HR:"https://app.hardrock.bet" };
 // links that drop every leg into a book's bet slip (null when a leg has no id at that book)
+const SLIPLINK = {};
 function slipUrl(bk, legs){
   const ids = legs.map(l=>(l.x||{})[bk]);
   if(!ids.length || ids.some(x=>!x)) return null;
@@ -1045,7 +1046,7 @@ function plBar(){
       + '<div class="pl-where"><div class="pl-wt">Tap a sportsbook to price your parlay there</div>'+all.slice(0, 8).map(bookRow).join("")+'</div>'
       + (m.full.length ? '' : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
-      + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" href="'+esc(placeUrl)+'" target="_blank" rel="noopener">'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
+      + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-copy">Copy legs</button></div>'
       + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
         + 'FanDuel, DraftKings, Fanatics and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
@@ -1053,6 +1054,14 @@ function plBar(){
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
     + '<b>'+(full ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
   el.querySelectorAll(".pl-bk[data-bk]").forEach(b=> b.onclick = ()=>{ PLBK = b.dataset.bk; plSave(PL); plBar(); });
+  // put the sportsbook's own link on the button, so a tap opens the book's app rather than a browser redirect
+  if(slip && !SLIPLINK[slip] && slip.indexOf("/betlink?") > 0){
+    fetch(slip + "&json=1").then(r=>r.json()).then(d=>{
+      if(!d || !d.link) return;
+      SLIPLINK[slip] = d.link;
+      const a = document.getElementById("pl-go"); if(a) a.setAttribute("href", d.link);
+    }).catch(()=>{});
+  }
   const cp = document.getElementById("pl-copy");
   if(cp) cp.onclick = ()=>{
     const txt = PL.map(l=>l.l+" ("+(l.g||"")+")"+(at(l)!=null ? " "+gPrice(at(l)) : "")).join("\\n") + (full ? "\\nParlay "+gPrice(pick.price)+" at "+(BKNAME[pick.bk]||pick.bk) : "");

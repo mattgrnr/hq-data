@@ -69,10 +69,17 @@ async function betLink(url, request, env) {
   const home = SLIP_BOOKS[bk];
   if (!home) return Response.redirect("https://total-hq.com/", 302);
   if (!/^\d{4,20}(,\d{4,20}){0,11}$/.test(ids)) return Response.redirect(home, 302);
-  if (!HQ_REF.test(request.headers.get("Referer") || "")) return Response.redirect(home, 302);
+  const origin = request.headers.get("Origin") || "";
+  const fromHQ = HQ_REF.test(request.headers.get("Referer") || "") || HQ_REF.test(origin + "/");
+  const json = url.searchParams.get("json") === "1";
+  const cors = HQ_REF.test(origin + "/") ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin" } : {};
+  if (!fromHQ) return json ? new Response("{}", { status: 403, headers: { "Content-Type": "application/json", ...cors } }) : Response.redirect(home, 302);
   const cache = caches.default, key = new Request("https://total-hq.com/betlink?bk=" + bk + "&ids=" + ids);
   const hit = await cache.match(key);
-  if (hit) return hit;
+  if (hit) {
+    if (!json) return hit;
+    return new Response(JSON.stringify({ link: hit.headers.get("Location") }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...cors } });
+  }
   let to = home;
   try {
     if (env && env.PROPLINE_KEY) {
@@ -82,6 +89,7 @@ async function betLink(url, request, env) {
   } catch (e) {}
   const out = new Response(null, { status: 302, headers: { Location: to, "Cache-Control": to === home ? "no-store" : "public, max-age=600" } });
   if (to !== home) await cache.put(key, out.clone());
+  if (json) return new Response(JSON.stringify({ link: to === home ? null : to }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...cors } });
   return out;
 }
 
@@ -424,6 +432,7 @@ function byBook(legs){
 var BKHOME = { DK:"https://sportsbook.draftkings.com", FD:"https://sportsbook.fanduel.com", MGM:"https://sports.betmgm.com",
   CZR:"https://sportsbook.caesars.com", FAN:"https://sportsbook.fanatics.com", ESPN:"https://espnbet.com", BR:"https://www.betrivers.com",
   HR:"https://app.hardrock.bet" };
+var SLIPLINK = {};
 function slipUrl(bk, legs){
   var ids = legs.map(function(l){ return (l.x || {})[bk]; });
   if(!ids.length || ids.some(function(x){ return !x; })) return null;
@@ -467,7 +476,7 @@ function renderParlay(){
   var gs = Object.keys(games), one = pick && gs.length === 1 ? (PL.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
   var slip = full ? slipUrl(pick.bk, PL) : null;
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
-  h += '<div class="pl-place">' + (place ? '<a class="pl-go" href="' + esc(place) + '" target="_blank" rel="noopener">' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
+  h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button id="pl-copy" class="pl-cp">Copy legs</button></div>'
     + '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '. ' : 'Opens ' + esc(pick ? nm(pick.bk) : 'the book') + '; add each leg there, or use "open game" on a leg. ')
       + 'FanDuel, DraftKings, Fanatics and BetMGM can load the whole slip.') + '</p>'
@@ -477,6 +486,14 @@ function renderParlay(){
   el.innerHTML = h;
   el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ PL.splice(+b.dataset.i, 1); plSave(PL); renderParlay(); }; });
   el.querySelectorAll(".pl-bk[data-bk]").forEach(function(b){ b.onclick = function(){ PLBK = b.dataset.bk; plSave(PL); renderParlay(); }; });
+  // put the sportsbook's own link on the button, so a tap opens the book's app rather than a browser redirect
+  if(slip && !SLIPLINK[slip] && slip.indexOf("/betlink?") === 0){
+    fetch(slip + "&json=1").then(function(r){ return r.json(); }).then(function(d){
+      if(!d || !d.link) return;
+      SLIPLINK[slip] = d.link;
+      var a = document.getElementById("pl-go"); if(a) a.setAttribute("href", d.link);
+    }).catch(function(){});
+  }
   document.getElementById("pl-clear").onclick = function(){ PL = []; plSave(PL); renderParlay(); };
   var cp = document.getElementById("pl-copy");
   cp.onclick = function(){
