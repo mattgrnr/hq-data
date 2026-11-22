@@ -420,10 +420,18 @@ body{background:
 #app .gw-lbl b{color:var(--ink);font-variant-numeric:tabular-nums}
 #app .gc-proj{margin-top:8px;font-size:12.5px;color:var(--faint)}
 #app .gc-proj b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
-#app .gc-mk{margin-top:12px;border-top:1px solid var(--line)}
-#app .gm-row{display:grid;grid-template-columns:92px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink);line-height:1.5}
-#app .gm-row>span{color:var(--faint);font-size:12px}
+#app .gc-mk{margin-top:6px}
 #app .g-val{display:inline-block;margin-left:4px;padding:0 6px;border-radius:5px;font-size:11.5px;font-weight:600;color:#0c1a10;background:#4ade80}
+#app .gm-t{margin:14px 0 6px;font-size:12px;color:var(--faint);font-weight:600}
+#app .gm-t i{font-style:normal;font-weight:400;margin-left:6px}
+#app .gm-tbl{display:grid;font-size:13px}
+#app .gm-h,#app .gm-r{display:grid;grid-template-columns:1fr 48px 48px 92px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+#app .gm-h{font-size:10.5px;color:var(--faint);padding-top:0}
+#app .gm-h span:not(:first-child),#app .gm-r span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+#app .gm-r{color:var(--ink)}
+#app .gm-r span:nth-child(3){color:var(--faint)}
+#app .gm-r em{font-style:normal;color:var(--faint);font-size:11px}
+#app .gm-note{margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.45}
 #app .gc-sub{margin:14px 0 8px;font-size:12px;color:var(--faint)}
 #app .gc-all{width:100%;margin-top:4px}
 /* ===== end games view ===== */
@@ -972,30 +980,49 @@ function gWinBar(g){
     + '<div class="gw-lbl"><span>'+esc(g.away)+' <b>'+gPct(w[1])+'</b></span><span><b>'+gPct(w[0])+'</b> '+esc(g.home)+'</span></div>';
 }
 
+function gPrice(x){ return x == null ? "" : (x > 0 ? "+"+x : String(x)); }
+function gEdge(g, mk, side){
+  const v = (g.proj.value||[]).find(v=>v.mk===mk && v.side===side);
+  return v ? ' <span class="g-val">+'+Math.round(100*(v.ours-v.book))+'%</span>' : '';
+}
+// one market: a row per side with our chance, the book's fair chance, and the best price out there
+function gTable(title, sides){
+  return '<div class="gm-t">'+title+'</div><div class="gm-tbl"><div class="gm-h"><span></span><span>Ours</span><span>Book</span><span>Best price</span></div>'
+    + sides.map(x=>'<div class="gm-r"><span>'+x[0]+'</span><span><b>'+gPct(x[1])+'</b></span><span>'+gPct(x[2])+'</span><span>'+(x[3] ? gPrice(x[3][0])+' <em>'+x[3][1]+'</em>' : '—')+'</span></div>').join("")
+    + '</div>';
+}
 function gMarkets(g){
-  const p = g.proj, w = p.win, rows = [];
-  const fav = w[0] >= w[w.length-1];
+  const p = g.proj, w = p.win, b = p.book && !p.book.src ? p.book : null, out = [];
+  const H = esc(g.home), A = esc(g.away);
   if(GKIND === "soccer"){
-    rows.push(["Result", esc(g.home)+' '+gPct(w[0])+' · Draw '+gPct(w[1])+' · '+esc(g.away)+' '+gPct(w[2])]);
-    rows.push(["Total goals", 'Over '+p.over[0]+' '+gPct(p.over[1])+' · Under '+gPct(1-p.over[1])]);
-    rows.push(["Both teams score", 'Yes '+gPct(p.btts)+' · No '+gPct(1-p.btts)]);
-    return rows;
+    out.push(gTable("Result", [[H+gEdge(g,"Result",g.home), w[0], b&&b.ml&&b.ml[0], b&&b.mlp&&b.mlp[0]],
+      ["Draw"+gEdge(g,"Result","Draw"), w[1], b&&b.ml&&b.ml[1], b&&b.mlp&&b.mlp[1]],
+      [A+gEdge(g,"Result",g.away), w[2], b&&b.ml&&b.ml[2], b&&b.mlp&&b.mlp[2]]]));
+    const ov = p.over_book != null ? p.over_book : p.over[1];
+    out.push(gTable("Total goals 2.5", [["Over"+gEdge(g,"Total","Over 2.5"), ov, b&&b.over, b&&b.totp&&b.totp[0]],
+      ["Under"+gEdge(g,"Total","Under 2.5"), 1-ov, b&&b.over!=null?1-b.over:null, b&&b.totp&&b.totp[1]]]));
+    out.push(gTable("Both teams score", [["Yes"+gEdge(g,"Both score","Yes"), p.btts, b&&b.btts, b&&b.bttsp&&b.bttsp[0]],
+      ["No"+gEdge(g,"Both score","No"), 1-p.btts, b&&b.btts!=null?1-b.btts:null, b&&b.bttsp&&b.bttsp[1]]]));
+    return out;
   }
-  rows.push(["Moneyline", esc(g.home)+' '+gPct(w[0])+' · '+esc(g.away)+' '+gPct(w[1])]);
-  if(GKIND === "hockey"){
-    rows.push(["Puck line", esc(fav ? g.home : g.away)+' -1.5 '+gPct(p.cover)+' · '+esc(fav ? g.away : g.home)+' +1.5 '+gPct(1-p.cover)]);
-  } else if(p.book && p.book.spread != null){
-    const bs = p.book.spread, homeEdge = p.cover - 0.5;
-    rows.push(["Spread", 'Book '+esc(g.home)+' '+gLine(bs)+' · ours '+gLine(p.spread)
-      + '<br>'+esc(g.home)+' covers '+gPct(p.cover)+' · '+esc(g.away)+' '+gPct(1-p.cover)
-      + (Math.abs(homeEdge) >= 0.05 ? ' <span class="g-val">Value: '+esc(homeEdge > 0 ? g.home+' '+gLine(bs) : g.away+' '+gLine(-bs))+'</span>' : '')]);
+  out.push(gTable("Moneyline", [[A+gEdge(g,"Moneyline",g.away), w[1], b&&b.ml&&b.ml[1], b&&b.mlp&&b.mlp[1]],
+    [H+gEdge(g,"Moneyline",g.home), w[0], b&&b.ml&&b.ml[0], b&&b.mlp&&b.mlp[0]]]));
+  if(b && b.spread != null){
+    const l = b.spread, hs = g.home+" "+(l>0?"+":"")+l, as = g.away+" "+(-l>0?"+":"")+(-l);
+    out.push(gTable((GKIND==="hockey"?"Puck line":"Spread")+' <i>ours '+H+' '+gLine(p.spread)+'</i>',
+      [[esc(as)+gEdge(g,"Spread",as), 1-p.cover_book, 1-b.cover, b.spreadp&&b.spreadp[1]],
+       [esc(hs)+gEdge(g,"Spread",hs), p.cover_book, b.cover, b.spreadp&&b.spreadp[0]]]));
   } else {
-    rows.push(["Spread", 'Ours '+esc(g.home)+' '+gLine(p.spread)]);
+    out.push('<div class="gm-t">'+(GKIND==="hockey"?"Puck line":"Spread")+' <i>ours '+H+' '+gLine(p.spread)+(p.book&&p.book.spread!=null?' · consensus '+gLine(p.book.spread):'')+'</i></div>');
   }
-  const ov = p.over[1], book = p.book && p.book.total != null;
-  rows.push(["Total", 'Proj '+p.total+(book ? ' · book '+p.over[0] : '')+'<br>Over '+p.over[0]+' '+gPct(ov)+' · Under '+gPct(1-ov)
-    + (book && Math.abs(ov - 0.5) >= 0.05 ? ' <span class="g-val">Value: '+(ov > 0.5 ? "Over" : "Under")+'</span>' : '')]);
-  return rows;
+  if(b && b.total != null){
+    const t = b.total;
+    out.push(gTable('Total '+t+' <i>ours '+p.total+'</i>', [["Over"+gEdge(g,"Total","Over "+t), p.over_book, b.over, b.totp&&b.totp[0]],
+      ["Under"+gEdge(g,"Total","Under "+t), 1-p.over_book, 1-b.over, b.totp&&b.totp[1]]]));
+  } else {
+    out.push('<div class="gm-t">Total <i>ours '+p.total+(p.book&&p.book.total!=null?' · consensus '+p.book.total:'')+'</i></div>');
+  }
+  return out;
 }
 
 function gCard(g){
@@ -1005,9 +1032,12 @@ function gCard(g){
     + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+esc(g.when||"")+'</div></div>'
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
     + gWinBar(g)
-    + '<div class="gc-proj">Projected <b>'+esc(g.home)+' '+score+' '+esc(g.away)+'</b></div>';
+    + '<div class="gc-proj">Projected <b>'+esc(g.home)+' '+score+' '+esc(g.away)+'</b>'
+    + ((p.value||[]).length ? '<span class="g-val">'+p.value.length+' edge'+(p.value.length>1?"s":"")+'</span>' : '')+'</div>';
   if(open){
-    h += '<div class="gc-mk">'+gMarkets(g).map(r=>'<div class="gm-row"><span>'+r[0]+'</span><div>'+r[1]+'</div></div>').join("")+'</div>';
+    h += '<div class="gc-mk">'+gMarkets(g).join("")
+      + (p.book && !p.book.src ? '<p class="gm-note">Book = the sportsbooks\\' fair chance with their margin removed. Best price = the best odds across DraftKings, FanDuel, BetMGM, Caesars and others. A green tag means we rate that side higher than the books do.</p>' : '')
+      + '</div>';
     const rows = gRows(g.id).slice(0, 3);
     if(rows.length){
       h += '<div class="gc-sub">Top picks in this game</div>' + rows.map((r,i)=>rowHTML(r,i)).join("")

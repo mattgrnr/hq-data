@@ -16,10 +16,18 @@
 #app .gw-lbl b{color:var(--ink);font-variant-numeric:tabular-nums}
 #app .gc-proj{margin-top:8px;font-size:12.5px;color:var(--faint)}
 #app .gc-proj b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
-#app .gc-mk{margin-top:12px;border-top:1px solid var(--line)}
-#app .gm-row{display:grid;grid-template-columns:92px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink);line-height:1.5}
-#app .gm-row>span{color:var(--faint);font-size:12px}
+#app .gc-mk{margin-top:6px}
 #app .g-val{display:inline-block;margin-left:4px;padding:0 6px;border-radius:5px;font-size:11.5px;font-weight:600;color:#0c1a10;background:#4ade80}
+#app .gm-t{margin:14px 0 6px;font-size:12px;color:var(--faint);font-weight:600}
+#app .gm-t i{font-style:normal;font-weight:400;margin-left:6px}
+#app .gm-tbl{display:grid;font-size:13px}
+#app .gm-h,#app .gm-r{display:grid;grid-template-columns:1fr 48px 48px 92px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+#app .gm-h{font-size:10.5px;color:var(--faint);padding-top:0}
+#app .gm-h span:not(:first-child),#app .gm-r span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+#app .gm-r{color:var(--ink)}
+#app .gm-r span:nth-child(3){color:var(--faint)}
+#app .gm-r em{font-style:normal;color:var(--faint);font-size:11px}
+#app .gm-note{margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.45}
 #app .gc-sub{margin:14px 0 8px;font-size:12px;color:var(--faint)}
 #app .gc-all{width:100%;margin-top:4px}
 /* ===== end games view ===== */
