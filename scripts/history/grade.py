@@ -209,7 +209,8 @@ def grade(sport):
                     continue  # did not play
                 rows.append({**p, "act": {s: act[s] for s in p["pj"] if s in act}})
         games = len(slate["games"]) - len(missing)
-        (gdir / pf.name).write_text(json.dumps({"key": pf.stem, "games": games, "stats": slate["stats"], "rows": rows},
+        (gdir / pf.name).write_text(json.dumps({"key": pf.stem, "games": games, "stats": slate["stats"], "rows": rows,
+                                                "replay": bool(slate.get("replay"))},
                                                separators=(",", ":"), ensure_ascii=False))
         print(f"{pf.stem}: graded {len(rows)} players in {games} games")
     summarize(sport)
@@ -268,6 +269,8 @@ def summarize(sport):
             out["players"][stat][w] = [p for p in ranked if p["picks"] >= 2][:8]
     for day in days:
         entry = {"date": day["key"], "label": label_of(day["key"]), "games": day["games"], "stats": {}}
+        if day.get("replay"):
+            entry["replay"] = True
         for stat in stats:
             g = graded(day, stat)
             tiers = {}

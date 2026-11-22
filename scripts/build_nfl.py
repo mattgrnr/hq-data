@@ -18,6 +18,7 @@ IDS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db
 ET = ZoneInfo("America/New_York")
 OUT = Path(__file__).resolve().parent.parent / "nfl" / "board.json"
 LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downloading
+REPLAY_WEEK = int(os.environ.get("REPLAY_WEEK") or 0)  # rebuild a past week's board from what was known before it
 
 POS = ("QB", "RB", "WR", "TE")
 K_PLAYER = 4   # TD rates lean on the league rate per opportunity until he has ~4 games
@@ -92,12 +93,16 @@ def pick_week(season_games, today):
 def qb_depth(text, today):
     """team -> {gsis_id: rank} from the latest depth chart snapshot, if it is recent."""
     snaps = defaultdict(dict)
+    if not text:
+        return {}
     rd = csv.reader(io.StringIO(text))
     hdr = next(rd, None)
     if not hdr:
         return {}
     c = {h: i for i, h in enumerate(hdr)}
     for f in rd:
+        if f[c["dt"]][:10] > today.isoformat():
+            continue
         if f[c["pos_abb"]] == "QB" and f[c["gsis_id"]]:
             snaps[f[c["dt"]][:10]].setdefault(f[c["team"]], {})[f[c["gsis_id"]]] = int(f[c["pos_rank"]])
     if not snaps:
@@ -110,7 +115,7 @@ def qb_depth(text, today):
 
 # ---------- play-by-play: red-zone usage and defense vs position ----------
 
-def scan_pbp(text, pos_of):
+def scan_pbp(text, pos_of, max_week=99):
     rz = defaultdict(lambda: [0, 0])                     # player -> [inside 20, inside 5]
     # def -> pos -> [td, yds, rz plays, rz tds, rush yds, rec yds, receptions]
     dvp = defaultdict(lambda: defaultdict(lambda: [0.0] * 7))
@@ -127,6 +132,8 @@ def scan_pbp(text, pos_of):
     ix = {k: c[k] for k in need}
 
     for f in reader:
+        if int(f[ix["game_id"]].split("_")[1]) > max_week:
+            continue
         pt = f[ix["play_type"]]
         if pt not in ("run", "pass") or f[ix["two_point_attempt"]] == "1":
             continue
@@ -189,6 +196,15 @@ def main():
 
     season_games = [g for g in games if int(g["season"]) == season]
     week = pick_week(season_games, today)
+    out = OUT
+    if REPLAY_WEEK:
+        # as of the day before the week's first game: later results are blanked and later stats dropped
+        week = REPLAY_WEEK
+        today = min(dt.date.fromisoformat(g["gameday"]) for g in season_games if int(g["week"]) == week) - dt.timedelta(days=1)
+        for g in season_games:
+            if int(g["week"]) >= week:
+                g["home_score"] = g["away_score"] = ""
+        out = OUT.parent / "replay" / f"w{week:02d}.json"
     week_games = [g for g in season_games if int(g["week"]) == week]
 
     played = defaultdict(int)
@@ -201,6 +217,10 @@ def main():
     cur_weekly = rows(rel(f"stats_player/stats_player_week_{season}.csv"))
     roster_rows = rows(rel(f"weekly_rosters/roster_weekly_{season}.csv"))
     injury_rows = rows(rel(f"injuries/injuries_{season}.csv"))
+    if REPLAY_WEEK:
+        cur_weekly = [r for r in cur_weekly if int(r["week"]) < week]
+        roster_rows = [r for r in roster_rows if int(r["week"]) <= week]
+        injury_rows = [r for r in injury_rows if int(r["week"]) <= week]
     depth = qb_depth(rel(f"depth_charts/depth_charts_{season}.csv"), today)
 
     # sleeper ids let the site match live in-game stats; the board still builds without them
@@ -219,7 +239,7 @@ def main():
         if r["gsis_id"]:
             pos_of[r["gsis_id"]] = r["position"]
 
-    rz_cur, dvp_cur, dg_cur = scan_pbp(rel(f"pbp/play_by_play_{season}.csv"), pos_of)
+    rz_cur, dvp_cur, dg_cur = scan_pbp(rel(f"pbp/play_by_play_{season}.csv"), pos_of, week - 1 if REPLAY_WEEK else 99)
 
     # league TD rates per opportunity this season, used to steady small samples
     lg = defaultdict(lambda: defaultdict(float))
@@ -416,17 +436,17 @@ def main():
         "games": slate,
     }
 
-    if OUT.exists():
-        old = json.loads(OUT.read_text())
+    if out.exists():
+        old = json.loads(out.read_text())
         old.pop("built", None)
         if old == json.loads(json.dumps(payload)):
             print("no change")
             return
 
     payload = {"built": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), **payload}
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(payload, separators=(",", ":")))
-    print(f"{payload['label']} {season}: {len(players)} players, {len(slate)} games, {OUT.stat().st_size // 1024} KB")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, separators=(",", ":")))
+    print(f"{payload['label']} {season}: {len(players)} players, {len(slate)} games, {out.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,57 @@
+name: Replay past slates
+
+on:
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: "nfl, nhl, nba, soccer or mlb"
+        required: true
+      range:
+        description: "NFL: weeks like 2-6. Others: dates like 2026-10-07..2026-10-21"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: replay-${{ inputs.sport }}
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyarrow
+
+      - name: Rebuild and score each slate as of the morning before it
+        env:
+          HQ_REPLAY: "1"
+          SPORT: ${{ inputs.sport }}
+          RANGE: ${{ inputs.range }}
+        run: python scripts/history/replay.py "$SPORT" "$RANGE"
+
+      - name: Grade
+        run: python scripts/history/grade.py ${{ inputs.sport }}
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.sport }}/history ${{ inputs.sport }}/replay
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Replay ${{ inputs.sport }} ${{ inputs.range }}"
+          git pull --rebase -X theirs
+          git push

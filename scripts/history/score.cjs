@@ -86,6 +86,7 @@ async function rowsFor(cfg, bd) {
       out.picks[g.key] = picks.filter(p => p.g === g.key);
     }
     out.scored = new Date(NOW).toISOString();
+    if (process.env.HQ_REPLAY) out.replay = true;   // rebuilt after the fact from what was known beforehand
     fs.writeFileSync(f, JSON.stringify(out));
     console.log(`${key}: ${gs.length} games refreshed, ${Object.keys(out.games).length} on file`);
   }
