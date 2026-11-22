@@ -15,7 +15,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -231,6 +231,15 @@ def label_of(key):
     return "Week " + str(int(key.split("-w")[1])) if "-w" in key else key
 
 
+def home_teams(days):
+    """The team each player suits up for most, so a national-team week doesn't relabel him."""
+    seen = defaultdict(Counter)
+    for day in days:
+        for r in day["rows"]:
+            seen[r["id"]][r["t"]] += 1
+    return {pid: c.most_common(1)[0][0] for pid, c in seen.items()}
+
+
 def summarize(sport):
     """Over rates by stat and tier over several windows, per-slate splits, and the most-backed players."""
     hdir = ROOT / sport / "history"
@@ -246,6 +255,8 @@ def summarize(sport):
         last = date.fromisoformat(days[-1]["key"])
         keep = {w: [d for d in days if date.fromisoformat(d["key"]) > last - timedelta(days=int(w))] for w in ("7", "30")}
         keep["season"] = days
+
+    clubs = home_teams(days)
 
     def graded(day, stat):
         out = []
@@ -274,7 +285,7 @@ def summarize(sport):
                     p = seen.setdefault(r["id"], {"n": r["n"], "t": r["t"], "picks": 0, "hits": 0})
                     p["picks"] += 1
                     p["hits"] += over
-                    p["t"] = r["t"]
+                    p["t"] = clubs.get(r["id"], r["t"])
             out["tiers"][stat][w] = {t: {"n": a[0], "hit": a[1], "exp": round(a[2], 1)} for t, a in agg.items()}
             ranked = sorted(seen.values(), key=lambda p: (-p["picks"], -p["hits"]))
             out["players"][stat][w] = [p for p in ranked if p["picks"] >= 2][:8]
@@ -308,7 +319,7 @@ def summarize(sport):
         for stat in stats:
             for r, over, e in graded(day, stat):
                 p = pl.setdefault(str(r["id"]), {"n": r["n"], "t": r["t"], "s": {}, "l": {}})
-                p["t"] = r["t"]
+                p["t"] = clubs.get(r["id"], r["t"])
                 t = p["s"].setdefault(stat, [0, 0])
                 t[0] += 1
                 t[1] += over
