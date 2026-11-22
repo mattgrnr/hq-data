@@ -194,6 +194,20 @@ NFL_NICK = {"ARI": "Cardinals", "ATL": "Falcons", "BAL": "Ravens", "BUF": "Bills
             "NYJ": "Jets", "PHI": "Eagles", "PIT": "Steelers", "SEA": "Seahawks", "SF": "49ers", "TB": "Buccaneers",
             "TEN": "Titans", "WAS": "Commanders"}
 VALUE = 0.05     # our chance beats the book's fair chance by this much
+OFFSHORE = {"PIN", "BOV"}   # sharp enough to set the fair price, but not where most US bettors can place a bet
+
+
+def placeable(prices):
+    return {bk: v for bk, v in prices.items() if bk not in OFFSHORE}
+
+
+def best_of(prices):
+    """(book, price, every placeable book's price) for the best price a US bettor can get, or None."""
+    p = placeable(prices)
+    if not p:
+        return None
+    bk = max(p, key=p.get)
+    return bk, p[bk], p
 
 
 def implied(price):
@@ -254,8 +268,10 @@ def two_way(rows, pick_a, pick_b):
         fair.append(x / (x + y))
     if not fair:
         return None
-    best = lambda r: max(r[0][3].items(), key=lambda kv: kv[1])
-    return statistics.median(fair), best(pa), best(pb)
+    a, b = best_of(pa[0][3]), best_of(pb[0][3])
+    if not a or not b:
+        return None
+    return statistics.median(fair), a, b
 
 
 def main_line(rows, side):
@@ -285,7 +301,8 @@ def attach_odds(sport, bd, lam=None):
 
         def add_value(mk, side, ours, fair, best):
             if ours - fair >= VALUE:
-                value.append({"mk": mk, "side": side, "ours": round(ours, 3), "book": round(fair, 3), "price": best[1], "bk": best[0]})
+                value.append({"mk": mk, "side": side, "ours": round(ours, 3), "book": round(fair, 3), "price": best[1], "bk": best[0],
+                              "all": best[2] if len(best) > 2 else {best[0]: best[1]}})
 
         h2h = m.get("h2h", [])
         if sport == "soccer":
@@ -301,9 +318,9 @@ def attach_odds(sport, bd, lam=None):
                     tot = sum(implied(r[3][bk]) for r in sides.values())
                     for k, r in sides.items():
                         fair[k].append(implied(r[3][bk]) / tot)
-                if fair["h"]:
+                bests = [best_of(sides[k][3]) for k in ("h", "d", "a")]
+                if fair["h"] and all(bests):
                     fm = [statistics.median(fair[k]) for k in ("h", "d", "a")]
-                    bests = [max(sides[k][3].items(), key=lambda kv: kv[1]) for k in ("h", "d", "a")]
                     book["ml"] = [round(x, 3) for x in fm]
                     book["mlp"] = [[b[1], b[0]] for b in bests]
                     for i, (lab, k) in enumerate(((home, "h"), ("Draw", "d"), (away, "a"))):
@@ -391,8 +408,10 @@ def attach_props(sport, bd):
                 if name == "No":
                     continue
                 imp = statistics.median(implied(v) for v in prices.values()) / ONE_SIDED_VIG
-                best = max(prices.items(), key=lambda kv: kv[1])
-                out.setdefault(pname(who), {}).setdefault(stat, []).append([k, round(min(imp, 0.99), 3), best[1], best[0], len(prices), 0])
+                best = best_of(prices)
+                if not best:
+                    continue
+                out.setdefault(pname(who), {}).setdefault(stat, []).append([k, round(min(imp, 0.99), 3), best[1], best[0], len(prices), 0, best[2]])
             for (who, point), sides in pairs.items():
                 if "Over" not in sides or "Under" not in sides:
                     continue
@@ -402,9 +421,11 @@ def attach_props(sport, bd):
                     fair.append(x / (x + y))
                 if not fair:
                     continue
-                best = max(sides["Over"].items(), key=lambda kv: kv[1])
+                best = best_of(sides["Over"])
+                if not best:
+                    continue
                 out.setdefault(who, {}).setdefault(stat, []).append(
-                    [math.floor(point) + 1, round(statistics.median(fair), 3), best[1], best[0], len(fair), 1])
+                    [math.floor(point) + 1, round(statistics.median(fair), 3), best[1], best[0], len(fair), 1, best[2]])
     # only our board's players; per stat the books' main over/under line plus the yes-only rungs we show chances for
     ours = {pname(p.get("name") or p.get("n") or "") for p in bd.get("players", [])}
     keep = {}

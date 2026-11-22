@@ -194,6 +194,12 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-leg button{background:none;border:0;color:var(--dim);font-size:14px;cursor:pointer}
 .pl-note{font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.5}
 .pl-acts{display:flex;gap:16px;margin-top:12px}
+.pl-bk{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 10px;border-radius:8px;font-size:14px}
+.pl-bk.top{background:rgba(74,222,128,.1);box-shadow:inset 0 0 0 1px rgba(74,222,128,.4)}
+.pl-bk b{font-weight:500;font-variant-numeric:tabular-nums}
+.pl-bk.part{color:var(--dim);font-size:12.5px}
+.pl-bk.part i{font-style:normal;text-align:right;font-size:11.5px}
+.pl-warn{color:#fbbf24}
 .pl-acts button{background:none;border:0;padding:0;font:inherit;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--mute);cursor:pointer}
 
 /* a sport opens into today's games */
@@ -369,25 +375,55 @@ function plLinks(){
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 function amer(d){ return d >= 2 ? "+" + Math.round((d-1)*100) : String(Math.round(-100/(d-1))); }
 function price(a){ return a > 0 ? "+" + a : String(a); }
+var BKNAME = { DK:"DraftKings", FD:"FanDuel", MGM:"BetMGM", CZR:"Caesars", FAN:"Fanatics", ESPN:"ESPN Bet", BR:"BetRivers", HR:"Hard Rock", BOV:"Bovada", PIN:"Pinnacle" };
+function legPrices(l){ if(l.a) return l.a; var o = {}; o[l.b] = l.p; return o; }
+// a parlay is placed at one book, so it is priced book by book from that book's own prices
+function byBook(legs){
+  var seen = {}, out = [];
+  legs.forEach(function(l){ Object.keys(legPrices(l)).forEach(function(bk){ seen[bk] = 1; }); });
+  Object.keys(seen).forEach(function(bk){
+    var d = 1, missing = [];
+    legs.forEach(function(l){ var p = legPrices(l)[bk]; if(p == null) missing.push(l); else d *= dec(p); });
+    out.push({ bk: bk, n: legs.length - missing.length, missing: missing, d: d });
+  });
+  out.sort(function(a, c){ return c.n - a.n || c.d - a.d; });
+  return out;
+}
 function renderParlay(){
   var el = document.getElementById("parlay");
   if(!PL.length){ el.innerHTML = ""; return; }
-  var d = 1, ours = 1, book = 1, games = {}, same = false;
-  PL.forEach(function(l){ d *= dec(l.p); ours *= l.o; book *= l.k; if(games[l.g]) same = true; games[l.g] = 1; });
+  var ours = 1, book = 1, games = {}, same = false;
+  PL.forEach(function(l){ ours *= l.o; book *= l.k; if(games[l.g]) same = true; games[l.g] = 1; });
+  var books = byBook(PL), full = books.filter(function(b){ return b.n === PL.length; }), part = books.filter(function(b){ return b.n < PL.length; });
+  var top = full[0];
   var sports = [];
   PL.forEach(function(l){ if(sports.indexOf(l.s) < 0) sports.push(l.s); });
   var h = '<div class="pl"><div class="pl-top"><div><div class="t">Your parlay</div><div class="pl-sub">' + PL.length + ' leg' + (PL.length > 1 ? "s" : "")
-    + ' · ours ' + pct(ours) + ' · book ' + pct(book) + '</div></div><div class="px">' + amer(d) + '</div></div>';
+    + ' · ours ' + pct(ours) + ' · book ' + pct(book) + (top ? ' · best at ' + esc(BKNAME[top.bk] || top.bk) : '') + '</div></div>'
+    + '<div class="px">' + (top ? amer(top.d) : '—') + '</div></div>';
   sports.forEach(function(sp){
     h += '<div class="pl-sport">' + esc(sp) + ' HQ</div>';
     PL.forEach(function(l, i){
       if(l.s !== sp) return;
+      var p = top ? legPrices(l)[top.bk] : l.p, bk = top ? top.bk : l.b;
       h += '<div class="pl-leg"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + ' · ours ' + pct(l.o) + ' vs book ' + pct(l.k) + '</span></div>'
-        + '<div class="p">' + price(l.p) + '<em>' + esc(l.b) + '</em></div><button data-i="' + i + '" aria-label="Remove">✕</button></div>';
+        + '<div class="p">' + price(p) + '<em>' + esc(bk) + '</em></div><button data-i="' + i + '" aria-label="Remove">✕</button></div>';
     });
   });
-  h += (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays differently, so treat the combined odds as a guide.</p>' : '')
-    + '<p class="pl-note">Prices are the best we found for each leg, which can be at different books. Add more legs from any sport’s board with +, then send them here.</p>'
+  if(full.length){
+    h += '<div class="pl-sport">Where to place it</div>' + full.slice(0, 5).map(function(b, i){
+      return '<div class="pl-bk' + (i ? '' : ' top') + '"><span>' + esc(BKNAME[b.bk] || b.bk) + '</span><b>' + amer(b.d) + '</b></div>';
+    }).join("");
+  } else {
+    h += '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one a book below has.</p>';
+  }
+  if(part.length && PL.length > 1){
+    h += part.slice(0, 3).map(function(b){
+      return '<div class="pl-bk part"><span>' + esc(BKNAME[b.bk] || b.bk) + '</span><i>missing ' + b.missing.map(function(l){ return esc(l.l); }).join(", ") + '</i></div>';
+    }).join("");
+  }
+  h += (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
+    + '<p class="pl-note">Add legs from any sport’s board with +. Your parlay follows you between the HQ sites.</p>'
     + '<div class="pl-acts"><button id="pl-clear">Clear parlay</button></div></div>';
   el.innerHTML = h;
   el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ PL.splice(+b.dataset.i, 1); plSave(PL); renderParlay(); }; });

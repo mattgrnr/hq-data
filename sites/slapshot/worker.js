@@ -375,6 +375,14 @@ body{background:
 #plbar .pl-p em{display:block;font-style:normal;font-weight:400;font-size:10.5px;color:var(--faint)}
 #plbar .pl-x{background:none;border:0;color:var(--faint);font-size:14px;cursor:pointer}
 #plbar .pl-note{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.4}
+#plbar .pl-where{margin-top:12px}
+#plbar .pl-wt{font-size:11.5px;color:var(--faint);margin-bottom:4px}
+#plbar .pl-bk{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--ink)}
+#plbar .pl-bk.top{background:rgba(74,222,128,.1);box-shadow:inset 0 0 0 1px rgba(74,222,128,.4)}
+#plbar .pl-bk b{font-variant-numeric:tabular-nums}
+#plbar .pl-bk.part{color:var(--faint);font-size:12.5px}
+#plbar .pl-bk.part i{font-style:normal;text-align:right;font-size:11.5px}
+#plbar .pl-warn{color:#fbbf24}
 #plbar .pl-acts{display:flex;gap:8px;margin-top:10px}
 #plbar .pl-acts .navbtn{flex:1}
 body{padding-bottom:84px}
@@ -886,14 +894,14 @@ function bookPick(o){
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
   if(!x) return null;
   const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
-  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], ours };
+  return { k:x[0], book:x[1], price:x[2], bk:x[3], n:x[4], two:!!x[5], all:x[6] || { [x[3]]: x[2] }, ours };
 }
 function bookHTML(r){
   const o = bookOf(r), x = bookPick(o); if(!x) return "";
   const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
   const edge = x.ours - x.book;
   const line = PONE[o.stat] ? (o.stat==="3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
-  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, game:gInfo(r) });
+  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, game:gInfo(r) });
   return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
     + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
 }
@@ -904,9 +912,9 @@ const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", T
   PTD:"pass TDs", S:"shots on goal" };
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
-function betOf(name, label, ours, book, price, bk, kind, game){
+function betOf(name, label, ours, book, price, bk, kind, game, all){
   const adj = book + 0.5*(ours - book);
-  return { name, label, ours, book, adj, price, bk, kind, game, ev: adj*dec(price) - 1 };
+  return { name, label, ours, book, adj, price, bk, kind, game, all, ev: adj*dec(price) - 1 };
 }
 function bestBets(g){
   const out = [], seen = {};
@@ -917,7 +925,7 @@ function bestBets(g){
       // a volume line far from our projection usually means the books know about a role change we don't
       if(!PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
       const line = PONE[st] ? (st==="3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
-      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r)));
+      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all));
     }
   }
   for(const v of (g.proj.value||[])){
@@ -925,7 +933,7 @@ function bestBets(g){
       : v.mk === "Total" ? [v.side, GKIND === "soccer" ? "goals" : GKIND === "hockey" ? "goals" : "points"]
       : v.mk === "Both score" ? ["Both teams to score:", v.side] : [v.side, ""];
     out.push(betOf(what[0], what[1], v.ours, v.book, v.price, v.bk, "game",
-      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }));
+      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all));
   }
   return out.filter(b=>b.adj >= 0.2 && b.ours > b.book && b.ev > 0)
     .sort((a,c)=>c.ev - a.ev)
@@ -973,29 +981,44 @@ try { new MutationObserver(()=>{ clearTimeout(PLMO); PLMO = setTimeout(plLinks, 
 let PLOPEN = false;
 function legOf(label, b){
   return { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
-           p:b.price, b:b.bk, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
+           p:b.price, b:b.bk, a:b.all || { [b.bk]: b.price }, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
 }
 function plBtn(leg){
   const on = PL.some(l=>l.i===leg.i);
   return '<button class="pl-add'+(on?" on":"")+'" data-leg="'+encodeURIComponent(JSON.stringify(leg))+'" aria-label="Add to parlay">'+(on?"✓":"+")+'</button>';
 }
+const BKNAME = { DK:"DraftKings", FD:"FanDuel", MGM:"BetMGM", CZR:"Caesars", FAN:"Fanatics", ESPN:"ESPN Bet", BR:"BetRivers", HR:"Hard Rock", BOV:"Bovada", PIN:"Pinnacle" };
+function amer(d){ return d >= 2 ? Math.round((d-1)*100) : Math.round(-100/(d-1)); }
+// a parlay is placed at one book, so it is priced book by book from that book's own prices
 function plMath(legs){
-  const d = legs.reduce((a,l)=>a*dec(l.p), 1), ours = legs.reduce((a,l)=>a*l.o, 1), book = legs.reduce((a,l)=>a*l.k, 1);
-  const am = d >= 2 ? Math.round((d-1)*100) : Math.round(-100/(d-1));
-  return { price: am, ours, book, sameGame: new Set(legs.map(l=>l.g)).size < legs.length };
+  const ours = legs.reduce((a,l)=>a*l.o, 1), book = legs.reduce((a,l)=>a*l.k, 1);
+  const prices = l => l.a || { [l.b]: l.p };
+  const books = [...new Set(legs.flatMap(l=>Object.keys(prices(l))))].map(bk=>{
+    const have = legs.filter(l=>prices(l)[bk] != null);
+    return { bk, n: have.length, missing: legs.filter(l=>prices(l)[bk] == null), price: amer(have.reduce((a,l)=>a*dec(prices(l)[bk]), 1)) };
+  }).sort((a,c)=> c.n - a.n || dec(c.price) - dec(a.price));
+  const full = books.filter(b=>b.n === legs.length);
+  return { best: full[0] || null, full, partial: books.filter(b=>b.n < legs.length), ours, book,
+           sameGame: new Set(legs.map(l=>l.g)).size < legs.length, at: bk => l => prices(l)[bk] };
 }
 function plBar(){
   let el = document.getElementById("plbar");
   if(!el){ el = document.createElement("div"); el.id = "plbar"; document.body.appendChild(el); }
   if(!PL.length){ el.innerHTML = ""; el.className = ""; return; }
-  const m = plMath(PL);
+  const m = plMath(PL), top = m.best;
   el.className = "on"+(PLOPEN?" open":"");
-  el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map((l,i)=>'<div class="pl-leg"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+'</span></div><div class="pl-p">'+gPrice(l.p)+' <em>'+esc(l.b)+'</em></div><button class="pl-x" data-i="'+i+'" aria-label="Remove">✕</button></div>').join("")
-      + (m.sameGame ? '<p class="pl-note">Two legs share a game. Books price same-game parlays differently, so the combined odds here are a guide.</p>' : '')
-      + '<p class="pl-note">Best prices can sit at different books; one book\\'s parlay may pay a little less.</p>'
+  const legPrice = l => top ? gPrice(m.at(top.bk)(l))+' <em>'+esc(top.bk)+'</em>' : gPrice(l.p)+' <em>'+esc(l.b)+'</em>';
+  const where = (m.full.length ? '<div class="pl-where"><div class="pl-wt">Where to place it</div>'
+        + m.full.slice(0, 5).map((b,i)=>'<div class="pl-bk'+(i?"":" top")+'"><span>'+esc(BKNAME[b.bk]||b.bk)+'</span><b>'+gPrice(b.price)+'</b></div>').join("") + '</div>'
+      : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one the book below has.</p>')
+    + (m.partial.length && PL.length > 1 ? '<div class="pl-where">'+m.partial.slice(0, 3).map(b=>'<div class="pl-bk part"><span>'+esc(BKNAME[b.bk]||b.bk)+'</span><i>missing '+b.missing.map(l=>esc(l.l)).join(", ")+'</i></div>').join("")+'</div>' : '');
+  el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map((l,i)=>'<div class="pl-leg"><div><b>'+esc(l.l)+'</b><span>'+esc(l.g||"")+'</span></div><div class="pl-p">'+(top && m.at(top.bk)(l) == null ? '—' : legPrice(l))+'</div><button class="pl-x" data-i="'+i+'" aria-label="Remove">✕</button></div>').join("")
+      + where
+      + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<p class="pl-note">Your parlay follows you to every HQ site through the HQ menu and Total HQ.</p>'
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn pl-go" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
-    + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+'</span><b>'+gPrice(m.price)+'</b><span class="pl-ch">ours '+gPct(m.ours)+' · book '+gPct(m.book)+'</span></button>';
+    + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(top ? ' · best at '+esc(BKNAME[top.bk]||top.bk) : '')+'</span>'
+    + '<b>'+(top ? gPrice(top.price) : '—')+'</b><span class="pl-ch">'+(top ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : 'No single book has every leg')+'</span></button>';
   document.getElementById("pl-toggle").onclick = ()=>{ PLOPEN = !PLOPEN; plBar(); };
   el.querySelectorAll(".pl-x").forEach(b=> b.onclick = ()=>{ PL.splice(+b.dataset.i, 1); plSave(PL); plBar(); plSync(); });
   const c = document.getElementById("pl-clear"); if(c) c.onclick = ()=>{ PL = []; plSave(PL); PLOPEN = false; plBar(); plSync(); };
