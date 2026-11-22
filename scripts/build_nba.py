@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent / "nba"
 OUT = ROOT / "board.json"
 LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downloading
 NO_ESPN = os.environ.get("HQ_NO_ESPN")
+REPLAY = os.environ.get("REPLAY") and os.environ.get("TODAY")  # rebuild a past day from games before it
 ET = ZoneInfo("America/New_York")
 
 K_ROOKIE = 6    # small samples lean on the league average for the position group; the pull fades fast
@@ -229,6 +230,8 @@ def main():
 
     # this season: the parquet, plus any finished game it hasn't picked up yet
     rows = box_rows(season, nba)
+    if REPLAY:
+        rows = [r for r in rows if r["date"] < REPLAY]
     have = {r["gid"] for r in rows}
     for g in sched:
         d = str(g["game_date"])[:10]
@@ -374,17 +377,18 @@ def main():
         "games": games,
     }
 
-    if OUT.exists():
-        old = json.loads(OUT.read_text())
+    out = ROOT / "replay" / f"{today.isoformat()}.json" if REPLAY else OUT
+    if out.exists():
+        old = json.loads(out.read_text())
         old.pop("built", None)
         if old == json.loads(json.dumps(payload)):
             print("no change")
             return
 
     payload = {"built": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), **payload}
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(payload, separators=(",", ":")))
-    print(f"{payload['label']}: {len(players)} players, {len(games)} games, {OUT.stat().st_size // 1024} KB")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, separators=(",", ":")))
+    print(f"{payload['label']}: {len(players)} players, {len(games)} games, {out.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":

@@ -196,7 +196,7 @@ def main():
 
     season_games = [g for g in games if int(g["season"]) == season]
     week = pick_week(season_games, today)
-    out = OUT
+    dest = OUT
     if REPLAY_WEEK:
         # as of the day before the week's first game: later results are blanked and later stats dropped
         week = REPLAY_WEEK
@@ -204,7 +204,7 @@ def main():
         for g in season_games:
             if int(g["week"]) >= week:
                 g["home_score"] = g["away_score"] = ""
-        out = OUT.parent / "replay" / f"w{week:02d}.json"
+        dest = OUT.parent / "replay" / f"w{week:02d}.json"
     week_games = [g for g in season_games if int(g["week"]) == week]
 
     played = defaultdict(int)
@@ -436,17 +436,17 @@ def main():
         "games": slate,
     }
 
-    if out.exists():
-        old = json.loads(out.read_text())
+    if dest.exists():
+        old = json.loads(dest.read_text())
         old.pop("built", None)
         if old == json.loads(json.dumps(payload)):
             print("no change")
             return
 
     payload = {"built": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), **payload}
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(payload, separators=(",", ":")))
-    print(f"{payload['label']} {season}: {len(players)} players, {len(slate)} games, {out.stat().st_size // 1024} KB")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(payload, separators=(",", ":")))
+    print(f"{payload['label']} {season}: {len(players)} players, {len(slate)} games, {dest.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":

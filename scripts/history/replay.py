@@ -35,10 +35,39 @@ def nfl(rng):
         score("nfl", board, datetime.utcfromtimestamp(first - 3600).isoformat() + "Z")
 
 
+def daily(sport, rng):
+    """One rebuilt board per date; days that already have live picks are left alone."""
+    a, b = (datetime.fromisoformat(x).date() for x in rng.split(".."))
+    d = a
+    while d <= b:
+        day = d.isoformat()
+        d += timedelta(days=1)
+        have = ROOT / sport / "history" / "picks" / f"{day}.json"
+        if have.exists() and not json.loads(have.read_text()).get("replay"):
+            print(f"{day}: live picks on file, skipped")
+            continue
+        try:
+            run(["python", f"scripts/build_{sport}.py"], {"REPLAY": "1", "TODAY": day, "HQ_NO_ESPN": "1"})
+        except subprocess.CalledProcessError:
+            print(f"{day}: couldn't build (no games played yet this season?), skipped")
+            continue
+        board = ROOT / sport / "replay" / f"{day}.json"
+        if not board.exists():
+            continue
+        bd = json.loads(board.read_text())
+        starts = [datetime.fromisoformat(str(g["start"]).replace("Z", "+00:00")) for g in bd.get("games", []) if g.get("start")]
+        if not starts or not bd.get("players"):
+            print(f"{day}: no games")
+            continue
+        score(sport, board, (min(starts) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+
 def main():
     sport, rng = sys.argv[1], sys.argv[2]
     if sport == "nfl":
         nfl(rng)
+    elif sport in ("nhl", "nba"):
+        daily(sport, rng)
     else:
         raise SystemExit(f"replay for {sport} is not built yet")
 

@@ -18,6 +18,7 @@ REL = "https://github.com/sportsdataverse/sportsdataverse-data/releases/download
 ROOT = Path(__file__).resolve().parent.parent / "nhl"
 OUT = ROOT / "board.json"
 LOCAL = os.environ.get("HQ_LOCAL")  # read files from a folder instead of downloading
+REPLAY = os.environ.get("REPLAY") and os.environ.get("TODAY")  # rebuild a past day from games before it
 ET = ZoneInfo("America/New_York")
 
 K_ROOKIE = 6    # small samples lean on the league average for the position group; the pull fades fast
@@ -92,6 +93,10 @@ PBP_COLS = ["event_type", "event_player_1_id", "event_player_1_name", "event_pla
 def season_totals(season):
     box = [r for r in parquet(f"nhl_player_boxscores/player_box_{season}.parquet") if str(r["game_id"])[4:6] == "02"]
     pbp = [r for r in parquet(f"nhl_pbp_lite/play_by_play_lite_{season}.parquet", PBP_COLS) if r["season_type"] == "R"]
+    if REPLAY:
+        box = [r for r in box if str(r["game_date"])[:10] < REPLAY]
+        before = {int(r["game_id"]) for r in box}
+        pbp = [r for r in pbp if int(r["game_id"]) in before]
 
     sk = defaultdict(lambda: {"gp": 0, "g": 0, "a": 0, "sog": 0, "ppg": 0, "toi": 0.0, "ixg": 0.0, "att": 0, "ppx": 0.0})
     info, games_of = {}, defaultdict(list)
@@ -351,17 +356,18 @@ def main():
         "games": games,
     }
 
-    if OUT.exists():
-        old = json.loads(OUT.read_text())
+    out = ROOT / "replay" / f"{today.isoformat()}.json" if REPLAY else OUT
+    if out.exists():
+        old = json.loads(out.read_text())
         old.pop("built", None)
         if old == json.loads(json.dumps(payload)):
             print("no change")
             return
 
     payload = {"built": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), **payload}
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(payload, separators=(",", ":")))
-    print(f"{payload['label']}: {len(players)} skaters, {len(games)} games, {OUT.stat().st_size // 1024} KB")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, separators=(",", ":")))
+    print(f"{payload['label']}: {len(players)} skaters, {len(games)} games, {out.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":
