@@ -38,6 +38,8 @@ export default {
     const asset = serveAsset(path);
     if (asset) return asset;
 
+    if (path === "/slate") return slate();
+
     if (path === "/registry.json") {
       return new Response(JSON.stringify(REGISTRY), {
         headers: {
@@ -53,6 +55,28 @@ export default {
     });
   }
 };
+
+const RAW = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/";
+const SPORT_DIR = { nhl: "nhl", nba: "nba", nfl: "nfl", soc: "soccer" };
+
+// today's projected games per sport, small enough to load with the page
+async function slate() {
+  const out = {};
+  await Promise.all(Object.entries(SPORT_DIR).map(async ([key, dir]) => {
+    try {
+      const res = await fetch(RAW + dir + "/board.json", { cf: { cacheTtl: 300, cacheEverything: true } });
+      if (!res.ok) return;
+      const bd = await res.json();
+      // games that haven't finished: from a few hours back through the next day (the NFL's whole week)
+      const now = Date.now(), ahead = (key === "nfl" ? 7 * 24 : 30) * 3600e3;
+      const start = g => key === "soc" ? Date.parse(g.t) : g.ko ? g.ko * 1000 : Date.parse(String(g.start).replace("Z", ":00Z"));
+      out[key] = (bd.games || []).filter(g => g.proj && !g.final && start(g) > now - 3 * 3600e3 && start(g) < now + ahead).map(g => key === "soc"
+        ? { h: g.h, a: g.a, k: String(g.id), lg: g.league, t: g.t, win: g.proj.win, hs: g.proj.hs, as: g.proj.as }
+        : { h: g.home, a: g.away, k: g.home, t: g.start || (g.ko ? new Date(g.ko * 1000).toISOString() : null), win: g.proj.win, hs: g.proj.hs, as: g.proj.as });
+    } catch (e) {}
+  }));
+  return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+}
 
 const HTML = `<!doctype html>
 <html lang="en">
@@ -154,6 +178,24 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .lane.build .nm{color:var(--dim)}
 .lane.build .lg{color:#343941}
 
+/* a sport opens into today's games */
+.lane .st .chev{display:inline-block;transition:transform .28s cubic-bezier(.4,0,.2,1);font-size:12px}
+.lane.open .st .chev{transform:rotate(90deg)}
+.games{display:none;border-bottom:1px solid var(--rule);padding:4px 0 14px 70px}
+.games.open{display:block}
+.gm{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule);text-decoration:none;color:inherit}
+.gm:last-of-type{border-bottom:0}
+.gm .tm{font-size:15px;font-weight:500;color:var(--paper)}
+.gm .tm span{color:var(--dim);margin:0 4px}
+.gm .wn{font-size:12.5px;color:var(--mute);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gm .wn b{color:var(--paper);font-weight:500}
+.gm .pr{grid-column:1 / -1;display:flex;height:4px;gap:2px;border-radius:2px;overflow:hidden}
+.gm .pr i{display:block}
+.gm .pr .a{background:#3a3f48}.gm .pr .d{background:#262a31}.gm .pr .h{background:var(--open)}
+.games .all{display:inline-block;margin-top:12px;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--open);text-decoration:none}
+.games .none{color:var(--dim);font-size:12.5px;padding:10px 0}
+@media (max-width:520px){ .games{padding-left:59px} }
+
 .soon{margin-top:18px;border-radius:14px;padding:30px 22px;text-align:center;
   background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.008));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
@@ -244,18 +286,57 @@ BOARDS.sort(function(x, y){ return (x.off ? 1 : 0) - (y.off ? 1 : 0); });
 
 function laneHTML(b, i){
   var live = b.status === "live";
-  var tag  = live ? 'a href="' + esc(b.url) + '"' : 'div';
-  var end  = live ? 'a' : 'div';
+  var nest = live && !b.off && !!({ nhl:1, nba:1, nfl:1, soc:1 })[b.key];
+  var tag  = nest ? 'div role="button" tabindex="0" data-key="' + b.key + '"' : live ? 'a href="' + esc(b.url) + '"' : 'div';
+  var end  = nest ? 'div' : live ? 'a' : 'div';
   return '<' + tag + ' class="lane ' + (live ? 'live' : 'build') + (b.off ? ' off' : '') + '"'
     + ' style="--accent:' + esc(b.accent) + ';animation-delay:' + (i * 55) + 'ms">'
     + '<span class="bar"></span>'
     + '<span class="lg">' + esc(b.league) + '</span>'
     + '<span class="nm">' + esc(b.word) + ' HQ <em>' + esc(b.off ? SEASONS[b.key].back : b.cadence) + '</em></span>'
-    + '<span class="st">' + (b.off ? 'Offseason' : live ? 'Open <span class="arw">→</span>' : 'In build') + '</span>'
-    + '</' + end + '>';
+    + '<span class="st">' + (b.off ? 'Offseason' : nest ? 'Games <span class="chev">›</span>' : live ? 'Open <span class="arw">→</span>' : 'In build') + '</span>'
+    + '</' + end + '>'
+    + (nest ? '<div class="games" id="games-' + b.key + '"><div class="none">Loading today\u2019s games…</div></div>' : '');
 }
 
 document.getElementById("board").innerHTML = BOARDS.map(laneHTML).join("");
+
+function pct(x){ return Math.round(100 * x) + "%"; }
+function when(t){
+  if(!t) return "";
+  var d = new Date(t);
+  return d.toLocaleDateString([], { weekday:"short" }) + " " + d.toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
+}
+function gameHTML(key, url, g){
+  var soc = g.win.length === 3, w = g.win;
+  var first = soc ? g.h : g.a, second = soc ? g.a : g.h;
+  var wf = soc ? w[0] : w[1], ws = soc ? w[2] : w[0];
+  var bar = soc ? '<i class="h" style="flex:' + w[0] + '"></i><i class="d" style="flex:' + w[1] + '"></i><i class="a" style="flex:' + w[2] + '"></i>'
+                : '<i class="a" style="flex:' + w[1] + '"></i><i class="h" style="flex:' + w[0] + '"></i>';
+  return '<a class="gm" href="' + esc(url) + '/?game=' + encodeURIComponent(g.k) + '">'
+    + '<div class="tm">' + esc(first) + '<span>' + (soc ? 'v' : '@') + '</span>' + esc(second) + '</div>'
+    + '<div class="wn">' + esc(first) + ' <b>' + pct(wf) + '</b>' + (soc ? ' · draw <b>' + pct(w[1]) + '</b>' : '') + ' · ' + esc(second) + ' <b>' + pct(ws) + '</b></div>'
+    + '<div class="pr">' + bar + '</div></a>';
+}
+var SLATE = null;
+function fillGames(){
+  BOARDS.forEach(function(b){
+    var el = document.getElementById("games-" + b.key);
+    if(!el || !SLATE) return;
+    var list = SLATE[b.key] || [];
+    el.innerHTML = (list.length ? list.map(function(g){ return gameHTML(b.key, b.url, g); }).join("") : '<div class="none">No games left today.</div>')
+      + '<a class="all" href="' + esc(b.url) + '">Open ' + esc(b.word) + ' HQ →</a>';
+  });
+}
+fetch("/slate").then(function(r){ return r.json(); }).then(function(s){ SLATE = s; fillGames(); }).catch(function(){
+  SLATE = {}; fillGames();
+});
+document.getElementById("board").addEventListener("click", function(ev){
+  var lane = ev.target.closest && ev.target.closest(".lane[data-key]");
+  if(!lane) return;
+  lane.classList.toggle("open");
+  document.getElementById("games-" + lane.dataset.key).classList.toggle("open");
+});
 
 (function(){
   function xf(){ return document.getElementById("xfade"); }
