@@ -3,7 +3,7 @@
 // registry (/registry.json) that every child site can read instead of hardcoding.
 
 const REGISTRY = {
-  updated: "2026-10-22",
+  updated: "2026-11-21",
   parent: { name: "Total HQ", url: "https://total-hq.com" },
   boards: [
     { key:"mlb", league:"MLB", name:"Moonshot HQ",  word:"Moonshot",  icon:"⚾", cadence:"Daily",  status:"live", url:"https://moonshot-hq.com",  accent:"#FFC24B" },
@@ -218,7 +218,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 </div>
 <script>
 "use strict";
-var BOARDS = [{"key":"mlb","league":"MLB","name":"Moonshot HQ","word":"Moonshot","icon":"⚾","cadence":"Daily","status":"live","url":"https://moonshot-hq.com","accent":"#FFC24B"},{"key":"nfl","league":"NFL","name":"Touchdown HQ","word":"Touchdown","icon":"🏈","cadence":"Weekly","status":"live","url":"https://touchdown-hq.com","accent":"#FF4D3D"},{"key":"nhl","league":"NHL","name":"Slapshot HQ","word":"Slapshot","icon":"🏒","cadence":"Daily","status":"live","url":"https://slapshot-hq.com","accent":"#7CC8FF"},{"key":"nba","league":"NBA","name":"Slam HQ","word":"Slam","icon":"🏀","cadence":"Daily","status":"live","url":"https://slam-hq.com","accent":"#FF8A3D"}];
+var BOARDS = ${JSON.stringify(REGISTRY.boards)};
 
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
