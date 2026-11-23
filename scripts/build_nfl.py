@@ -413,7 +413,7 @@ def main():
     for p in players:
         p["gl"] = sorted(gl.get(p["id"], []), reverse=True)[:5]
         g = sorted(vs.get(p["id"], []), reverse=True)
-        p["vs"] = {"opp": want[p["id"]], "gp": len(g), "g": g[:10]}
+        p["vs"] = {"opp": want[p["id"]], "gp": len(g), "g": g}
 
     # defense vs position this season, leaning on the league average early, expressed per 17 games
     lg_def = {pos: [0.0] * 7 for pos in POS}

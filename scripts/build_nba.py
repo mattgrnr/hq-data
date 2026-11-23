@@ -353,7 +353,7 @@ def main():
         h = h2h.get(p["id"])
         p["vs"] = {"opp": want[p["id"]], "gp": h["gp"], **{k: round(h[k] / h["gp"], 1) for k in STATS}} \
             if h else {"opp": want[p["id"]], "gp": 0}
-        p["vs"]["g"] = sorted(vsg.get(p["id"], []), reverse=True)[:10]
+        p["vs"]["g"] = sorted(vsg.get(p["id"], []), reverse=True)
 
     teams = {}
     tot_gp = sum(t["gp"] for t in team.values())

@@ -228,7 +228,7 @@ def attach_logs(players, cur, season, slate):
             vs[pid].append([d, *x])
     for p in players:
         g = sorted(vs.get(p["id"], []), reverse=True)
-        p["vs"] = {"opp": want[p["id"]], "gp": len(g), "g": g[:10]}
+        p["vs"] = {"opp": want[p["id"]], "gp": len(g), "g": g}
 
 
 def prior_profile(season):
