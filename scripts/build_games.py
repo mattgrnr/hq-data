@@ -376,8 +376,9 @@ def attach_odds(sport, bd, lam=None):
 # ---------- player props ----------
 
 PROP_STAT = {
-    "nhl": {"player_goals": "G", "player_points_1plus": "P", "player_shots_on_goal": "S"},
+    "nhl": {"player_goals": "G", "player_points_1plus": "P", "player_points_2plus": "P", "player_shots_on_goal": "S"},
     "nba": {"player_points": "PTS", "player_rebounds": "REB", "player_assists": "AST", "player_points_rebounds_assists": "PRA",
+            "player_points_rebounds": "PR", "player_points_assists": "PA", "player_rebounds_assists": "RA",
             "player_threes": "3PM", "player_blocks": "BLK", "player_steals": "STL"},
     "nfl": {"player_anytime_td": "TD", "player_pass_tds": "PTD", "player_pass_yds": "PYD", "player_reception_yds": "CYD",
             "player_rush_yds": "RYD", "player_receptions": "REC"},
@@ -458,7 +459,7 @@ def attach_props(sport, bd):
             continue
         for stat, rows in st.items():
             rows.sort(key=lambda x: x[0])
-            if stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "REC"):
+            if stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "PR", "PA", "RA", "REC"):
                 two = [x for x in rows if x[5]]
                 keep.setdefault(who, {})[stat] = [max(two, key=lambda x: x[4])] if two else sorted(rows, key=lambda x: -x[4])[:5]
             else:

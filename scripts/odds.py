@@ -25,9 +25,10 @@ SLIP = {"DK", "FD", "FAN", "MGM", "HR"}   # books whose bet slip can be loaded b
 BOOKS = {"draftkings": "DK", "fanduel": "FD", "betmgm": "MGM", "williamhill_us": "CZR", "caesars": "CZR", "fanatics": "FAN",
          "espnbet": "ESPN", "betrivers": "BR", "hardrock": "HR", "bovada": "BOV", "pinnacle": "PIN"}
 SPORTS = {
-    "nhl": (["hockey_nhl"], GAME + ["player_goals", "player_points_1plus", "player_shots_on_goal"]),
+    "nhl": (["hockey_nhl"], GAME + ["player_goals", "player_points_1plus", "player_points_2plus", "player_shots_on_goal"]),
     "nba": (["basketball_nba"], GAME + ["player_points", "player_rebounds", "player_assists", "player_points_rebounds_assists",
-                                       "player_threes", "player_blocks", "player_steals"]),
+                                       "player_threes", "player_blocks", "player_steals",
+                                       "player_points_rebounds", "player_points_assists", "player_rebounds_assists"]),
     "nfl": (["football_nfl"], GAME + ["player_anytime_td", "player_pass_yds", "player_pass_tds", "player_rush_yds",
                                      "player_reception_yds", "player_receptions"]),
     "soccer": (["soccer_epl", "soccer_la_liga", "soccer_serie_a", "soccer_bundesliga", "soccer_ligue_1"],

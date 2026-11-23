@@ -631,11 +631,14 @@ function sportsMenuHTML(){
     + '</div></div>';
 }
 
-const STATS = ["PTS","REB","AST","PRA","3PM","BLK","STL"];
-const KEY = { PTS:"pts", PRA:"pra", REB:"reb", AST:"ast", "3PM":"fg3m", BLK:"blk", STL:"stl" };
-const WORD = { PTS:"Points", PRA:"Pts+Reb+Ast", REB:"Rebounds", AST:"Assists", "3PM":"Threes", BLK:"Blocks", STL:"Steals" };
+const STATS = ["PTS","REB","AST","PRA","PR","PA","RA","3PM","BLK","STL"];
+const KEY = { PTS:"pts", PRA:"pra", PR:"pr", PA:"pa", RA:"ra", REB:"reb", AST:"ast", "3PM":"fg3m", BLK:"blk", STL:"stl" };
+const WORD = { PTS:"Points", PRA:"Pts+Reb+Ast", PR:"Pts+Reb", PA:"Pts+Ast", RA:"Reb+Ast", REB:"Rebounds", AST:"Assists", "3PM":"Threes", BLK:"Blocks", STL:"Steals" };
 const BASE = ["pts","reb","ast","fg3m","stl","blk"];
-const ALL = BASE.concat(["pra"]);
+const ALL = BASE.concat(["pra","pr","pa","ra"]);
+// combo props are the sum of their parts
+const COMBO = { pra:["pts","reb","ast"], pr:["pts","reb"], pa:["pts","ast"], ra:["reb","ast"] };
+function csum(o, k){ return COMBO[k] ? COMBO[k].reduce((a,x)=>a + (o[x] || 0), 0) : o[k]; }
 // low-count stats swing more game to game, so matchup and form count for less
 const RARE = { fg3m:true, stl:true, blk:true };
 // volume for threes, blocks and steals is measured against the guys who do it most, not a typical starter
@@ -671,7 +674,7 @@ function rankWord(rank, of){
   return "very soft";
 }
 
-function allowOf(a, k){ return k === "pra" ? a.pts + a.reb + a.ast : (a[k] || 0); }
+function allowOf(a, k){ return COMBO[k] ? csum(a, k) : (a[k] || 0); }
 
 // Rank every defense 1-30 by what it allows to each position, per stat. 1 = stingiest.
 function defRanks(teams){
@@ -701,7 +704,7 @@ function injBadge(p){
   return "";
 }
 
-function rateOf(p, k){ return k === "pra" ? p.r.pts+p.r.reb+p.r.ast : (p.r[k] || 0); }
+function rateOf(p, k){ return COMBO[k] ? csum(p.r, k) : (p.r[k] || 0); }
 function baseOf(p, k){ return p.mpg*rateOf(p, k); }
 
 // Teammates ruled out free up shots, boards and touches. Only fresh absences count:
@@ -741,19 +744,21 @@ function project(p, game){
     const damp = RARE[k] ? 0.35 : 0.5;
     proj[k] = baseOf(p, k) * paceIdx * (1 + damp*(match[k]-1)) * home * (bst[k] || 1);
   }
-  proj.pra = proj.pts + proj.reb + proj.ast;
-  match.pra = clamp(allowOf(op.allow ? op.allow[p.pos] : lg.allow[p.pos], "pra") / allowOf(lg.allow[p.pos], "pra"), 0.7, 1.3);
+  for(const k in COMBO){
+    proj[k] = csum(proj, k);
+    match[k] = clamp(allowOf(op.allow ? op.allow[p.pos] : lg.allow[p.pos], k) / allowOf(lg.allow[p.pos], k), 0.7, 1.3);
+  }
   const l5 = p.l5;
   for(const k of ALL){
     const rate = rateOf(p, k);
-    const have = l5 && l5.n >= 3 && l5.min > 0 && (k === "pra" || l5[k] != null);
-    const recent = have ? (k === "pra" ? l5.pts+l5.reb+l5.ast : l5[k]) / l5.min : null;
+    const have = l5 && l5.n >= 3 && l5.min > 0 && (COMBO[k] || l5[k] != null);
+    const recent = have ? csum(l5, k) / l5.min : null;
     form[k] = recent !== null && rate > 0 ? clamp(recent/rate, RARE[k] ? 0.7 : 0.6, RARE[k] ? 1.35 : 1.5) : 1;
   }
   const minIdx = clamp(p.mpg / lg.star.min, 0.3, 1.25);
   const score = {}, vol = {};
   for(const k of ALL){
-    vol[k] = proj[k] / (lg.star[k] * (VOLSCALE[k] || 1));
+    vol[k] = proj[k] / ((lg.star[k] || csum(lg.star, k)) * (VOLSCALE[k] || 1));
     const v = vol[k] <= 1 ? vol[k] : 1 + 0.55*Math.log(vol[k]);
     const raw = RARE[k]
       ? 0.58*v + 0.08*form[k] + 0.08*match[k] + 0.04*paceIdx + 0.22*minIdx
@@ -838,9 +843,9 @@ function bar(label, idx, val, expl){
 
 // head to head: how he's done against tonight's opponent over the last three seasons and this one
 // the selected stat, per game: this season, last five, and against tonight's opponent
-function sgVal(p, k){ const s = p.s || {}; return p.sg ? (k === "pra" ? s.pts+s.reb+s.ast : s[k]) / p.sg : null; }
-function l5Val(p, k){ const l = p.l5; if(!l || (k !== "pra" && l[k] == null)) return null; return k === "pra" ? l.pts+l.reb+l.ast : l[k]; }
-function vsVal(p, k){ const v = p.vs; if(!v || !v.gp || (k !== "pra" && v[k] == null)) return null; return histVal(v, k); }
+function sgVal(p, k){ const s = p.s || {}; return p.sg ? csum(s, k) / p.sg : null; }
+function l5Val(p, k){ const l = p.l5; if(!l || (!COMBO[k] && l[k] == null)) return null; return csum(l, k); }
+function vsVal(p, k){ const v = p.vs; if(!v || !v.gp || (!COMBO[k] && v[k] == null)) return null; return histVal(v, k); }
 function statLine(r, k){
   const p = r.p, parts = [], a = sgVal(p, k), b = l5Val(p, k), c = vsVal(p, k);
   if(a != null) parts.push("szn " + a.toFixed(1));
@@ -848,7 +853,7 @@ function statLine(r, k){
   if(c != null) parts.push("H2H " + c.toFixed(1));
   return parts.length ? '<div class="sline">' + parts.join(" · ") + '</div>' : '';
 }
-function histVal(v, k){ return k === "pra" ? v.pts + v.reb + v.ast : v[k]; }
+function histVal(v, k){ return csum(v, k); }
 function histBar(r, k, st){
   const v = r.p.vs;
   if(!v || !v.gp) return "";
@@ -875,7 +880,7 @@ function detailHTML(r){
   const wp = Math.round((p.w || 0)*100);
   const blend = wp >= 95 ? "his own numbers" : wp+"% his games \u00b7 "+(100-wp)+"% position average";
   const rk = r.rk[k];
-  const allowed = op.allow && (k === "pra" || op.allow[p.pos][k] != null) ? allowOf(op.allow[p.pos], k) : null;
+  const allowed = op.allow && (COMBO[k] || op.allow[p.pos][k] != null) ? allowOf(op.allow[p.pos], k) : null;
   const rare = RARE[k];
   const l5 = p.l5;
   const boost = r.boost[k] > 1.001;
@@ -1040,7 +1045,7 @@ function tpRow(r, t, rank, best, open){
   let bk = "";
   const x = o ? bookPick(o) : null;
   if(x){
-    const line = PONE[o.stat] ? (o.stat === "3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
+    const line = lineName(o.stat, x);
     const edge = x.ours - x.book;
     const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) }) : null;
     bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
@@ -1070,7 +1075,9 @@ function tpPick(e, el){
 }
 // ---------- book prices on player rows ----------
 const PONE = { G:1, A:1, P:1, GA:1, TD:1, BLK:1, STL:1, "3PM":2 };           // tabs shown as a chance of at least this many
+const PEXTRA = { P:[2] };     // extra rungs priced alongside a tab's main line (2+ points in hockey)
 const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
+              PR:x=>1.35*Math.sqrt(x), PA:x=>1.35*Math.sqrt(x), RA:x=>1.3*Math.sqrt(x),
               CYD:x=>0.55*x+8, RYD:x=>0.55*x+8, PYD:x=>0.25*x+30 };            // spread of volume stats; the rest are counts
 function pName(n){
   n = String(n||"").normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase();
@@ -1092,34 +1099,41 @@ function myBest(all){
   return top;
 }
 function boardData(){ return typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO : null); }
-function bookPick(o){
+function bookPick(o, kk){
   const bd = boardData(), b = bd && bd.props;
   if(!b || !o) return null;
   const rows = (b[pName(o.name)]||{})[o.stat]; if(!rows || !rows.length) return null;
   let x;
-  if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
+  if(kk) x = rows.find(e=>e[0]===kk && e[5]) || rows.find(e=>e[0]===kk);
+  else if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
   if(!x) return null;
   const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
   const all = x[6] || { [x[3]]: x[2] }, top = myBest(all); if(!top) return null;
   return { k:x[0], book:x[1], price:top[1], bk:top[0], n:x[4], two:!!x[5], all, links:(bd.evlinks||{})[x[7]] || {}, ids:x[8] || {}, ours };
 }
+function lineName(st, x, kk){
+  if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
+  return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
   if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\\'t be added</div>';
-  const o = bookOf(r), x = bookPick(o); if(!x) return "";
-  const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
-  const edge = x.ours - x.book;
-  const line = PONE[o.stat] ? (o.stat==="3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
-  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
-  return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
-    + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
+  const o = bookOf(r);
+  return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
+    const x = bookPick(o, kk); if(!x) return "";
+    const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
+    const edge = x.ours - x.book;
+    const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
+    return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
+      + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
+  }).join("");
 }
 
 // ---------- best bets: every priced bet in a game on one scale ----------
 const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
   "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
-  PTD:"pass TDs", S:"shots on goal" };
+  PTD:"pass TDs", S:"shots on goal", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
 function betOf(name, label, ours, book, price, bk, kind, game, all, links, ids){
@@ -1131,12 +1145,11 @@ function bestBets(g){
   if(gState(g.t, g.fin) !== "pre") return out;
   for(const r of gRows(g.id)){
     if(hurt(r)) continue;
-    for(const st of BSTATS){
-      const o = bookOf(r, st), x = bookPick(o); if(!x || x.n < 2) continue;      // priced by at least two books
+    for(const st of BSTATS) for(const kk of [0].concat(PEXTRA[st] || [])){
+      const o = bookOf(r, st), x = bookPick(o, kk); if(!x || x.n < 2) continue;      // priced by at least two books
       // a volume line far from our projection usually means the books know about a role change we don't
-      if(!PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
-      const line = PONE[st] ? (st==="3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
-      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
+      if(!kk && !PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
+      out.push(betOf(shortName(o.name), lineName(st, x, kk), x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
     }
   }
   for(const v of (g.proj.value||[])){
@@ -1390,7 +1403,8 @@ function logSwitch(e, el, k){
   document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
 const PTABS = STATS.map(x=>[x, x]);
-function logCols(r){ return [["MIN",s=>s.min],["PTS",s=>s.pts,"PTS"],["REB",s=>s.reb,"REB"],["AST",s=>s.ast,"AST"],["PRA",s=>s.pts+s.reb+s.ast,"PRA"],["3PM",s=>s.fg3m,"3PM"],["STL",s=>s.stl,"STL"],["BLK",s=>s.blk,"BLK"]]; }
+function logCols(r){ const c = [["MIN",s=>s.min],["PTS",s=>s.pts,"PTS"],["REB",s=>s.reb,"REB"],["AST",s=>s.ast,"AST"],["PRA",s=>s.pts+s.reb+s.ast,"PRA"],["3PM",s=>s.fg3m,"3PM"],["STL",s=>s.stl,"STL"],["BLK",s=>s.blk,"BLK"]];
+  const x = { PR:["PR",s=>s.pts+s.reb,"PR"], PA:["PA",s=>s.pts+s.ast,"PA"], RA:["RA",s=>s.reb+s.ast,"RA"] }[F.stat]; if(x) c.splice(5, 0, x); return c; }
 const GKIND = "points", PSITE = "Slam";
 function gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }
 function gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final }; }
