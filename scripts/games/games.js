@@ -456,7 +456,7 @@ function logsHTML(r){
   const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
   const opp = v.opp || "", gw = GKIND === "soccer" ? "Matches" : "Games";
   const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\''+k+'\')">'+t+'</button>';
-  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", gw+" vs "+esc(opp)+(vg.length ? " ("+vg.length+")" : ""))+'</div>';
+  let h = '<div class="glog" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", gw+" vs "+esc(opp)+(vg.length ? " ("+vg.length+")" : ""))+'</div>';
   h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
   h += '<div class="lg-pane lg-vs">';
   const span = GKIND === "soccer" ? "this season and last" : "last 3 seasons and this one";
@@ -473,11 +473,11 @@ function logsHTML(r){
 }
 function logAll(e, el){
   e.stopPropagation();
-  const b = el.closest(".lg"), on = b.classList.toggle("all");
+  const b = el.closest(".glog"), on = b.classList.toggle("all");
   el.textContent = on ? "Show fewer" : "Show all "+b.querySelectorAll(".lg-vs .lg-c").length;
 }
 function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
-  document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
+  document.querySelectorAll(".glog").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
 /* ===== end games view ===== */

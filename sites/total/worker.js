@@ -253,13 +253,13 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .lane.open .st .chev{transform:rotate(90deg)}
 .games{display:none;border-bottom:1px solid var(--rule);padding:4px 0 14px 70px}
 .games.open{display:block}
-.gm{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule);text-decoration:none;color:inherit}
+.gm{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule);text-decoration:none;color:inherit}
 .gm:last-of-type{border-bottom:0}
-.gm .tm{font-size:15px;font-weight:500;color:var(--paper)}
+.gm .tm{flex:1 1 auto;min-width:0;font-size:15px;font-weight:500;color:var(--paper)}
 .gm .tm span{color:var(--dim);margin:0 4px}
-.gm .wn{font-size:12.5px;color:var(--mute);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gm .wn{margin-left:auto;font-size:12.5px;color:var(--mute);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .gm .wn b{color:var(--paper);font-weight:500}
-.gm .pr{grid-column:1 / -1;display:flex;height:4px;gap:2px;border-radius:2px;overflow:hidden}
+.gm .pr{flex:0 0 100%;display:flex;height:4px;gap:2px;border-radius:2px;overflow:hidden}
 .gm .pr i{display:block}
 .gm .pr .a{background:#3a3f48}.gm .pr .d{background:#262a31}.gm .pr .h{background:var(--open)}
 .games .all{display:inline-block;margin-top:12px;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--open);text-decoration:none}

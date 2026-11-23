@@ -528,13 +528,13 @@ body{padding-bottom:84px}
 #app .tp-bk em{font-style:normal;font-size:11px}
 #app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
 /* game logs */
-#app .lg{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
+#app .glog{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
 #app .lg-tab{flex:1;min-width:0;padding:8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:10px;border:0;background:rgba(255,255,255,.045);color:var(--faint);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 #app .lg-tab.on{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 #app .lg-tab i{font-style:normal;font-weight:500;opacity:.6;margin-left:3px}
 #app .lg-pane{display:none}
-#app .lg[data-tab="l5"] .lg-l5,#app .lg[data-tab="vs"] .lg-vs{display:block}
+#app .glog[data-tab="l5"] .lg-l5,#app .glog[data-tab="vs"] .lg-vs{display:block}
 #app .lg-sum{font-size:12px;color:var(--faint);margin-bottom:8px}
 #app .lg-sum b{color:var(--ink);font-weight:600}
 #app .lg-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
@@ -554,7 +554,7 @@ body{padding-bottom:84px}
 #app .lg-gv{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
 #app .lg-gc.on .lg-gv{color:var(--red)}
 #app .lg-c.lg-x{display:none}
-#app .lg.all .lg-c.lg-x{display:block}
+#app .glog.all .lg-c.lg-x{display:block}
 #app .lg-all{display:block;width:100%;margin-top:8px;padding:8px 0;border:0;border-radius:10px;background:rgba(255,255,255,.04);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 #app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
@@ -1601,7 +1601,7 @@ function logsHTML(r){
   const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
   const opp = v.opp || "", gw = GKIND === "soccer" ? "Matches" : "Games";
   const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\\''+k+'\\')">'+t+'</button>';
-  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", gw+" vs "+esc(opp)+(vg.length ? " ("+vg.length+")" : ""))+'</div>';
+  let h = '<div class="glog" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", gw+" vs "+esc(opp)+(vg.length ? " ("+vg.length+")" : ""))+'</div>';
   h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
   h += '<div class="lg-pane lg-vs">';
   const span = GKIND === "soccer" ? "this season and last" : "last 3 seasons and this one";
@@ -1618,12 +1618,12 @@ function logsHTML(r){
 }
 function logAll(e, el){
   e.stopPropagation();
-  const b = el.closest(".lg"), on = b.classList.toggle("all");
+  const b = el.closest(".glog"), on = b.classList.toggle("all");
   el.textContent = on ? "Show fewer" : "Show all "+b.querySelectorAll(".lg-vs .lg-c").length;
 }
 function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
-  document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
+  document.querySelectorAll(".glog").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
 const PTABS = TABS;
 function logCols(r){ return r.p.pos === "QB" ? [["PYD",s=>s.pyd,"PYD"],["PTD",s=>s.ptd,"PTD"],["RUSH YDS",s=>s.ryd,"RYD"],["TD",s=>s.rtd+s.ctd,"TD"]]
