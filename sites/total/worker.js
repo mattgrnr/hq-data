@@ -40,6 +40,9 @@ export default {
 
     if (path === "/slate") return slate();
     if (path === "/betlink") return betLink(url, request, env);
+    if (path === "/p") return saveSlip(request, env, url);
+    const sm = /^\/p\/([A-Za-z0-9]{7})$/.exec(path);
+    if (sm) return showSlip(sm[1], env, url);
 
     if (path === "/registry.json") {
       return new Response(JSON.stringify(REGISTRY), {
@@ -51,7 +54,7 @@ export default {
       });
     }
 
-    return new Response(HTML.split("__ORIGIN__").join(url.origin), {
+    return new Response(page(url.origin, null), {
       headers: { "Content-Type": "text/html; charset=utf-8" }
     });
   }
@@ -63,7 +66,7 @@ const SPORT_DIR = { nhl: "nhl", nba: "nba", nfl: "nfl", soc: "soccer" };
 // One tap from a parlay to a sportsbook's bet slip with every leg loaded. PropLine builds the link
 // from its own bet ids (FanDuel's slip needs market ids the odds feed doesn't carry); the key is a Worker secret.
 const SLIP_BOOKS = { DK: "https://sportsbook.draftkings.com", FD: "https://sportsbook.fanduel.com", FAN: "https://sportsbook.fanatics.com" };
-const HQ_REF = /^https:\/\/([a-z0-9-]+\.)?(total|moonshot|touchdown|slapshot|slam|futbol)-hq\.com\//;
+const HQ_REF = /^https:\/\/(([a-z0-9-]+\.)?(total|moonshot|touchdown|slapshot|slam|futbol)-hq\.com|[a-z0-9-]+-(total|moonshot|touchdown|slapshot|slam|futbol)-hq\.wehttam30\.workers\.dev)\//;
 async function betLink(url, request, env) {
   const bk = url.searchParams.get("bk") || "", ids = url.searchParams.get("ids") || "";
   const home = SLIP_BOOKS[bk];
@@ -91,6 +94,65 @@ async function betLink(url, request, env) {
   if (to !== home) await cache.put(key, out.clone());
   if (json) return new Response(JSON.stringify({ link: to === home ? null : to }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...cors } });
   return out;
+}
+
+// ---------- shared betslips: a short link to a parlay, kept for two weeks ----------
+const SLIP_TTL = 14 * 86400;
+function page(origin, shared, meta) {
+  let h = HTML.split("__ORIGIN__").join(origin);
+  h = h.replace("var SHARED = null;", "var SHARED = " + JSON.stringify(shared).replace(/</g, "\\u003c") + ";");
+  if (meta) {
+    const e = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    h = h.replace("<title>TOTAL HQ — Every Sport, Scored 0–100</title>", "<title>" + e(meta.title) + " · Total HQ</title>")
+      .replace('<meta property="og:title" content="TOTAL HQ — Every Sport, Scored 0–100">', '<meta property="og:title" content="' + e(meta.title) + '">')
+      .replace('<meta property="og:description" content="One board per sport. Every player on the slate, scored 0 to 100.">', '<meta property="og:description" content="' + e(meta.desc) + '">')
+      .replace('<meta property="og:url" content="' + origin + '">', '<meta property="og:url" content="' + origin + "/p/" + meta.id + '">');
+  }
+  return h;
+}
+async function saveSlip(request, env, url) {
+  const origin = request.headers.get("Origin") || "";
+  const cors = HQ_REF.test(origin + "/") ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin" } : null;
+  const out = (o, status) => new Response(JSON.stringify(o), { status: status || 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...(cors || {}) } });
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...(cors || {}), "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Content-Type" } });
+  if (request.method !== "POST" || !cors) return out({ error: "forbidden" }, 403);
+  if (!env || !env.SLIPS) return out({ error: "storage not set up" }, 503);
+  const body = await request.text();
+  if (body.length > 40000) return out({ error: "too big" }, 413);
+  let d;
+  try { d = JSON.parse(body); } catch (e) { return out({ error: "bad request" }, 400); }
+  const str = (v, n) => typeof v === "string" ? v.slice(0, n) : undefined;
+  const num = v => typeof v === "number" && isFinite(v) ? v : undefined;
+  const map = (o, f) => { const r = {}; if (o && typeof o === "object") for (const k of Object.keys(o).slice(0, 12)) if (/^[A-Z]{2,4}$/.test(k)) { const v = f(o[k]); if (v !== undefined) r[k] = v; } return r; };
+  const legs = (Array.isArray(d && d.legs) ? d.legs : []).slice(0, 15).map(l => ({
+    i: str(l.i, 240), s: str(l.s, 20), g: str(l.g, 80), t: num(l.t), l: str(l.l, 120), p: num(l.p), b: str(l.b, 4),
+    a: map(l.a, num), u: map(l.u, v => typeof v === "string" && /^(https:\/\/|hardrock:\/\/)/.test(v) ? v.slice(0, 300) : undefined),
+    x: map(l.x, v => typeof v === "string" || typeof v === "number" ? String(v).slice(0, 80) : undefined), o: num(l.o), k: num(l.k),
+  })).filter(l => l.i && l.l);
+  if (!legs.length) return out({ error: "no legs" }, 400);
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789", r = crypto.getRandomValues(new Uint8Array(7));
+  const id = Array.from(r, x => abc[x % abc.length]).join("");
+  await env.SLIPS.put(id, JSON.stringify({ legs, bk: str(d.bk, 4) || null, at: Date.now() }), { expirationTtl: SLIP_TTL });
+  return out({ id, url: url.origin + "/p/" + id });
+}
+async function showSlip(id, env, url) {
+  const raw = env && env.SLIPS ? await env.SLIPS.get(id) : null;
+  const html = h => new Response(h, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+  if (!raw) return html(page(url.origin, { id, gone: true }));
+  const slip = JSON.parse(raw);
+  const dec = a => a > 0 ? 1 + a / 100 : 1 + 100 / (-a);
+  const amer = d => d >= 2 ? "+" + Math.round((d - 1) * 100) : String(Math.round(-100 / (d - 1)));
+  const names = { DK: "DraftKings", FD: "FanDuel", MGM: "BetMGM", CZR: "Caesars", FAN: "Fanatics", ESPN: "ESPN Bet", BR: "BetRivers", HR: "Hard Rock" };
+  let best = null;
+  for (const bk of new Set(slip.legs.flatMap(l => Object.keys(l.a || {})))) {
+    if (!slip.legs.every(l => l.a && l.a[bk] != null)) continue;
+    const d = slip.legs.reduce((m, l) => m * dec(l.a[bk]), 1);
+    if (bk === slip.bk || !best || (best.bk !== slip.bk && d > best.d)) best = { bk, d };
+  }
+  const n = slip.legs.length;
+  const title = n + "-leg parlay" + (best ? " · " + amer(best.d) + " at " + (names[best.bk] || best.bk) : "");
+  const desc = slip.legs.map(l => l.l).join(" · ").slice(0, 190);
+  return html(page(url.origin, { id, ...slip }, { id, title, desc }));
 }
 
 // today's projected games per sport, small enough to load with the page
@@ -318,6 +380,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
     <p class="thesis">One board per sport. Every player on the slate, scored <b>0 to 100</b>.</p>
   </header>
 
+  <div id="shared"></div>
   <div id="parlay"></div>
 
   <div class="boardhead"><span class="hl">League</span><span class="hb">Board</span><span class="hs">Status</span></div>
@@ -392,6 +455,7 @@ function gameHTML(key, url, g){
     + '<div class="pr">' + bar + '</div></a>';
 }
 // ---------- parlay: one slip that travels between the HQ sites in their links; the newest copy wins ----------
+var SHARED = null;
 var PLKEY = "hq.parlay", HQ_HOSTS = /(^|\\.)(total|moonshot|touchdown|slapshot|slam|futbol)-hq\\.com$/;
 function plFresh(v){ return v.filter(function(l){ return !l.t || l.t > Date.now() - 6*3600e3; }); }
 function plRead(){ try { var v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
@@ -456,23 +520,24 @@ function slipUrl(bk, legs){
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
 }
-function renderParlay(){
-  var el = document.getElementById("parlay");
-  if(!PL.length){ el.innerHTML = ""; return; }
+function renderParlay(mode){
+  var share = mode === "share", L = share ? SHARED.legs : PL, BK = share ? SBK : PLBK;
+  var el = document.getElementById(share ? "shared" : "parlay");
+  if(!L.length){ el.innerHTML = share ? '<div class="pl"><div class="t">Shared parlay</div><p class="pl-note">Every leg was removed. Reload the link to see them again.</p></div>' : ""; return; }
   var ours = 1, book = 1, games = {}, same = false;
-  PL.forEach(function(l){ ours *= l.o; book *= l.k; if(games[l.g]) same = true; games[l.g] = 1; });
-  var books = byBook(PL), hasFull = books.length && books[0].n === PL.length;
-  var pick = books.filter(function(b){ return b.bk === PLBK; })[0] || books[0];
-  var full = pick && pick.n === PL.length;
+  L.forEach(function(l){ ours *= l.o; book *= l.k; if(games[l.g]) same = true; games[l.g] = 1; });
+  var books = byBook(L), hasFull = books.length && books[0].n === L.length;
+  var pick = books.filter(function(b){ return b.bk === BK; })[0] || books[0];
+  var full = pick && pick.n === L.length;
   var nm = function(bk){ return BKNAME[bk] || bk; };
   var sports = [];
-  PL.forEach(function(l){ if(sports.indexOf(l.s) < 0) sports.push(l.s); });
-  var h = '<div class="pl"><div class="pl-top"><div><div class="t">Your parlay</div><div class="pl-sub">' + PL.length + ' leg' + (PL.length > 1 ? "s" : "")
+  L.forEach(function(l){ if(sports.indexOf(l.s) < 0) sports.push(l.s); });
+  var h = '<div class="pl"><div class="pl-top"><div><div class="t">'+(share ? 'Shared parlay' : 'Your parlay')+'</div><div class="pl-sub">' + L.length + ' leg' + (L.length > 1 ? "s" : "")
     + (full ? ' · ours ' + pct(ours) + ' · book ' + pct(book) : '') + (pick ? ' · at ' + esc(nm(pick.bk)) : '') + '</div></div>'
-    + '<div class="px">' + (full && !PL.some(function(l){ return l.t && Date.now() >= l.t; }) ? amer(pick.d) : '—') + '</div></div>';
+    + '<div class="px">' + (full && !L.some(function(l){ return l.t && Date.now() >= l.t; }) ? amer(pick.d) : '—') + '</div></div>';
   sports.forEach(function(sp){
     h += '<div class="pl-sport">' + esc(sp) + ' HQ</div>';
-    PL.forEach(function(l, i){
+    L.forEach(function(l, i){
       if(l.s !== sp) return;
       var gone = l.t && Date.now() >= l.t;
       if(gone){
@@ -487,50 +552,93 @@ function renderParlay(){
     });
   });
   h += '<div class="pl-sport">Tap a sportsbook to price your parlay there</div>' + books.slice(0, 8).map(function(b){
-    return '<button class="pl-bk' + (pick && b.bk === pick.bk ? ' on' : '') + (b.n < PL.length ? ' part' : '') + '" data-bk="' + b.bk + '"><span>' + esc(nm(b.bk)) + '</span>'
-      + (b.n === PL.length ? '<b>' + amer(b.d) + '</b>' : '<i>' + b.n + ' of ' + PL.length + ' legs</i>') + '</button>';
+    return '<button class="pl-bk' + (pick && b.bk === pick.bk ? ' on' : '') + (b.n < L.length ? ' part' : '') + '" data-bk="' + b.bk + '"><span>' + esc(nm(b.bk)) + '</span>'
+      + (b.n === L.length ? '<b>' + amer(b.d) + '</b>' : '<i>' + b.n + ' of ' + L.length + ' legs</i>') + '</button>';
   }).join("");
   h += '<div class="pl-sport">My books' + (PLMY.length ? ' · only these are priced' : ' · tap the ones you use') + '</div><div class="pl-chips">'
     + ["FD", "DK", "FAN", "HR", "MGM", "BR"].map(function(bk){ return '<button class="pl-chip' + (PLMY.indexOf(bk) >= 0 ? ' on' : '') + '" data-my="' + bk + '">' + esc(nm(bk)) + '</button>'; }).join("") + '</div>';
   if(!hasFull) h += '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>';
-  var gs = Object.keys(games), one = pick && gs.length === 1 ? (PL.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
-  var started = PL.filter(function(l){ return l.t && Date.now() >= l.t; });
-  var slip = full && !started.length ? slipUrl(pick.bk, PL) : null;
+  var gs = Object.keys(games), one = pick && gs.length === 1 ? (L.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
+  var started = L.filter(function(l){ return l.t && Date.now() >= l.t; });
+  var slip = full && !started.length ? slipUrl(pick.bk, L) : null;
   if(started.length) h += '<p class="pl-note pl-warn">' + started.length + ' leg' + (started.length > 1 ? 's have' : ' has') + ' started and can\u2019t be bet anymore. <button class="pl-link" id="pl-drop">Remove started legs</button></p>';
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
-    + '<button id="pl-copy" class="pl-cp">Copy legs</button></div>'
+    + '<button class="pl-cp pl-share">Share betslip</button></div>'
     + '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '. ' : 'Opens ' + esc(pick ? nm(pick.bk) : 'the book') + '; add each leg there, or use "open game" on a leg. ')
       + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip.') + '</p>'
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
-    + '<p class="pl-note">Add legs from any sport’s board with +. Your parlay follows you between the HQ sites.</p>'
-    + '<div class="pl-acts"><button id="pl-clear">Clear parlay</button></div></div>';
+    + (share ? '<p class="pl-note">Prices as of when this was shared'+(SHARED.at ? ', '+ago(SHARED.at) : '')+'. Books move, so check the price in your slip.</p>' : '<p class="pl-note">Add legs from any sport’s board with +. Your parlay follows you between the HQ sites.</p>')
+    + '<p class="pl-note"><button class="pl-link pl-copy">Copy as text</button></p>'
+    + '<div class="pl-acts">'+(share ? '<button class="pl-mine">Add these legs to my parlay</button>' : '<button class="pl-clear">Clear parlay</button>')+'</div></div>';
   el.innerHTML = h;
-  el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ PL.splice(+b.dataset.i, 1); plSave(PL); renderParlay(); }; });
-  el.querySelectorAll(".pl-bk[data-bk]").forEach(function(b){ b.onclick = function(){ PLBK = b.dataset.bk; plSave(PL); renderParlay(); }; });
+  var again = function(){ if(share) renderParlay("share"); else { plSave(PL); renderParlay(); } };
+  el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ L.splice(+b.dataset.i, 1); again(); }; });
+  el.querySelectorAll(".pl-bk[data-bk]").forEach(function(b){ b.onclick = function(){ if(share) SBK = b.dataset.bk; else PLBK = b.dataset.bk; again(); }; });
   el.querySelectorAll(".pl-chip[data-my]").forEach(function(b){ b.onclick = function(){
     var bk = b.dataset.my, at = PLMY.indexOf(bk);
     if(at >= 0) PLMY.splice(at, 1); else PLMY.push(bk);
     if(PLBK && PLMY.length && PLMY.indexOf(PLBK) < 0) PLBK = null;
-    plSave(PL); renderParlay();
+    if(SBK && PLMY.length && PLMY.indexOf(SBK) < 0) SBK = null;
+    plSave(PL); renderParlay(); if(SHARED && SHARED.legs) renderParlay("share");
   }; });
   // put the sportsbook's own link on the button, so a tap opens the book's app rather than a browser redirect
   if(slip && !SLIPLINK[slip] && slip.indexOf("/betlink?") === 0){
     fetch(slip + "&json=1").then(function(r){ return r.json(); }).then(function(d){
       if(!d || !d.link) return;
       SLIPLINK[slip] = d.link;
-      var a = document.getElementById("pl-go"); if(a) a.setAttribute("href", d.link);
+      var a = el.querySelector("#pl-go"); if(a) a.setAttribute("href", d.link);
     }).catch(function(){});
   }
-  document.getElementById("pl-clear").onclick = function(){ PL = []; plSave(PL); renderParlay(); };
-  var dr = document.getElementById("pl-drop");
-  if(dr) dr.onclick = function(){ PL = PL.filter(function(l){ return !(l.t && Date.now() >= l.t); }); plSave(PL); renderParlay(); };
-  var cp = document.getElementById("pl-copy");
-  cp.onclick = function(){
-    var txt = PL.map(function(l){ var p = pick ? legPrices(l)[pick.bk] : l.p; return l.l + " (" + (l.g || "") + ")" + (p != null ? " " + price(p) : ""); }).join("\\n")
-      + (full ? "\\nParlay " + amer(pick.d) + " at " + nm(pick.bk) : "");
-    try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy legs"; }, 1500); }); } catch(e) {}
+  var cl = el.querySelector(".pl-clear"); if(cl) cl.onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+  var mine = el.querySelector(".pl-mine");
+  if(mine) mine.onclick = function(){
+    L.forEach(function(l){ if(!PL.some(function(x){ return x.i === l.i; })) PL.push(l); });
+    plSave(PL); renderParlay(); mine.textContent = "Added to your parlay";
   };
+  var dr = el.querySelector("#pl-drop");
+  if(dr) dr.onclick = function(){ var keep = L.filter(function(l){ return !(l.t && Date.now() >= l.t); }); if(share) SHARED.legs = keep; else PL = keep; again(); };
+  var sh = el.querySelector(".pl-share");
+  if(sh){ var live = L.filter(function(l){ return !(l.t && Date.now() >= l.t); }); if(!share) sharePrep(live, pick && pick.bk); sh.onclick = function(){ shareGo(live, pick && pick.bk, sh, "Share betslip"); }; }
+  var cp = el.querySelector(".pl-copy");
+  cp.onclick = function(){
+    var txt = L.map(function(l){ var p = pick ? legPrices(l)[pick.bk] : l.p; return l.l + " (" + (l.g || "") + ")" + (p != null ? " " + price(p) : ""); }).join("\\n")
+      + (full ? "\\nParlay " + amer(pick.d) + " at " + nm(pick.bk) : "");
+    try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy as text"; }, 1500); }); } catch(e) {}
+  };
+}
+function ago(t){ var m = Math.round((Date.now() - t) / 60000); return m < 2 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " hr ago" : Math.round(m / 1440) + " days ago"; }
+var SBK = SHARED && SHARED.bk || null;
+// ---------- share a betslip: a short total-hq.com link that opens the slip, priced at every book, ready to place ----------
+var SHARE = { sig:"", url:null, busy:"" };
+function shareHost(){ return /workers[.]dev$/.test(location.hostname) ? "https://share-total-hq.wehttam30.workers.dev" : "https://total-hq.com"; }
+function shareSig(legs, bk){ return JSON.stringify([legs.map(function(l){ return l.i; }), bk || ""]); }
+function sharePrep(legs, bk, done){
+  var sig = shareSig(legs, bk);
+  if(SHARE.sig === sig && SHARE.url){ if(done) done(SHARE.url); return; }
+  if(SHARE.busy === sig && !done) return;
+  SHARE.busy = sig;
+  fetch(shareHost() + "/p", { method:"POST", headers:{ "Content-Type":"text/plain" }, body: JSON.stringify({ legs: legs, bk: bk || null }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ SHARE.busy = ""; if(d && d.url){ SHARE.sig = sig; SHARE.url = d.url; if(done) done(d.url); } else if(done) done(null); })
+    .catch(function(){ SHARE.busy = ""; if(done) done(null); });
+}
+function shareGo(legs, bk, btn, label){
+  var say = function(t){ btn.textContent = t; setTimeout(function(){ btn.textContent = label; }, 1800); };
+  var copy = function(url){ try { navigator.clipboard.writeText(url).then(function(){ say("Link copied"); }, function(){ prompt("Copy this link", url); }); } catch(e){ prompt("Copy this link", url); } };
+  var go = function(url){
+    if(!url){ say("Couldn't make a link"); return; }
+    if(navigator.share) navigator.share({ title: legs.length + "-leg parlay", url: url }).catch(function(e){ if(e && e.name !== "AbortError") copy(url); });
+    else copy(url);
+  };
+  if(SHARE.sig === shareSig(legs, bk) && SHARE.url) go(SHARE.url);
+  else { btn.textContent = "Making link…"; sharePrep(legs, bk, function(url){ btn.textContent = label; go(url); }); }
+}
+if(SHARED && SHARED.gone){
+  document.getElementById("shared").innerHTML = '<div class="pl"><div class="t">This parlay link has expired</div><p class="pl-note">Shared parlays last two weeks. Build a new one from any HQ board.</p></div>';
+} else if(SHARED){
+  SHARED.legs = SHARED.legs.filter(function(l){ return !l.t || l.t > Date.now() - 6*3600e3; }).concat([]);
+  renderParlay("share");
 }
 renderParlay();
 plLinks();
