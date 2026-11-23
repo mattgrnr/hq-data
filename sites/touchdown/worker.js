@@ -506,7 +506,7 @@ body{padding-bottom:84px}
 /* game logs */
 #app .lg{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
-#app .lg-tab{flex:1;padding:8px 0;border-radius:10px;border:0;background:rgba(255,255,255,.045);color:var(--faint);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+#app .lg-tab{flex:1;min-width:0;padding:8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:10px;border:0;background:rgba(255,255,255,.045);color:var(--faint);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 #app .lg-tab.on{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 #app .lg-tab i{font-style:normal;font-weight:500;opacity:.6;margin-left:3px}
 #app .lg-pane{display:none}
@@ -1498,16 +1498,16 @@ function logsHTML(r){
   const main = cols.find(c=>c[2]===st) || cols[1] || cols[0], line = logLine(r);
   const l5 = logRows(p.gl, true), v = p.vs || {}, vg = logRows(v.g, false);
   const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
-  const opp = v.opp || "";
+  const opp = v.opp || "", gw = GKIND === "soccer" ? "Matches" : "Games";
   const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\\''+k+'\\')">'+t+'</button>';
-  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5))+tab("vs", "vs "+esc(opp)+(v.gp ? ' <i>'+v.gp+'</i>' : ''))+'</div>';
+  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", (vg.length ? "Last "+Math.min(5, vg.length)+" "+(vg.length === 1 ? gw.replace(/e?s$/, "") : gw) : gw)+" vs "+esc(opp))+'</div>';
   h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
   h += '<div class="lg-pane lg-vs">';
   if(!vg.length) h += '<div class="lg-none">No games against '+esc(opp)+' in the last 3 seasons</div>';
   else {
     const avg = c => logNum(vg.reduce((a,g)=>a + c[1](g.s), 0)/vg.length);
     h += '<div class="lg-grid">'+cols.map(c=>'<div class="lg-gc'+(c===main ? ' on' : '')+'"><div class="lg-gk">'+c[0]+'</div><div class="lg-gv">'+avg(c)+'</div></div>').join("")+'</div>'
-      + '<div class="lg-note">Per game, last '+vg.length+' meeting'+(vg.length===1 ? '' : 's')+(v.gp > vg.length ? ' of '+v.gp : '')+' · last 3 seasons and this one</div>'
+      + '<div class="lg-note">Per game'+(v.gp > vg.length ? ', last '+vg.length+' of '+v.gp+' meetings' : '')+' · '+(GKIND === "soccer" ? 'this season and last' : 'last 3 seasons and this one')+'</div>'
       + logSum(vg.slice(0, 5), main, line, vg.length > 5 ? "in the last 5" : "")
       + logCards(vg.slice(0, 5), cols, main, line, yr);
   }

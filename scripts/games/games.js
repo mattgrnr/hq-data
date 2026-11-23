@@ -400,16 +400,16 @@ function logsHTML(r){
   const main = cols.find(c=>c[2]===st) || cols[1] || cols[0], line = logLine(r);
   const l5 = logRows(p.gl, true), v = p.vs || {}, vg = logRows(v.g, false);
   const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
-  const opp = v.opp || "";
+  const opp = v.opp || "", gw = GKIND === "soccer" ? "Matches" : "Games";
   const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\''+k+'\')">'+t+'</button>';
-  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5))+tab("vs", "vs "+esc(opp)+(v.gp ? ' <i>'+v.gp+'</i>' : ''))+'</div>';
+  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", (vg.length ? "Last "+Math.min(5, vg.length)+" "+(vg.length === 1 ? gw.replace(/e?s$/, "") : gw) : gw)+" vs "+esc(opp))+'</div>';
   h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
   h += '<div class="lg-pane lg-vs">';
   if(!vg.length) h += '<div class="lg-none">No games against '+esc(opp)+' in the last 3 seasons</div>';
   else {
     const avg = c => logNum(vg.reduce((a,g)=>a + c[1](g.s), 0)/vg.length);
     h += '<div class="lg-grid">'+cols.map(c=>'<div class="lg-gc'+(c===main ? ' on' : '')+'"><div class="lg-gk">'+c[0]+'</div><div class="lg-gv">'+avg(c)+'</div></div>').join("")+'</div>'
-      + '<div class="lg-note">Per game, last '+vg.length+' meeting'+(vg.length===1 ? '' : 's')+(v.gp > vg.length ? ' of '+v.gp : '')+' · last 3 seasons and this one</div>'
+      + '<div class="lg-note">Per game'+(v.gp > vg.length ? ', last '+vg.length+' of '+v.gp+' meetings' : '')+' · '+(GKIND === "soccer" ? 'this season and last' : 'last 3 seasons and this one')+'</div>'
       + logSum(vg.slice(0, 5), main, line, vg.length > 5 ? "in the last 5" : "")
       + logCards(vg.slice(0, 5), cols, main, line, yr);
   }

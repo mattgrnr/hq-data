@@ -92,7 +92,7 @@ body{padding-bottom:84px}
 /* game logs */
 #app .lg{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
-#app .lg-tab{flex:1;padding:8px 0;border-radius:10px;border:0;background:rgba(255,255,255,.045);color:var(--faint);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+#app .lg-tab{flex:1;min-width:0;padding:8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:10px;border:0;background:rgba(255,255,255,.045);color:var(--faint);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 #app .lg-tab.on{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 #app .lg-tab i{font-style:normal;font-weight:500;opacity:.6;margin-left:3px}
 #app .lg-pane{display:none}
