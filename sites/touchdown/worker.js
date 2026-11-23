@@ -341,6 +341,15 @@ body{background:
 #app .bar .bl b{grid-column:3;grid-row:1;text-align:right;font-weight:600}
 #app .bar .track{grid-column:2;grid-row:1}
 #app .bar .bexp{grid-column:1 / -1;grid-row:2;margin-top:0}
+/* percentile bars */
+#app .bar{grid-template-columns:minmax(104px,150px) 1fr 58px}
+#app .bar .bl span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+#app .bar .bl b{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+#app .bar .bl b em{font-style:normal;font-size:13.5px;font-weight:700}
+#app .bar .bl b small{font-size:10.5px;font-weight:500;color:var(--faint);margin-top:2px}
+#app .bar.hi .bl b em{color:var(--ink)}
+#app .bar.lo .bl b em{color:var(--faint)}
+#app .bar.lo .track i{opacity:.55}
 
 /* every select shows the same caret */
 #app select{-webkit-appearance:none;appearance:none;
@@ -784,7 +793,7 @@ function tabDetailHTML(r){
   const posWord = {QB:"QBs",RB:"RBs",WR:"WRs",TE:"TEs"}[p.pos];
   const fmt = v => t.unit === "yds" ? String(Math.round(v)) : v.toFixed(1);
   return '<div class="detail">'
-   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and role compare him to the <b>top players at this stat</b>; matchup and game environment compare to the <b>league average</b>. The tick in the middle is <b>1.00</b>. Tap any bar to see what it means.</div></details>'
+   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and role compare him to the <b>top players at this stat</b>; matchup and game environment compare to the <b>league average</b>. The raw number is an index where <b>1.00</b> is that baseline. Each bar ranks him against <b>everyone on today’s board</b> for this stat: <b>90th</b> means he’s ahead of 90% of them, and the tick in the middle is the 50th. The small number under it is the raw figure. Tap any bar to see what it means.</div></details>'
    + bar("Volume", x.vol, x.vol.toFixed(2), "Projected "+lw(t)+" this week against the top players at it. The biggest piece of the score.")
    + (t.role ? bar(t.roleWord, x.role, x.role.toFixed(2), t.roleWord+" per game against the top players \\u2014 opportunity is the steadiest predictor in football.") : '')
    + bar("Recent form", x.form, x.szn != null ? x.form.toFixed(2) : "\\u2014", "This season\\u2019s per-game number against his blended rate. Capped so one big game can\\u2019t swing it; needs three games.")
@@ -963,12 +972,40 @@ function buildRows(){
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
+/* ===== percentile bars ===== */
+// each bar ranks the player against everyone on today's board for this tab: 96th = ahead of 96% of them
+let PCT = null;
+function pctKey(label){ return String(label).split(" · ")[0]; }
+function pctNote(label, idx){
+  if(!PCT || !PCT.on) return false;
+  const k = pctKey(label);
+  if(typeof idx === "number" && isFinite(idx)) (PCT.m[k] = PCT.m[k] || []).push(idx);
+  return true;
+}
+function pctOf(label, idx){
+  const k = pctKey(label);
+  if(k.indexOf("vs ") === 0 || typeof idx !== "number" || !isFinite(idx)) return null;
+  const key = F.stat + "|" + (F.day == null ? "" : F.day);
+  if(!PCT || PCT.key !== key || PCT.rows !== ROWS){
+    PCT = { key:key, rows:ROWS, m:{}, on:true };
+    try{ tabRows().forEach(r=>{ try{ detailHTML(r); }catch(e){} }); } finally { PCT.on = false; }
+  }
+  const a = PCT.m[k];
+  if(!a || a.length < 8) return null;
+  let below = 0, same = 0;
+  for(const v of a){ if(v < idx - 1e-9) below++; else if(v <= idx + 1e-9) same++; }
+  return clamp(Math.round((below + same/2) / a.length * 100), 1, 99);
+}
+function pctClass(pc){ return pc >= 80 ? " hi" : pc <= 20 ? " lo" : ""; }
+/* ===== end percentile bars ===== */
 function bar(label, idx, val, expl){
-  const pct = clamp(idx/2*100, 4, 100);
-  return '<div class="bar" onclick="this.classList.toggle(\\'show\\')">'
-    + '<div class="bl"><span>'+esc(label)+'</span><b>'+val+'</b></div>'
-    + '<div class="track"><i style="width:'+pct.toFixed(1)+'%"></i></div>'
-    + '<div class="bexp">'+expl+'</div></div>';
+  if(pctNote(label, idx)) return "";
+  const pc = pctOf(label, idx);
+  const w = pc != null ? clamp(pc, 3, 100) : clamp(idx/2*100, 4, 100);
+  return '<div class="bar'+(pc != null ? pctClass(pc) : '')+'" onclick="this.classList.toggle(\\'show\\')">'
+    + '<div class="bl"><span>'+esc(label)+'</span><b>'+(pc != null ? '<em>'+ordn(pc)+'</em><small>'+val+'</small>' : val)+'</b></div>'
+    + '<div class="track"><i style="width:'+w.toFixed(1)+'%"></i></div>'
+    + (expl ? '<div class="bexp">'+expl+'</div>' : '') + '</div>';
 }
 
 function detailHTML(r){ return F.stat === "TD" ? tdDetailHTML(r) : tabDetailHTML(r); }
@@ -982,7 +1019,7 @@ function tdDetailHTML(r){
   const wp = Math.round((p.w || 0)*100);
   const blend = wp >= 95 ? "his own numbers" : wp+"% his games \u00b7 "+(100-wp)+"% position average";
   return '<div class="detail">'
-   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Each bar compares this player to the <b>average at his position</b>. The tick in the middle is <b>1.00 — dead average</b>: fill past it is above average, short of it is below. Tap any bar to see what it means.</div></details>'
+   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Each bar compares this player to the <b>average at his position</b>. The raw number is an index where <b>1.00</b> is that baseline. Each bar ranks him against <b>everyone on today’s board</b> for this stat: <b>90th</b> means he’s ahead of 90% of them, and the tick in the middle is the 50th. The small number under it is the raw figure. Tap any bar to see what it means.</div></details>'
    + bar("Red-zone role", i.rz, i.rz.toFixed(2), "Trips inside the opponent\\u2019s 20 per game, with extra weight on inside-the-5 work \\u2014 the closest thing football has to a guaranteed shot at six.")
    + bar("Usage", i.use, i.use.toFixed(2), "Touches and targets per game vs. the average at this position \\u2014 carries and receiving work both count, so pass-catching backs get full credit. Volume is the most predictive stat in football.")
    + bar("Scoring form", i.form, i.form.toFixed(2), "Touchdowns per game vs. the position average, with this season blended against last so one hot week can\\u2019t swing it.")

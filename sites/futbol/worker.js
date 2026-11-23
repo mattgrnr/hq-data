@@ -251,6 +251,15 @@ body{background:
 #app .bar .bl b{grid-column:3;grid-row:1;text-align:right;font-weight:600}
 #app .bar .track{grid-column:2;grid-row:1}
 #app .bar .bexp{grid-column:1 / -1;grid-row:2;margin-top:0}
+/* percentile bars */
+#app .bar{grid-template-columns:minmax(104px,150px) 1fr 58px}
+#app .bar .bl span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+#app .bar .bl b{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+#app .bar .bl b em{font-style:normal;font-size:13.5px;font-weight:700}
+#app .bar .bl b small{font-size:10.5px;font-weight:500;color:var(--faint);margin-top:2px}
+#app .bar.hi .bl b em{color:var(--ink)}
+#app .bar.lo .bl b em{color:var(--faint)}
+#app .bar.lo .track i{opacity:.55}
 
 /* every select shows the same caret */
 #app select{-webkit-appearance:none;appearance:none;
@@ -309,6 +318,16 @@ body{background:
 #app .ctrl.srch{grid-column:1 / -1}
 #app .spinner{border-color:rgba(255,255,255,.1);border-top-color:var(--red)}
 #app .ball.puck .num{padding-bottom:10%}
+/* last five strip */
+#app .l5{margin-top:14px}
+#app .l5-t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;letter-spacing:.13em;text-transform:uppercase;font-size:12px;color:var(--faint);margin-bottom:7px}
+#app .l5-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+#app .l5-c{background:rgba(255,255,255,.035);border-radius:9px;padding:7px 4px;text-align:center;font-variant-numeric:tabular-nums}
+#app .l5-c.dnp{opacity:.45}
+#app .l5-d{font-size:10.5px;color:var(--faint)}
+#app .l5-m{font-size:13px;font-weight:600;margin:2px 0 4px}
+#app .l5-s{display:flex;flex-direction:column;gap:1px;font-size:10.5px;color:var(--faint)}
+#app .l5-s .on{color:var(--ink);font-weight:600}
 #app .frow.stack{display:block}
 #app .frow.stack b{display:block;text-align:left;margin-top:2px}
 
@@ -578,6 +597,10 @@ async function fetchJSON(u){
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
 function tierOf(s){ return s>=80?"ELITE":s>=68?"STRONG":s>=56?"SOLID":s>=44?"FRINGE":"LONGSHOT"; }
+function ordn(n){
+  const s = ["th","st","nd","rd"], v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
 function pct(p){ return Math.round(100*p)+"%"; }
 function kickoff(t){
   return new Date(t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit", timeZoneName:"short" });
@@ -644,50 +667,119 @@ function ballSVG(){
     + '<path d="M26 15 l8 6 -3 9.5 h-10 l-3 -9.5 z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.14)" stroke-width="1"/></svg>';
 }
 
-function bar(label, idx, val){
-  const w = clamp(idx/2, 0, 1)*100;
-  return '<div class="bar"><div class="bl"><span>'+label+'</span><b>'+val+'</b></div><div class="track"><i style="width:'+w.toFixed(0)+'%"></i></div></div>';
+/* ===== percentile bars ===== */
+// each bar ranks the player against everyone on today's board for this tab: 96th = ahead of 96% of them
+let PCT = null;
+function pctKey(label){ return String(label).split(" · ")[0]; }
+function pctNote(label, idx){
+  if(!PCT || !PCT.on) return false;
+  const k = pctKey(label);
+  if(typeof idx === "number" && isFinite(idx)) (PCT.m[k] = PCT.m[k] || []).push(idx);
+  return true;
+}
+function pctOf(label, idx){
+  const k = pctKey(label);
+  if(k.indexOf("vs ") === 0 || typeof idx !== "number" || !isFinite(idx)) return null;
+  const key = F.stat + "|" + (F.day == null ? "" : F.day);
+  if(!PCT || PCT.key !== key || PCT.rows !== ROWS){
+    PCT = { key:key, rows:ROWS, m:{}, on:true };
+    try{ dayRows().forEach(r=>{ try{ detailHTML(r); }catch(e){} }); } finally { PCT.on = false; }
+  }
+  const a = PCT.m[k];
+  if(!a || a.length < 8) return null;
+  let below = 0, same = 0;
+  for(const v of a){ if(v < idx - 1e-9) below++; else if(v <= idx + 1e-9) same++; }
+  return clamp(Math.round((below + same/2) / a.length * 100), 1, 99);
+}
+function pctClass(pc){ return pc >= 80 ? " hi" : pc <= 20 ? " lo" : ""; }
+/* ===== end percentile bars ===== */
+function bar(label, idx, val, expl){
+  if(pctNote(label, idx)) return "";
+  const pc = pctOf(label, idx);
+  const w = pc != null ? clamp(pc, 3, 100) : clamp(idx/2*100, 4, 100);
+  return '<div class="bar'+(pc != null ? pctClass(pc) : '')+'" onclick="this.classList.toggle(\\'show\\')">'
+    + '<div class="bl"><span>'+esc(label)+'</span><b>'+(pc != null ? '<em>'+ordn(pc)+'</em><small>'+val+'</small>' : val)+'</b></div>'
+    + '<div class="track"><i style="width:'+w.toFixed(1)+'%"></i></div>'
+    + (expl ? '<div class="bexp">'+expl+'</div>' : '') + '</div>';
+}
+// last five matches, per 90: k is the column in l5 ([date, min, G, SOT, A])
+function l5Per90(p, col){
+  const l = (p.l5 || []).filter(x=>x[1] > 0);
+  const m = l.reduce((a,x)=>a + x[1], 0);
+  return l.length >= 3 && m >= 120 ? l.reduce((a,x)=>a + x[col], 0) / m * 90 : null;
+}
+function l5Strip(p){
+  const l = p.l5 || [];
+  if(!l.length) return '';
+  const day = d => { const s = String(d); return new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)).toLocaleDateString([], { month:"short", day:"numeric" }); };
+  const hl = F.stat==="G" ? 2 : F.stat==="A" ? 4 : F.stat==="T" ? 3 : -1;
+  return '<div class="l5"><div class="l5-t">Last '+l.length+' matches</div><div class="l5-g">'
+    + l.map(x=>'<div class="l5-c'+(x[1] ? '' : ' dnp')+'"><div class="l5-d">'+day(x[0])+'</div><div class="l5-m">'+(x[1] ? x[1]+'′' : 'DNP')+'</div>'
+      + '<div class="l5-s"><span'+(hl===2?' class="on"':'')+'>'+x[2]+' G</span><span'+(hl===3?' class="on"':'')+'>'+x[3]+' SOT</span><span'+(hl===4?' class="on"':'')+'>'+x[4]+' A</span></div></div>').join('')
+    + '</div></div>';
 }
 function detailHTML(r){
-  const p = r.p, s = p.szn, rt = p.r, n90 = Math.max(s.min/90, 0.01);
-  let h = '<div class="detail">';
-  if(F.stat==="G"){
-    h += bar("Non-penalty xG / 90", rt.npxg/0.3, rt.npxg.toFixed(2))
-       + bar("Shots / 90", rt.sh/2.2, rt.sh.toFixed(1))
-       + bar("Expected minutes", p.min/80, p.min+"'")
-       + bar("Opp. chances allowed", p.dfn, p.dfn.toFixed(2)+"×")
-       + bar("Team attack", p.att, p.att.toFixed(2)+"×");
-  } else if(F.stat==="GA"){
-    h += bar("Non-penalty xG / 90", rt.npxg/0.3, rt.npxg.toFixed(2))
-       + bar("xA / 90", rt.xa/0.15, rt.xa.toFixed(2))
-       + bar("Expected minutes", p.min/80, p.min+"'")
-       + bar("Team attack", p.att, p.att.toFixed(2)+"×")
-       + bar("Opp. chances allowed", p.dfn, p.dfn.toFixed(2)+"×");
-  } else if(F.stat==="A"){
-    h += bar("xA / 90", rt.xa/0.15, rt.xa.toFixed(2))
-       + bar("Assists / 90", rt.a/0.15, rt.a.toFixed(2))
-       + bar("Expected minutes", p.min/80, p.min+"'")
-       + bar("Team attack", p.att, p.att.toFixed(2)+"×")
-       + bar("Opp. chances allowed", p.dfn, p.dfn.toFixed(2)+"×");
+  const p = r.p, s = p.szn, rt = p.r, n90 = Math.max(s.min/90, 0.01), st = F.stat;
+  const opp = esc(r.opp), team = esc(r.team);
+  const lu = p.st==="starting"?"Confirmed starter":p.st==="predicted"?"Predicted starter":p.st==="likely"?"Likely starter":p.st==="last11"?"Started last match":p.st==="bench"?"On the bench":"Not out yet";
+  const minB = bar("Expected minutes", p.min/90*1.6, p.min+"′", "Minutes we expect tonight from the lineup news and his recent usage. "+lu+". Every number below is scaled by this.");
+  const attB = bar("Team attack", p.att, p.att.toFixed(2)+"×", team+"'s chance creation this season against the league average, adjusted for home and away. Above 1.00 = more chances to go around.");
+  const defB = (what, v) => bar(opp+" defense", v, v.toFixed(2)+"×", what+" "+opp+" gives up per match against the league average. Above 1.00 = a soft matchup.");
+  const shoot = l5Per90(p, 3);
+  const formB = bar("Recent shooting", shoot != null && rt.sot > 0 ? clamp(shoot/rt.sot, 0, 2) : null, shoot != null ? shoot.toFixed(2)+" /90" : "—", "Shots on target per 90 over his last five matches, against his season rate. Needs three appearances to count; shown for context.");
+  let bars = '', head = '', rows = '';
+  if(st==="G"){
+    head = "Goals";
+    bars = bar("Non-penalty xG / 90", rt.npxg/0.3, rt.npxg.toFixed(2), "Expected goals per 90 minutes from open play and set pieces, not counting penalties. The quality and number of his chances; the biggest piece of the score.")
+      + bar("Shots / 90", rt.sh/2.2, rt.sh.toFixed(1), "Shots per 90 minutes. Volume is the steadiest predictor of goals.")
+      + (p.pen >= 0.3 ? bar("Penalty duty", 1 + p.pen, Math.round(p.pen*100)+"%", "Share of his team's penalties he takes. A penalty is roughly a 3-in-4 chance to score.") : '')
+      + minB + defB("Chances", p.dfn) + attB + formB;
+    rows = '<div class="frow"><span>Goals this season</span><b>'+s.g+' in '+Math.round(s.min)+'′</b></div>'
+      + '<div class="frow"><span>Goals / 90 · npxG / 90</span><b>'+(s.g/n90).toFixed(2)+' · '+(s.npxg/n90).toFixed(2)+'</b></div>'
+      + '<div class="frow"><span>Proj goals tonight</span><b>'+p.pg.toFixed(2)+'</b></div>'
+      + '<div class="frow"><span>Chance to score</span><b>'+pct(r.sc.pG)+'</b></div>';
+  } else if(st==="A"){
+    head = "Assists";
+    bars = bar("xA / 90", rt.xa/0.15, rt.xa.toFixed(2), "Expected assists per 90: how likely his passes are to become goals, whatever the finisher does with them. The biggest piece of the score.")
+      + bar("Assists / 90", rt.a/0.15, rt.a.toFixed(2), "Assists per 90, steadied toward his expected number so a lucky run can't swing it.")
+      + minB + defB("Chances", p.dfn) + attB;
+    rows = '<div class="frow"><span>Assists this season</span><b>'+s.a+' in '+Math.round(s.min)+'′</b></div>'
+      + '<div class="frow"><span>Assists / 90</span><b>'+(s.a/n90).toFixed(2)+'</b></div>'
+      + '<div class="frow"><span>Proj assists tonight</span><b>'+p.pa.toFixed(2)+'</b></div>'
+      + '<div class="frow"><span>Chance to assist</span><b>'+pct(r.sc.pA)+'</b></div>';
+  } else if(st==="GA"){
+    head = "Goal or assist";
+    bars = bar("Non-penalty xG / 90", rt.npxg/0.3, rt.npxg.toFixed(2), "Expected goals per 90 minutes, not counting penalties.")
+      + bar("xA / 90", rt.xa/0.15, rt.xa.toFixed(2), "Expected assists per 90. Together with xG, how often he's involved in a goal.")
+      + (p.pen >= 0.3 ? bar("Penalty duty", 1 + p.pen, Math.round(p.pen*100)+"%", "Share of his team's penalties he takes.") : '')
+      + minB + defB("Chances", p.dfn) + attB;
+    rows = '<div class="frow"><span>Goals · assists this season</span><b>'+s.g+' · '+s.a+'</b></div>'
+      + '<div class="frow"><span>G+A / 90</span><b>'+((s.g+s.a)/n90).toFixed(2)+'</b></div>'
+      + '<div class="frow"><span>Proj goals + assists tonight</span><b>'+p.pga.toFixed(2)+'</b></div>'
+      + '<div class="frow"><span>Chance of a goal or assist</span><b>'+pct(r.sc.pGA)+'</b></div>';
   } else {
-    const k = F.stat==="T" ? "sot" : "sh", base = F.stat==="T" ? 0.85 : 2.2;
-    h += bar((F.stat==="T"?"Shots on target":"Shots")+" / 90", rt[k]/base, rt[k].toFixed(2))
-       + bar("Expected minutes", p.min/80, p.min+"'")
-       + bar("Opp. "+(F.stat==="T"?"SOT":"shots")+" allowed", F.stat==="T" ? p.sdf : p.dfn, (F.stat==="T" ? p.sdf : p.dfn).toFixed(2)+"×")
-       + bar("Team attack", p.att, p.att.toFixed(2)+"×");
+    const t = st==="T", k = t ? "sot" : "sh";
+    head = t ? "Shots on target" : "Shots";
+    bars = bar((t ? "Shots on target" : "Shots")+" / 90", rt[k]/(t ? 0.85 : 2.2), rt[k].toFixed(2), (t ? "Shots on target" : "Shots")+" per 90 minutes this season, steadied toward his position. The biggest piece of the score.")
+      + (t ? bar("Accuracy", rt.sh > 0 ? clamp(rt.sot/rt.sh/0.35, 0, 2) : null, rt.sh > 0 ? Math.round(rt.sot/rt.sh*100)+"%" : "—", "Share of his shots that hit the target. Around 35% is typical.") : bar("Non-penalty xG / 90", rt.npxg/0.3, rt.npxg.toFixed(2), "Expected goals per 90. Players who get into good spots shoot more."))
+      + minB + defB(t ? "Shots on target" : "Shots", t ? p.sdf : p.dfn) + attB + formB;
+    rows = '<div class="frow"><span>'+head+' this season</span><b>'+s[k]+' in '+Math.round(s.min)+'′</b></div>'
+      + '<div class="frow"><span>'+head+' / 90</span><b>'+(s[k]/n90).toFixed(2)+'</b></div>'
+      + '<div class="frow"><span>Proj '+head.toLowerCase()+' tonight</span><b>'+(t ? p.psot : p.psh).toFixed(1)+'</b></div>';
   }
-  h += '<div class="numbers"><h4>The numbers</h4>'
+  return '<div class="detail">'
+    + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Player bars are his rates per 90 minutes this season; team and opponent bars compare to the <b>league average</b>, where 1.00 is average. Each bar ranks him against <b>everyone on today\\'s board</b>: <b>90th</b> means he\\'s ahead of 90% of them, and the tick in the middle is the 50th. The small number under it is the raw figure. Tap any bar to see what it means.</div></details>'
+    + bars
+    + '<div class="numbers"><h4>'+head+'</h4>' + rows
+    + '<h4 style="margin-top:14px">The rest</h4>'
     + '<div class="frow"><span>Kickoff</span><b>'+kickoff(r.gm.t)+' · '+esc(r.gm.league)+'</b></div>'
-    + '<div class="frow"><span>Lineup</span><b>'+(p.st==="starting"?"Confirmed starter":p.st==="predicted"?"Predicted starter":p.st==="last11"?"Started last match":p.st==="bench"?"On the bench":"Not out yet")+'</b></div>'
-    + '<div class="frow"><span>This season · minutes</span><b>'+Math.round(s.min)+'</b></div>'
-    + '<div class="frow"><span>This season · goals · assists</span><b>'+s.g+' · '+s.a+'</b></div>'
-    + '<div class="frow"><span>This season · shots · on target</span><b>'+s.sh+' · '+s.sot+'</b></div>'
-    + '<div class="frow"><span>This season · npxG / 90</span><b>'+(s.min ? (s.npxg/n90).toFixed(2) : "—")+'</b></div>'
+    + '<div class="frow"><span>Lineup</span><b>'+lu+'</b></div>'
+    + '<div class="frow"><span>Minutes this season</span><b>'+Math.round(s.min)+'</b></div>'
+    + '<div class="frow"><span>Shots · on target this season</span><b>'+s.sh+' · '+s.sot+'</b></div>'
     + (p.pen >= 0.3 ? '<div class="frow"><span>Penalty duty</span><b>takes '+Math.round(p.pen*100)+'% of team pens</b></div>' : '')
-    + '<div class="frow"><span>Proj goals · SOT · shots · assists</span><b>'+p.pg.toFixed(2)+' · '+p.psot.toFixed(1)+' · '+p.psh.toFixed(1)+' · '+p.pa.toFixed(2)+'</b></div>'
-    + '<div class="frow stack"><span>Last 5 · min / G / SOT / A</span><b>'+(p.l5.length ? p.l5.map(x=>x[1]+"′ "+x[2]+"/"+x[3]+"/"+x[4]).join(" · ") : "—")+'</b></div>'
+    + '<div class="frow"><span>Proj G · A · SOT · shots</span><b>'+p.pg.toFixed(2)+' · '+p.pa.toFixed(2)+' · '+p.psot.toFixed(1)+' · '+p.psh.toFixed(1)+'</b></div>'
+    + l5Strip(p)
     + '</div></div>';
-  return h;
 }
 
 const RSTATS = [["G","Goals","goals"],["A","Assists","assists"],["GA","TSOA","goals plus assists"],["T","SOT","shots on target"],["S","Shots","shots"]];

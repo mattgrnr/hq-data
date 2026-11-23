@@ -251,6 +251,15 @@ body{background:
 #app .bar .bl b{grid-column:3;grid-row:1;text-align:right;font-weight:600}
 #app .bar .track{grid-column:2;grid-row:1}
 #app .bar .bexp{grid-column:1 / -1;grid-row:2;margin-top:0}
+/* percentile bars */
+#app .bar{grid-template-columns:minmax(104px,150px) 1fr 58px}
+#app .bar .bl span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+#app .bar .bl b{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+#app .bar .bl b em{font-style:normal;font-size:13.5px;font-weight:700}
+#app .bar .bl b small{font-size:10.5px;font-weight:500;color:var(--faint);margin-top:2px}
+#app .bar.hi .bl b em{color:var(--ink)}
+#app .bar.lo .bl b em{color:var(--faint)}
+#app .bar.lo .track i{opacity:.55}
 
 /* every select shows the same caret */
 #app select{-webkit-appearance:none;appearance:none;
@@ -737,12 +746,40 @@ function sorted(){
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
+/* ===== percentile bars ===== */
+// each bar ranks the player against everyone on today's board for this tab: 96th = ahead of 96% of them
+let PCT = null;
+function pctKey(label){ return String(label).split(" · ")[0]; }
+function pctNote(label, idx){
+  if(!PCT || !PCT.on) return false;
+  const k = pctKey(label);
+  if(typeof idx === "number" && isFinite(idx)) (PCT.m[k] = PCT.m[k] || []).push(idx);
+  return true;
+}
+function pctOf(label, idx){
+  const k = pctKey(label);
+  if(k.indexOf("vs ") === 0 || typeof idx !== "number" || !isFinite(idx)) return null;
+  const key = F.stat + "|" + (F.day == null ? "" : F.day);
+  if(!PCT || PCT.key !== key || PCT.rows !== ROWS){
+    PCT = { key:key, rows:ROWS, m:{}, on:true };
+    try{ ROWS.forEach(r=>{ try{ detailHTML(r); }catch(e){} }); } finally { PCT.on = false; }
+  }
+  const a = PCT.m[k];
+  if(!a || a.length < 8) return null;
+  let below = 0, same = 0;
+  for(const v of a){ if(v < idx - 1e-9) below++; else if(v <= idx + 1e-9) same++; }
+  return clamp(Math.round((below + same/2) / a.length * 100), 1, 99);
+}
+function pctClass(pc){ return pc >= 80 ? " hi" : pc <= 20 ? " lo" : ""; }
+/* ===== end percentile bars ===== */
 function bar(label, idx, val, expl){
-  const pct = clamp(idx/2*100, 4, 100);
-  return '<div class="bar" onclick="this.classList.toggle(\\'show\\')">'
-    + '<div class="bl"><span>'+esc(label)+'</span><b>'+val+'</b></div>'
-    + '<div class="track"><i style="width:'+pct.toFixed(1)+'%"></i></div>'
-    + '<div class="bexp">'+expl+'</div></div>';
+  if(pctNote(label, idx)) return "";
+  const pc = pctOf(label, idx);
+  const w = pc != null ? clamp(pc, 3, 100) : clamp(idx/2*100, 4, 100);
+  return '<div class="bar'+(pc != null ? pctClass(pc) : '')+'" onclick="this.classList.toggle(\\'show\\')">'
+    + '<div class="bl"><span>'+esc(label)+'</span><b>'+(pc != null ? '<em>'+ordn(pc)+'</em><small>'+val+'</small>' : val)+'</b></div>'
+    + '<div class="track"><i style="width:'+w.toFixed(1)+'%"></i></div>'
+    + (expl ? '<div class="bexp">'+expl+'</div>' : '') + '</div>';
 }
 
 // head to head: how he's done against tonight's opponent over the last three seasons and this one
@@ -789,7 +826,7 @@ function detailHTML(r){
   const l5 = p.l5;
   const boost = r.boost[k] > 1.001;
   return '<div class="detail">'
-   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and minutes compare him to a <b>typical 30-minute starter</b>; matchup and pace compare to the <b>league average</b>. The tick in the middle is <b>1.00</b>: fill past it is above, short of it is below. Tap any bar to see what it means.</div></details>'
+   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and minutes compare him to a <b>typical 30-minute starter</b>; matchup and pace compare to the <b>league average</b>. The raw number is an index where <b>1.00</b> is that baseline. Each bar ranks him against <b>everyone on today’s board</b> for this stat: <b>90th</b> means he’s ahead of 90% of them, and the tick in the middle is the 50th. The small number under it is the raw figure. Tap any bar to see what it means.</div></details>'
    + bar("Volume", r.vol[k], r.vol[k].toFixed(2), "Projected "+WORD[st].toLowerCase()+" tonight against "+(rare ? "the players who rack them up most" : "what a typical 30-minute starter puts up")+". The biggest piece of the score.")
    + bar("Minutes", r.minIdx, p.mpg.toFixed(1), "Minutes a night, blended toward this season’s role. In the NBA, opportunity starts with time on the floor.")
    + bar("Recent form", r.form[k], l5 && l5.n >= 3 ? r.form[k].toFixed(2) : "—", "His last five games per minute against his blended rate. Capped so one hot week can’t swing it; needs three games to count.")
