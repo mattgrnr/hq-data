@@ -1507,7 +1507,7 @@ function logsHTML(r){
   h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
   h += '<div class="lg-pane lg-vs">';
   const span = GKIND === "soccer" ? "this season and last" : "last 3 seasons and this one";
-  if(!vg.length) h += '<div class="lg-none">No '+gw.toLowerCase()+' against '+esc(opp)+' · '+span+'</div>';
+  if(!vg.length) h += '<div class="lg-none">No history against '+esc(opp)+'</div>';
   else {
     const avg = c => logNum(vg.reduce((a,g)=>a + c[1](g.s), 0)/vg.length);
     h += '<div class="lg-grid">'+cols.map(c=>'<div class="lg-gc'+(c===main ? ' on' : '')+'"><div class="lg-gk">'+c[0]+'</div><div class="lg-gv">'+avg(c)+'</div></div>').join("")+'</div>'
