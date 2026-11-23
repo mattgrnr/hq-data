@@ -376,7 +376,7 @@ def attach_odds(sport, bd, lam=None):
 # ---------- player props ----------
 
 PROP_STAT = {
-    "nhl": {"player_goals": "G", "player_points_1plus": "P", "player_points_2plus": "P", "player_shots_on_goal": "S"},
+    "nhl": {"player_goals": "G", "player_points_1plus": "P", "player_points_2plus": ("P", 2), "player_shots_on_goal": "S"},
     "nba": {"player_points": "PTS", "player_rebounds": "REB", "player_assists": "AST", "player_points_rebounds_assists": "PRA",
             "player_points_rebounds": "PR", "player_points_assists": "PA", "player_rebounds_assists": "RA",
             "player_threes": "3PM", "player_blocks": "BLK", "player_steals": "STL"},
@@ -417,6 +417,7 @@ def attach_props(sport, bd):
         if t < now - timedelta(hours=3):
             continue
         for mk, stat in PROP_STAT[sport].items():
+            stat, kfix = stat if isinstance(stat, tuple) else (stat, None)   # "Yes" in a 2+ market means at least 2
             for row in ev["m"].get(mk, []):
                 name, desc, point, prices = row[:4]
                 ids = row[4] if len(row) > 4 else {}
@@ -427,7 +428,7 @@ def attach_props(sport, bd):
                     k, side, ou = math.floor(point) + 1, "yes" if name == "Over" else "no", True
                 else:
                     m = re.match(r"(\d+)\+", name or "")
-                    k, side, ou = (int(m.group(1)) if m else 1), "no" if name == "No" else "yes", False
+                    k, side, ou = (int(m.group(1)) if m else kfix or 1), "no" if name == "No" else "yes", False
                 ln = lines.setdefault((who, stat, k, t), {"yes": {}, "no": {}, "ids": {}, "ou": False, "ev": ev.get("id")})
                 ln[side].update(prices)
                 if side == "yes":

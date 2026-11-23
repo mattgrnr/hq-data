@@ -109,9 +109,6 @@ def main():
         for m, rows in ev["m"].items():
             per[m] = per.get(m, 0) + len(rows)
     print("  outcomes per market:", ", ".join(f"{m} {n}" for m, n in sorted(per.items())))
-    sample = next((r for ev in events for r in ev["m"].get("player_points_2plus", [])), None)
-    if sample:
-        print("  player_points_2plus sample:", sample[:3])
 
 
 if __name__ == "__main__":
