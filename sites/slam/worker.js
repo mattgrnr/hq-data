@@ -1074,7 +1074,7 @@ function tpPick(e, el){
   tp.querySelectorAll(".tp-pane").forEach(p=>p.classList.toggle("on", p.dataset.k === k));
 }
 // ---------- book prices on player rows ----------
-const PONE = { G:1, A:1, P:1, GA:1, TD:1, BLK:1, STL:1, "3PM":2 };           // tabs shown as a chance of at least this many
+const PONE = { G:1, A:1, P:1, GA:1, TD:1 };           // yes/no props, shown as a chance of at least one; the rest use the books' main line
 const PEXTRA = { P:[2] };     // extra rungs priced alongside a tab's main line (2+ points in hockey)
 const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
               PR:x=>1.35*Math.sqrt(x), PA:x=>1.35*Math.sqrt(x), RA:x=>1.3*Math.sqrt(x),
@@ -1701,12 +1701,6 @@ function wireTop(){
 }
 
 // tabs shown as a chance instead of a projection: label, and how many it takes
-const ONEPLUS = { "3PM":["2+ threes",2], BLK:["1+ block",1], STL:["1+ steal",1] };
-function chanceN(x, n){   // chance of at least n, Poisson
-  x = Math.max(0, x||0); let p = 0, t = Math.exp(-x);
-  for(let k=0; k<n; k++){ p += t; t *= x/(k+1); }
-  return Math.round(100*(1-p))+"%";
-}
 function shortName(n){
   const parts = String(n).split(" ");
   return n.length <= 10 || parts.length < 2 ? n : parts[0][0] + ". " + parts.slice(1).join(" ");
@@ -1721,8 +1715,7 @@ function rowHTML(r, n){
     + '<div class="who"><div class="pname"><span class="pn'+(shortName(p.name).length>14?' long':'')+'">'+esc(shortName(p.name))+'</span>'+injBadge(p)+'</div>'
     + '<div class="meta">'+(POSNAME[p.pos]||p.pos)+' · '+esc(p.team)+' · '+esc(r.gm.short)+'<span class="gametag">'+esc(r.gm.detail)+'</span>'+(rk?'<span class="dtag '+rankClass(rk.rank,rk.of)+'">'+esc(r.oppN)+' '+ordn(rk.rank)+' vs '+p.pos+'</span>':'')+'</div>'+statLine(r, k)+bookHTML(r)+'</div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
-    + (ONEPLUS[F.stat] ? '<div class="yproj">'+ONEPLUS[F.stat][0]+'<b>'+chanceN(r.proj[k], ONEPLUS[F.stat][1])+'</b></div>'
-                       : '<div class="yproj">proj '+F.stat.toLowerCase()+'<b>'+r.proj[k].toFixed(1)+'</b></div>')
+    + '<div class="yproj">proj '+F.stat.toLowerCase()+'<b>'+r.proj[k].toFixed(1)+'</b></div>'
     + '<div><div class="ball t-'+tier+'">'+ballSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'
     + '</div>'
     + detailHTML(r)
