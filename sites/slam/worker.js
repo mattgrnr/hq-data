@@ -308,9 +308,9 @@ body{background:
 #app .pbadge.inj-Q{color:#F5C451;border-color:rgba(245,196,81,.45);background:rgba(245,196,81,.08)}
 #app .pbadge.inj-D{color:#FF8A5B;border-color:rgba(255,138,91,.45);background:rgba(255,138,91,.08)}
 #app .controls{grid-template-columns:1fr 1fr 1fr}
-#app .posrow{display:grid;grid-template-columns:repeat(12,1fr);gap:6px}
-#app .posrow .pos{grid-column:span 3}
-#app .posrow .pos:nth-child(n+5){grid-column:span 4}
+#app .posrow{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+#app .posrow::-webkit-scrollbar{display:none}
+#app .posrow .pos{flex:1 0 auto;min-width:58px;padding-left:12px;padding-right:12px;scroll-snap-align:start}
 #app .sline{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--faint);margin-top:4px;letter-spacing:-.01em;word-spacing:-2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #app .h2h-c.on .h2h-k{color:var(--ink)}
 #app .h2h-c.on .h2h-v{color:var(--red)}
@@ -1780,7 +1780,12 @@ function render(banner){
   wire();
 }
 
+function posInView(){
+  const row = document.querySelector(".posrow"), on = row && row.querySelector(".pos.on");
+  if(on && (on.offsetLeft + on.offsetWidth > row.clientWidth)) row.scrollLeft = on.offsetLeft - (row.clientWidth - on.offsetWidth)/2;
+}
 function wire(){
+  posInView();
   document.getElementById("btn-refresh").onclick = ()=>boot(true);
   const rb = document.getElementById("btn-results");
   if(rb) rb.onclick = ()=> openResults();
