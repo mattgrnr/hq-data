@@ -1964,7 +1964,7 @@ export default {
 
     if (path === "/board") {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
-      const res = await fetch(BOARD_URL, { cf: { cacheTtl: 600, cacheEverything: true } });
+      const res = await fetch(BOARD_URL + "?v=" + Math.floor(Date.now() / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
       if (!res.ok) return json({ error: "board upstream " + res.status }, 502);
       return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
     }
