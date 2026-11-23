@@ -28,6 +28,7 @@ K_TEAM = 8      # teams lean on the league average early on
 MIN_MPG = 10    # below this a player isn't in the rotation
 HIST_SEASONS = 3  # head-to-head history: this many past seasons plus the current one
 STATS = ("pts", "reb", "ast", "fg3m", "stl", "blk")
+LOGCOLS = ["min", "pts", "reb", "ast", "fg3m", "stl", "blk"]
 GROUPS = ("G", "F", "C")
 
 
@@ -314,6 +315,7 @@ def main():
             "mpg": round(mpg, 1), "r": rate, "sg": c["gp"], "w": round(c["gp"] / (c["gp"] + k), 2),
             "s": {f: round(c[f], 1) for f in ("min", *STATS)},
             "l5": {"n": n5, **{f: round(sum(x[j] for x in gl) / n5, 1) for f, j in (("min", 3), ("pts", 4), ("reb", 5), ("ast", 6), ("fg3m", 7), ("stl", 8), ("blk", 9))}} if n5 else None,
+            "gl": [[x[0], x[2], round(x[3]), *[int(v) for v in x[4:]]] for x in reversed(gl)],   # team for now; swapped for the opponent below
             "last": played[-1][0] if played else "",
             "inj": ro["inj"],
         }
@@ -333,7 +335,12 @@ def main():
     sides = defaultdict(set)
     for r in hist:
         sides[r["gid"]].add(r["team"])
+    for p in players:
+        for x in p["gl"]:
+            gid = next((y[1] for y in cur["games_of"][p["id"]] if y[0] == x[0]), None)
+            x[1] = next((o for o in sides.get(gid, ()) if o != x[1]), "")
     h2h = defaultdict(lambda: {"gp": 0, **{k: 0.0 for k in STATS}})
+    vsg = defaultdict(list)
     for r in hist:
         opp = want.get(r["pid"])
         if opp and opp in sides[r["gid"]] and r["team"] != opp:
@@ -341,10 +348,12 @@ def main():
             h["gp"] += 1
             for k in STATS:
                 h[k] += r[k]
+            vsg[r["pid"]].append([r["date"], round(r["min"]), *[int(r[k]) for k in LOGCOLS[1:]]])
     for p in players:
         h = h2h.get(p["id"])
         p["vs"] = {"opp": want[p["id"]], "gp": h["gp"], **{k: round(h[k] / h["gp"], 1) for k in STATS}} \
             if h else {"opp": want[p["id"]], "gp": 0}
+        p["vs"]["g"] = sorted(vsg.get(p["id"], []), reverse=True)
 
     teams = {}
     tot_gp = sum(t["gp"] for t in team.values())
@@ -382,6 +391,7 @@ def main():
         "players": sorted(players, key=lambda p: (p["team"], p["pos"], p["name"])),
         "teams": teams,
         "games": games,
+        "logcols": LOGCOLS,
     }
 
     out = ROOT / "replay" / f"{today.isoformat()}.json" if REPLAY else OUT

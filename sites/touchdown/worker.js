@@ -3,7 +3,7 @@
 // Data: board.json built on a schedule in mattgrnr/hq-data from nflverse.
 // Falls back to the embedded 2025 profiles and the nflverse schedule feed.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/board.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/metrics/preview-data/nfl.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/card.png";
 const LIVE_URL = "https://api.sleeper.app/v1/stats/nfl/regular/";
@@ -341,6 +341,15 @@ body{background:
 #app .bar .bl b{grid-column:3;grid-row:1;text-align:right;font-weight:600}
 #app .bar .track{grid-column:2;grid-row:1}
 #app .bar .bexp{grid-column:1 / -1;grid-row:2;margin-top:0}
+/* percentile bars */
+#app .bar{grid-template-columns:minmax(104px,150px) 1fr 58px}
+#app .bar .bl span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+#app .bar .bl b{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+#app .bar .bl b em{font-style:normal;font-size:13.5px;font-weight:700}
+#app .bar .bl b small{font-size:10.5px;font-weight:500;color:var(--faint);margin-top:2px}
+#app .bar.hi .bl b em{color:var(--ink)}
+#app .bar.lo .bl b em{color:var(--faint)}
+#app .bar.lo .track i{opacity:.55}
 
 /* every select shows the same caret */
 #app select{-webkit-appearance:none;appearance:none;
@@ -494,6 +503,60 @@ body{padding-bottom:84px}
 #plbar .pl-gone{opacity:.6}
 #plbar .pl-gone b{text-decoration:line-through}
 #plbar .pl-link{background:none;border:0;padding:0;font:inherit;color:#4ade80;text-decoration:underline;cursor:pointer}
+/* top player picks */
+#app .tp-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+#app .tp-chips::-webkit-scrollbar{display:none}
+#app .tp-chip{flex:none;padding:6px 11px;border-radius:99px;border:0;background:rgba(255,255,255,.05);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+#app .tp-chip.on{background:rgba(255,255,255,.12);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+#app .tp-pane{display:none}
+#app .tp-pane.on{display:block}
+#app .tp-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"rk who us" "rk bk bk";column-gap:10px;row-gap:3px;align-items:center;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.06)}
+#app .tp-row:last-child{border-bottom:0}
+#app .tp-rk{grid-area:rk;align-self:start;min-width:18px;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;padding-top:2px}
+#app .tp-best{grid-template-columns:0 minmax(0,1fr) auto;column-gap:0}
+#app .tp-who{flex-wrap:wrap}
+#app .tp-tag{flex-basis:100%;font-style:normal;font-size:10.5px;font-weight:600;letter-spacing:.05em;color:var(--faint);margin-bottom:1px}
+#app .tp-who{grid-area:who;min-width:0;display:flex;align-items:baseline;gap:7px}
+#app .tp-who b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#app .tp-who span{font-size:11px;color:var(--faint);white-space:nowrap}
+#app .tp-us{grid-area:us;text-align:right;line-height:1.1}
+#app .tp-us b{display:block;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+#app .tp-us span{font-size:10.5px;color:var(--faint)}
+#app .tp-bk{grid-area:bk;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
+#app .tp-none{font-size:11.5px;font-style:italic;opacity:.75}
+#app .tp-bk b{color:var(--ink);font-weight:600}
+#app .tp-bk em{font-style:normal;font-size:11px}
+#app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
+/* game logs */
+#app .lg{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
+#app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
+#app .lg-tab{flex:1;min-width:0;padding:8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:10px;border:0;background:rgba(255,255,255,.045);color:var(--faint);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+#app .lg-tab.on{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+#app .lg-tab i{font-style:normal;font-weight:500;opacity:.6;margin-left:3px}
+#app .lg-pane{display:none}
+#app .lg[data-tab="l5"] .lg-l5,#app .lg[data-tab="vs"] .lg-vs{display:block}
+#app .lg-sum{font-size:12px;color:var(--faint);margin-bottom:8px}
+#app .lg-sum b{color:var(--ink);font-weight:600}
+#app .lg-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+#app .lg-c{background:rgba(255,255,255,.035);border-radius:10px;padding:7px 3px 8px;text-align:center;font-variant-numeric:tabular-nums;border-top:3px solid transparent;min-width:0}
+#app .lg-c.hit{border-top-color:#4ade80;background:rgba(74,222,128,.07)}
+#app .lg-c.miss{border-top-color:rgba(255,255,255,.12)}
+#app .lg-d{font-size:10.5px;color:var(--faint);white-space:nowrap}
+#app .lg-o{font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+#app .lg-v{font-size:19px;font-weight:700;margin-top:4px;line-height:1.1}
+#app .lg-c.hit .lg-v{color:#4ade80}
+#app .lg-k{font-size:9.5px;letter-spacing:.06em;color:var(--faint)}
+#app .lg-s{font-size:10.5px;color:var(--faint);margin-top:4px;white-space:nowrap}
+#app .lg-none{font-size:12.5px;color:var(--faint);padding:14px 0;text-align:center}
+#app .lg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:6px;margin-bottom:6px}
+#app .lg-gc{background:rgba(255,255,255,.035);border-radius:9px;padding:7px 2px;text-align:center}
+#app .lg-gk{font-size:9.5px;letter-spacing:.06em;color:var(--faint)}
+#app .lg-gv{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+#app .lg-gc.on .lg-gv{color:var(--red)}
+#app .lg-c.lg-x{display:none}
+#app .lg.all .lg-c.lg-x{display:block}
+#app .lg-all{display:block;width:100%;margin-top:8px;padding:8px 0;border:0;border-radius:10px;background:rgba(255,255,255,.04);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+#app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
@@ -784,7 +847,7 @@ function tabDetailHTML(r){
   const posWord = {QB:"QBs",RB:"RBs",WR:"WRs",TE:"TEs"}[p.pos];
   const fmt = v => t.unit === "yds" ? String(Math.round(v)) : v.toFixed(1);
   return '<div class="detail">'
-   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and role compare him to the <b>top players at this stat</b>; matchup and game environment compare to the <b>league average</b>. The tick in the middle is <b>1.00</b>. Tap any bar to see what it means.</div></details>'
+   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Volume and role compare him to the <b>top players at this stat</b>; matchup and game environment compare to the <b>league average</b>. The raw number is an index where <b>1.00</b> is that baseline. Each bar ranks him against <b>everyone on today’s board</b> for this stat: <b>90th</b> means he’s ahead of 90% of them, and the tick in the middle is the 50th. The small number under it is the raw figure. Tap any bar to see what it means.</div></details>'
    + bar("Volume", x.vol, x.vol.toFixed(2), "Projected "+lw(t)+" this week against the top players at it. The biggest piece of the score.")
    + (t.role ? bar(t.roleWord, x.role, x.role.toFixed(2), t.roleWord+" per game against the top players \\u2014 opportunity is the steadiest predictor in football.") : '')
    + bar("Recent form", x.form, x.szn != null ? x.form.toFixed(2) : "\\u2014", "This season\\u2019s per-game number against his blended rate. Capped so one big game can\\u2019t swing it; needs three games.")
@@ -804,6 +867,7 @@ function tabDetailHTML(r){
    + '<div class="frow"><span>Implied team total</span><b>'+r.imp+'</b></div>'
    + '<div class="frow"><span>Weather</span><b>'+esc(r.wxNote||"\\u2014")+'</b></div>'
    + '</div>'
+   + logsHTML(r)
    + '</div>';
 }
 
@@ -963,12 +1027,40 @@ function buildRows(){
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
+/* ===== percentile bars ===== */
+// each bar ranks the player against everyone on today's board for this tab: 96th = ahead of 96% of them
+let PCT = null;
+function pctKey(label){ return String(label).split(" · ")[0]; }
+function pctNote(label, idx){
+  if(!PCT || !PCT.on) return false;
+  const k = pctKey(label);
+  if(typeof idx === "number" && isFinite(idx)) (PCT.m[k] = PCT.m[k] || []).push(idx);
+  return true;
+}
+function pctOf(label, idx){
+  const k = pctKey(label);
+  if(k.indexOf("vs ") === 0 || typeof idx !== "number" || !isFinite(idx)) return null;
+  const key = F.stat + "|" + (F.day == null ? "" : F.day);
+  if(!PCT || PCT.key !== key || PCT.rows !== ROWS){
+    PCT = { key:key, rows:ROWS, m:{}, on:true };
+    try{ tabRows().forEach(r=>{ try{ detailHTML(r); }catch(e){} }); } finally { PCT.on = false; }
+  }
+  const a = PCT.m[k];
+  if(!a || a.length < 8) return null;
+  let below = 0, same = 0;
+  for(const v of a){ if(v < idx - 1e-9) below++; else if(v <= idx + 1e-9) same++; }
+  return clamp(Math.round((below + same/2) / a.length * 100), 1, 99);
+}
+function pctClass(pc){ return pc >= 80 ? " hi" : pc <= 20 ? " lo" : ""; }
+/* ===== end percentile bars ===== */
 function bar(label, idx, val, expl){
-  const pct = clamp(idx/2*100, 4, 100);
-  return '<div class="bar" onclick="this.classList.toggle(\\'show\\')">'
-    + '<div class="bl"><span>'+esc(label)+'</span><b>'+val+'</b></div>'
-    + '<div class="track"><i style="width:'+pct.toFixed(1)+'%"></i></div>'
-    + '<div class="bexp">'+expl+'</div></div>';
+  if(pctNote(label, idx)) return "";
+  const pc = pctOf(label, idx);
+  const w = pc != null ? clamp(pc, 3, 100) : clamp(idx/2*100, 4, 100);
+  return '<div class="bar'+(pc != null ? pctClass(pc) : '')+'" onclick="this.classList.toggle(\\'show\\')">'
+    + '<div class="bl"><span>'+esc(label)+'</span><b>'+(pc != null ? '<em>'+ordn(pc)+'</em><small>'+val+'</small>' : val)+'</b></div>'
+    + '<div class="track"><i style="width:'+w.toFixed(1)+'%"></i></div>'
+    + (expl ? '<div class="bexp">'+expl+'</div>' : '') + '</div>';
 }
 
 function detailHTML(r){ return F.stat === "TD" ? tdDetailHTML(r) : tabDetailHTML(r); }
@@ -982,7 +1074,7 @@ function tdDetailHTML(r){
   const wp = Math.round((p.w || 0)*100);
   const blend = wp >= 95 ? "his own numbers" : wp+"% his games \u00b7 "+(100-wp)+"% position average";
   return '<div class="detail">'
-   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Each bar compares this player to the <b>average at his position</b>. The tick in the middle is <b>1.00 — dead average</b>: fill past it is above average, short of it is below. Tap any bar to see what it means.</div></details>'
+   + '<details class="legend"><summary>How to read this</summary><div class="legend-body">Each bar compares this player to the <b>average at his position</b>. The raw number is an index where <b>1.00</b> is that baseline. Each bar ranks him against <b>everyone on today’s board</b> for this stat: <b>90th</b> means he’s ahead of 90% of them, and the tick in the middle is the 50th. The small number under it is the raw figure. Tap any bar to see what it means.</div></details>'
    + bar("Red-zone role", i.rz, i.rz.toFixed(2), "Trips inside the opponent\\u2019s 20 per game, with extra weight on inside-the-5 work \\u2014 the closest thing football has to a guaranteed shot at six.")
    + bar("Usage", i.use, i.use.toFixed(2), "Touches and targets per game vs. the average at this position \\u2014 carries and receiving work both count, so pass-catching backs get full credit. Volume is the most predictive stat in football.")
    + bar("Scoring form", i.form, i.form.toFixed(2), "Touchdowns per game vs. the position average, with this season blended against last so one hot week can\\u2019t swing it.")
@@ -1018,6 +1110,7 @@ function tdDetailHTML(r){
    + '<div class="frow"><span>Yards / game</span><b>'+(qg ? ((p.pos==="QB" ? q.pyd+q.ryd : q.ryd+q.cyd)/qg).toFixed(1) : '\\u2014')+'</b></div>'
    + '<div class="frow"><span>Weather</span><b>'+esc(r.wxNote||"\\u2014")+'</b></div>'
    + '</div>'
+   + logsHTML(r)
    + '</div>';
 }
 
@@ -1111,11 +1204,7 @@ function gCard(g){
     h += '<div class="gc-mk">'+gMarkets(g).join("")
       + (p.book && !p.book.src ? '<p class="gm-note">Book = the sportsbooks\\' fair chance with their margin removed. Best price = the best odds across DraftKings, FanDuel, BetMGM, Caesars and others. A green tag means we rate that side higher than the books do.</p>' : '')
       + '</div>';
-    const rows = gRows(g.id).slice(0, 3);
-    if(rows.length){
-      h += '<div class="gc-sub">Top picks in this game</div>' + rows.map((r,i)=>rowHTML(r,i)).join("")
-        + '<button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
-    }
+    h += topPicks(g, st);
   }
   return h + '</div>';
 }
@@ -1130,16 +1219,68 @@ function gamesHTML(){
 
 function wireGames(){
   document.querySelectorAll(".gcard").forEach(el=> el.onclick = (e)=>{
-    if(e.target.closest(".row, .gc-all")) return;
+    if(e.target.closest(".row, .gc-all, .tp")) return;
     GOPEN[el.dataset.gid] = !GOPEN[el.dataset.gid]; render();
   });
-  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{ GV = false; F.game = b.dataset.all; render(); scrollTo(0, 0); });
+  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{
+    const tp = b.closest(".gcard").querySelector(".tp"), k = tp && tp.dataset.tp;
+    GV = false; F.game = b.dataset.all; if(k && k !== "BEST") F.stat = k; render(); scrollTo(0, 0);
+  });
   if(typeof wireStars === "function") wireStars();
   if(GJUMP){ const el = document.querySelector('.gcard[data-gid="'+GJUMP+'"]'); GJUMP = null; if(el) el.scrollIntoView({ block:"start" }); }
 }
+// ---------- top player picks: the model's top three for each prop in one game ----------
+let GTP = {};   // game -> chip picked ("BEST" = the #1 player for every prop)
+function gTop(id, st){
+  const keep = F.stat; F.stat = st;
+  let rows = [];
+  try { rows = gRows(id).filter(r=>!hurt(r)); } finally { F.stat = keep; }
+  return rows;
+}
+function tpOurs(r, st, tl){
+  const o = bookOf(r, st);
+  if(!o || o.lam == null) return { v:"—", w:"" };
+  if(PONE[st]){ const c = atLeast(st, o.lam, PONE[st]); return { v:gPct(c), w:st === "3PM" ? PONE[st]+"+ threes" : BLBL[st] }; }
+  return { v:o.lam >= 20 ? String(Math.round(o.lam)) : o.lam.toFixed(1), w:"proj "+String(tl).toLowerCase() };
+}
+function tpRow(r, t, rank, best, open){
+  const st = t[0], lbl = best ? t[1] : "", o = bookOf(r, st), us = tpOurs(r, st, t[1]);
+  let bk = "";
+  const x = o ? bookPick(o) : null;
+  if(x){
+    const line = lineName(o.stat, x);
+    const edge = x.ours - x.book;
+    const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) }) : null;
+    bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
+      + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</span></div>';
+  } else bk = '<div class="tp-bk tp-none">No book line yet</div>';
+  const team = r.team || r.p.team || "";
+  return '<div class="tp-row'+(lbl ? ' tp-best' : '')+'"><div class="tp-rk">'+(lbl ? '' : rank)+'</div>'
+    + '<div class="tp-who">'+(lbl ? '<i class="tp-tag">'+lbl+'</i>' : '')+'<b>'+esc(shortName(r.p.name || r.p.n || ""))+'</b><span>'+esc(team)+'</span></div>'
+    + '<div class="tp-us"><b>'+us.v+'</b><span>'+esc(us.w)+'</span></div>' + bk + '</div>';
+}
+function topPicks(g, st){
+  const open = st === "pre", tabs = PTABS.filter(t=>gTop(g.id, t[0]).length);
+  if(!tabs.length) return "";
+  const cur = GTP[g.id] || "BEST";
+  const chip = (k, t) => '<button type="button" class="tp-chip'+(cur === k ? ' on' : '')+'" data-k="'+k+'" onclick="tpPick(event,this)">'+t+'</button>';
+  let h = '<div class="gc-sub">Top 3 player picks in this game</div><div class="tp" data-tp="'+cur+'"><div class="tp-chips">'+chip("BEST", "Best of each")+tabs.map(t=>chip(t[0], t[1])).join("")+'</div>';
+  h += '<div class="tp-pane'+(cur === "BEST" ? ' on' : '')+'" data-k="BEST">'+tabs.map(t=>{ const r = gTop(g.id, t[0])[0]; return tpRow(r, t, 1, true, open); }).join("")+'</div>';
+  h += tabs.map(t=>'<div class="tp-pane'+(cur === t[0] ? ' on' : '')+'" data-k="'+t[0]+'">'+gTop(g.id, t[0]).slice(0, 3).map((r, i)=>tpRow(r, t, i+1, false, open)).join("")+'</div>').join("");
+  return h + '</div><button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
+}
+function tpPick(e, el){
+  e.stopPropagation();
+  const tp = el.closest(".tp"), k = el.dataset.k;
+  tp.dataset.tp = k; GTP[el.closest(".gcard").dataset.gid] = k;
+  tp.querySelectorAll(".tp-chip").forEach(c=>c.classList.toggle("on", c === el));
+  tp.querySelectorAll(".tp-pane").forEach(p=>p.classList.toggle("on", p.dataset.k === k));
+}
 // ---------- book prices on player rows ----------
-const PONE = { G:1, A:1, P:1, GA:1, TD:1, BLK:1, STL:1, "3PM":2 };           // tabs shown as a chance of at least this many
+const PONE = { G:1, A:1, P:1, GA:1, TD:1 };           // yes/no props, shown as a chance of at least one; the rest use the books' main line
+const PEXTRA = { P:[2] };     // extra rungs priced alongside a tab's main line (2+ points in hockey)
 const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
+              PR:x=>1.35*Math.sqrt(x), PA:x=>1.35*Math.sqrt(x), RA:x=>1.3*Math.sqrt(x),
               CYD:x=>0.55*x+8, RYD:x=>0.55*x+8, PYD:x=>0.25*x+30 };            // spread of volume stats; the rest are counts
 function pName(n){
   n = String(n||"").normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase();
@@ -1161,34 +1302,41 @@ function myBest(all){
   return top;
 }
 function boardData(){ return typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO : null); }
-function bookPick(o){
+function bookPick(o, kk){
   const bd = boardData(), b = bd && bd.props;
   if(!b || !o) return null;
   const rows = (b[pName(o.name)]||{})[o.stat]; if(!rows || !rows.length) return null;
   let x;
-  if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
+  if(kk) x = rows.find(e=>e[0]===kk && e[5]) || rows.find(e=>e[0]===kk);
+  else if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
   if(!x) return null;
   const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
   const all = x[6] || { [x[3]]: x[2] }, top = myBest(all); if(!top) return null;
   return { k:x[0], book:x[1], price:top[1], bk:top[0], n:x[4], two:!!x[5], all, links:(bd.evlinks||{})[x[7]] || {}, ids:x[8] || {}, ours };
 }
+function lineName(st, x, kk){
+  if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
+  return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
   if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\\'t be added</div>';
-  const o = bookOf(r), x = bookPick(o); if(!x) return "";
-  const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
-  const edge = x.ours - x.book;
-  const line = PONE[o.stat] ? (o.stat==="3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
-  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
-  return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
-    + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
+  const o = bookOf(r);
+  return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
+    const x = bookPick(o, kk); if(!x) return "";
+    const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
+    const edge = x.ours - x.book;
+    const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
+    return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
+      + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
+  }).join("");
 }
 
 // ---------- best bets: every priced bet in a game on one scale ----------
 const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
   "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
-  PTD:"pass TDs", S:"shots on goal" };
+  PTD:"pass TDs", S:"shots on goal", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
 function betOf(name, label, ours, book, price, bk, kind, game, all, links, ids){
@@ -1200,12 +1348,11 @@ function bestBets(g){
   if(gState(g.t, g.fin) !== "pre") return out;
   for(const r of gRows(g.id)){
     if(hurt(r)) continue;
-    for(const st of BSTATS){
-      const o = bookOf(r, st), x = bookPick(o); if(!x || x.n < 2) continue;      // priced by at least two books
+    for(const st of BSTATS) for(const kk of [0].concat(PEXTRA[st] || [])){
+      const o = bookOf(r, st), x = bookPick(o, kk); if(!x || x.n < 2) continue;      // priced by at least two books
       // a volume line far from our projection usually means the books know about a role change we don't
-      if(!PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
-      const line = PONE[st] ? (st==="3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
-      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
+      if(!kk && !PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
+      out.push(betOf(shortName(o.name), lineName(st, x, kk), x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
     }
   }
   for(const v of (g.proj.value||[])){
@@ -1391,6 +1538,76 @@ document.addEventListener("click", e=>{
   plSave(PL); plSync(); plBar();
 }, true);
 setTimeout(plBar, 0);
+// ---------- game logs: Last 5 | vs opponent at the bottom of every player's detail ----------
+// each site supplies logCols(r): [[label, value of a game, tab it belongs to]], first column is minutes or volume
+let LOGTAB = "l5";
+function logBoard(){ return typeof BOARD !== "undefined" && BOARD && BOARD.logcols ? BOARD : (typeof PRO !== "undefined" && PRO ? PRO : null); }
+function logRows(list, opp){
+  const cols = (logBoard() || {}).logcols || [];
+  return (list || []).map(x=>{ const s = {}, o = opp ? 2 : 1; cols.forEach((c, i)=>{ s[c] = +x[o + i] || 0; }); return { d:x[0], opp:opp ? x[1] : "", s }; });
+}
+function logDay(d, yr){
+  let m = /^(\\d{4})-W(\\d+)$/.exec(d);
+  if(m) return (m[1] !== yr ? "'"+m[1].slice(2)+" " : "")+"Wk "+(+m[2]);
+  m = /^(\\d{4})-(\\d\\d)-(\\d\\d)$/.exec(d); if(!m) return d;
+  const t = new Date(+m[1], +m[2]-1, +m[3]).toLocaleDateString([], { month:"short", day:"numeric" });
+  return m[1] !== yr ? t+" '"+m[1].slice(2) : t;
+}
+function logNum(v){ return Math.round(v*10)/10; }
+function logLine(r){
+  let x = null; try { x = bookPick(bookOf(r)); } catch(e){}
+  if(x) return { k:x.k, txt:x.two ? "o"+(x.k-0.5) : x.k+"+" };
+  const one = PONE[F.stat]; return one ? { k:one, txt:one+"+" } : null;
+}
+function logCards(games, cols, main, line, yr){
+  const sub = cols[0] === main ? cols[1] : cols[0];
+  return '<div class="lg-cards">'+games.map((g, i)=>{
+    const v = main[1](g.s), hit = line ? (v >= line.k ? " hit" : " miss") : "";
+    return '<div class="lg-c'+hit+(i >= 5 ? ' lg-x' : '')+'"><div class="lg-d">'+logDay(g.d, yr)+'</div>'+(g.opp ? '<div class="lg-o">'+esc(g.opp)+'</div>' : '')
+      + '<div class="lg-v">'+logNum(v)+'</div><div class="lg-k">'+main[0]+'</div><div class="lg-s">'+logNum(sub[1](g.s))+' '+sub[0]+'</div></div>';
+  }).join("")+'</div>';
+}
+function logSum(games, main, line, what){
+  if(!games.length) return "";
+  const vals = games.map(g=>main[1](g.s)), avg = vals.reduce((a,b)=>a+b, 0)/vals.length;
+  const hits = line ? vals.filter(v=>v >= line.k).length : null;
+  return '<div class="lg-sum">Avg <b>'+avg.toFixed(1)+'</b> '+main[0]+(line ? ' · cleared <b>'+line.txt+'</b> in <b>'+hits+' of '+vals.length+'</b>' : '')+(what ? ' '+what : '')+'</div>';
+}
+function logsHTML(r){
+  const p = r.p, cols = logCols(r), st = F.stat;
+  if(!cols || !(p.gl || p.vs)) return "";
+  const main = cols.find(c=>c[2]===st) || cols[1] || cols[0], line = logLine(r);
+  const l5 = logRows(p.gl, true), v = p.vs || {}, vg = logRows(v.g, false);
+  const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
+  const opp = v.opp || "", gw = GKIND === "soccer" ? "Matches" : "Games";
+  const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\\''+k+'\\')">'+t+'</button>';
+  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", gw+" vs "+esc(opp)+(vg.length ? " ("+vg.length+")" : ""))+'</div>';
+  h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
+  h += '<div class="lg-pane lg-vs">';
+  const span = GKIND === "soccer" ? "this season and last" : "last 3 seasons and this one";
+  if(!vg.length) h += '<div class="lg-none">No history against '+esc(opp)+'</div>';
+  else {
+    const avg = c => logNum(vg.reduce((a,g)=>a + c[1](g.s), 0)/vg.length);
+    h += '<div class="lg-grid">'+cols.map(c=>'<div class="lg-gc'+(c===main ? ' on' : '')+'"><div class="lg-gk">'+c[0]+'</div><div class="lg-gv">'+avg(c)+'</div></div>').join("")+'</div>'
+      + '<div class="lg-note">Per game, all '+vg.length+' · '+span+'</div>'
+      + logSum(vg, main, line, "")
+      + logCards(vg, cols, main, line, yr)
+      + (vg.length > 5 ? '<button type="button" class="lg-all" onclick="logAll(event,this)">Show all '+vg.length+'</button>' : '');
+  }
+  return h + '</div></div>';
+}
+function logAll(e, el){
+  e.stopPropagation();
+  const b = el.closest(".lg"), on = b.classList.toggle("all");
+  el.textContent = on ? "Show fewer" : "Show all "+b.querySelectorAll(".lg-vs .lg-c").length;
+}
+function logSwitch(e, el, k){
+  e.stopPropagation(); LOGTAB = k;
+  document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
+}
+const PTABS = TABS;
+function logCols(r){ return r.p.pos === "QB" ? [["PYD",s=>s.pyd,"PYD"],["PTD",s=>s.ptd,"PTD"],["RUSH YDS",s=>s.ryd,"RYD"],["TD",s=>s.rtd+s.ctd,"TD"]]
+  : [["TGT",s=>s.tgt],["REC",s=>s.rec,"REC"],["REC YDS",s=>s.cyd,"CYD"],["CAR",s=>s.car],["RUSH YDS",s=>s.ryd,"RYD"],["TD",s=>s.rtd+s.ctd,"TD"]]; }
 const GKIND = "points", PSITE = "Touchdown";
 function gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.ko ? g.ko*1000 : null, fin:g.final, proj:g.proj })); }
 function gInfo(r){ return { n:r.gm.short, t:r.gm.ko ? r.gm.ko*1000 : null, f:r.gm.final }; }
@@ -1867,7 +2084,7 @@ async function boot(force){
     let bd = null;
     try{ bd = await fetchJSON("/board"); }catch(e){}
     if(bd && bd.players && bd.players.length && bd.games){
-      PRO = { players: bd.players, dvp: bd.dvp, props: bd.props, evlinks: bd.evlinks };
+      PRO = { players: bd.players, dvp: bd.dvp, props: bd.props, evlinks: bd.evlinks, logcols: bd.logcols };
       AVG = computeAverages(PRO.players);
       DVPBASE = dvpBaselines(PRO.dvp);
       DVPRANK = dvpRanks(PRO.dvp, DVPBASE);

@@ -394,6 +394,27 @@ def clamp(x, a, b):
     return max(a, min(b, x))
 
 
+def attach_logs(players, games, pl, team_games, state):
+    """Last five matches and every match against tonight's opponent (this season and last), newest first.
+    gl: [date, opp, min, g, a, sot, sh]; vs.g: [date, min, g, a, sot, sh]"""
+    tname = {}
+    for fx in state["fixtures"].values():
+        for ms in (fx or {}).get("matches", {}).values():
+            for m in ms:
+                tname[m["h"]], tname[m["a"]] = m["hn"], m["an"]
+    day = lambda d: f"{str(d)[:4]}-{str(d)[4:6]}-{str(d)[6:8]}"
+    for o in players:
+        g = games[o["g"]]
+        opp = g["aid"] if o["home"] else g["hid"]
+        rows = []
+        for x in pl[o["id"]]["log"]:
+            tg = team_games.get(x[2], {}).get(x[1])
+            rows.append((x, tg["opp"] if tg else None))
+        o["gl"] = [[day(x[0]), tname.get(op, ""), round(x[3]), int(x[5]), int(x[8]), int(x[6]), int(x[7])] for x, op in rows[:5]]
+        vs = [[day(x[0]), round(x[3]), int(x[5]), int(x[8]), int(x[6]), int(x[7])] for x, op in rows if op == opp]
+        o["vs"] = {"opp": g["a"] if o["home"] else g["h"], "gp": len(vs), "g": vs}
+
+
 def build_board(state, rows):
     pl, team_games = build_profiles(rows)
     form = team_form(team_games)
@@ -501,13 +522,14 @@ def build_board(state, rows):
                     "l5": [[x[0], round(x[3]), int(x[5]), int(x[6]), int(x[8])] for x in last],
                     "att": round(att, 2), "dfn": round(dfn, 2), "sdf": round(sdf, 2),
                 })
+    attach_logs(out_players, out_games, pl, team_games, state)
     if not REPLAY:
         (OUT / "lineups.json").write_text(json.dumps({k: v for k, v in lineups.items()
                                                       if any(str(g["id"]) == k for g in out_games)},
                                                      separators=(",", ":")))
     board = {"date": days[0].isoformat(), "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
              "leagues": [{"id": lid, "name": n} for lid, n in LEAGUES if lid in SLATE], "games": out_games,
-             "players": out_players}
+             "players": out_players, "logcols": ["min", "g", "a", "sot", "sh"]}
     dest = OUT / "replay" / f"{REPLAY}.json" if REPLAY else OUT / "board.json"
     dest.parent.mkdir(exist_ok=True)
     dest.write_text(json.dumps(board, separators=(",", ":"), ensure_ascii=False))

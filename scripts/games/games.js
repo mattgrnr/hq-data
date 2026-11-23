@@ -79,11 +79,7 @@ function gCard(g){
     h += '<div class="gc-mk">'+gMarkets(g).join("")
       + (p.book && !p.book.src ? '<p class="gm-note">Book = the sportsbooks\' fair chance with their margin removed. Best price = the best odds across DraftKings, FanDuel, BetMGM, Caesars and others. A green tag means we rate that side higher than the books do.</p>' : '')
       + '</div>';
-    const rows = gRows(g.id).slice(0, 3);
-    if(rows.length){
-      h += '<div class="gc-sub">Top picks in this game</div>' + rows.map((r,i)=>rowHTML(r,i)).join("")
-        + '<button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
-    }
+    h += topPicks(g, st);
   }
   return h + '</div>';
 }
@@ -98,16 +94,68 @@ function gamesHTML(){
 
 function wireGames(){
   document.querySelectorAll(".gcard").forEach(el=> el.onclick = (e)=>{
-    if(e.target.closest(".row, .gc-all")) return;
+    if(e.target.closest(".row, .gc-all, .tp")) return;
     GOPEN[el.dataset.gid] = !GOPEN[el.dataset.gid]; render();
   });
-  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{ GV = false; F.game = b.dataset.all; render(); scrollTo(0, 0); });
+  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{
+    const tp = b.closest(".gcard").querySelector(".tp"), k = tp && tp.dataset.tp;
+    GV = false; F.game = b.dataset.all; if(k && k !== "BEST") F.stat = k; render(); scrollTo(0, 0);
+  });
   if(typeof wireStars === "function") wireStars();
   if(GJUMP){ const el = document.querySelector('.gcard[data-gid="'+GJUMP+'"]'); GJUMP = null; if(el) el.scrollIntoView({ block:"start" }); }
 }
+// ---------- top player picks: the model's top three for each prop in one game ----------
+let GTP = {};   // game -> chip picked ("BEST" = the #1 player for every prop)
+function gTop(id, st){
+  const keep = F.stat; F.stat = st;
+  let rows = [];
+  try { rows = gRows(id).filter(r=>!hurt(r)); } finally { F.stat = keep; }
+  return rows;
+}
+function tpOurs(r, st, tl){
+  const o = bookOf(r, st);
+  if(!o || o.lam == null) return { v:"—", w:"" };
+  if(PONE[st]){ const c = atLeast(st, o.lam, PONE[st]); return { v:gPct(c), w:st === "3PM" ? PONE[st]+"+ threes" : BLBL[st] }; }
+  return { v:o.lam >= 20 ? String(Math.round(o.lam)) : o.lam.toFixed(1), w:"proj "+String(tl).toLowerCase() };
+}
+function tpRow(r, t, rank, best, open){
+  const st = t[0], lbl = best ? t[1] : "", o = bookOf(r, st), us = tpOurs(r, st, t[1]);
+  let bk = "";
+  const x = o ? bookPick(o) : null;
+  if(x){
+    const line = lineName(o.stat, x);
+    const edge = x.ours - x.book;
+    const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) }) : null;
+    bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
+      + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</span></div>';
+  } else bk = '<div class="tp-bk tp-none">No book line yet</div>';
+  const team = r.team || r.p.team || "";
+  return '<div class="tp-row'+(lbl ? ' tp-best' : '')+'"><div class="tp-rk">'+(lbl ? '' : rank)+'</div>'
+    + '<div class="tp-who">'+(lbl ? '<i class="tp-tag">'+lbl+'</i>' : '')+'<b>'+esc(shortName(r.p.name || r.p.n || ""))+'</b><span>'+esc(team)+'</span></div>'
+    + '<div class="tp-us"><b>'+us.v+'</b><span>'+esc(us.w)+'</span></div>' + bk + '</div>';
+}
+function topPicks(g, st){
+  const open = st === "pre", tabs = PTABS.filter(t=>gTop(g.id, t[0]).length);
+  if(!tabs.length) return "";
+  const cur = GTP[g.id] || "BEST";
+  const chip = (k, t) => '<button type="button" class="tp-chip'+(cur === k ? ' on' : '')+'" data-k="'+k+'" onclick="tpPick(event,this)">'+t+'</button>';
+  let h = '<div class="gc-sub">Top 3 player picks in this game</div><div class="tp" data-tp="'+cur+'"><div class="tp-chips">'+chip("BEST", "Best of each")+tabs.map(t=>chip(t[0], t[1])).join("")+'</div>';
+  h += '<div class="tp-pane'+(cur === "BEST" ? ' on' : '')+'" data-k="BEST">'+tabs.map(t=>{ const r = gTop(g.id, t[0])[0]; return tpRow(r, t, 1, true, open); }).join("")+'</div>';
+  h += tabs.map(t=>'<div class="tp-pane'+(cur === t[0] ? ' on' : '')+'" data-k="'+t[0]+'">'+gTop(g.id, t[0]).slice(0, 3).map((r, i)=>tpRow(r, t, i+1, false, open)).join("")+'</div>').join("");
+  return h + '</div><button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
+}
+function tpPick(e, el){
+  e.stopPropagation();
+  const tp = el.closest(".tp"), k = el.dataset.k;
+  tp.dataset.tp = k; GTP[el.closest(".gcard").dataset.gid] = k;
+  tp.querySelectorAll(".tp-chip").forEach(c=>c.classList.toggle("on", c === el));
+  tp.querySelectorAll(".tp-pane").forEach(p=>p.classList.toggle("on", p.dataset.k === k));
+}
 // ---------- book prices on player rows ----------
-const PONE = { G:1, A:1, P:1, GA:1, TD:1, BLK:1, STL:1, "3PM":2 };           // tabs shown as a chance of at least this many
+const PONE = { G:1, A:1, P:1, GA:1, TD:1 };           // yes/no props, shown as a chance of at least one; the rest use the books' main line
+const PEXTRA = { P:[2] };     // extra rungs priced alongside a tab's main line (2+ points in hockey)
 const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
+              PR:x=>1.35*Math.sqrt(x), PA:x=>1.35*Math.sqrt(x), RA:x=>1.3*Math.sqrt(x),
               CYD:x=>0.55*x+8, RYD:x=>0.55*x+8, PYD:x=>0.25*x+30 };            // spread of volume stats; the rest are counts
 function pName(n){
   n = String(n||"").normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase();
@@ -129,34 +177,41 @@ function myBest(all){
   return top;
 }
 function boardData(){ return typeof BOARD !== "undefined" && BOARD && BOARD.props ? BOARD : (typeof PRO !== "undefined" && PRO && PRO.props ? PRO : null); }
-function bookPick(o){
+function bookPick(o, kk){
   const bd = boardData(), b = bd && bd.props;
   if(!b || !o) return null;
   const rows = (b[pName(o.name)]||{})[o.stat]; if(!rows || !rows.length) return null;
   let x;
-  if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
+  if(kk) x = rows.find(e=>e[0]===kk && e[5]) || rows.find(e=>e[0]===kk);
+  else if(PONE[o.stat]) x = rows.find(e=>e[0]===PONE[o.stat] && e[5]) || rows.find(e=>e[0]===PONE[o.stat]);
   else x = rows.find(e=>e[5]) || rows.slice().sort((a,c)=>Math.abs(a[0]-o.lam)-Math.abs(c[0]-o.lam))[0];
   if(!x) return null;
   const ours = atLeast(o.stat, o.lam, x[0]); if(ours == null) return null;
   const all = x[6] || { [x[3]]: x[2] }, top = myBest(all); if(!top) return null;
   return { k:x[0], book:x[1], price:top[1], bk:top[0], n:x[4], two:!!x[5], all, links:(bd.evlinks||{})[x[7]] || {}, ids:x[8] || {}, ours };
 }
+function lineName(st, x, kk){
+  if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
+  return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
   if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\'t be added</div>';
-  const o = bookOf(r), x = bookPick(o); if(!x) return "";
-  const lbl = PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
-  const edge = x.ours - x.book;
-  const line = PONE[o.stat] ? (o.stat==="3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
-  const leg = legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
-  return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
-    + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
+  const o = bookOf(r);
+  return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
+    const x = bookPick(o, kk); if(!x) return "";
+    const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
+    const edge = x.ours - x.book;
+    const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
+    return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
+      + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
+  }).join("");
 }
 
 // ---------- best bets: every priced bet in a game on one scale ----------
 const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
   "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
-  PTD:"pass TDs", S:"shots on goal" };
+  PTD:"pass TDs", S:"shots on goal", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
 function betOf(name, label, ours, book, price, bk, kind, game, all, links, ids){
@@ -168,12 +223,11 @@ function bestBets(g){
   if(gState(g.t, g.fin) !== "pre") return out;
   for(const r of gRows(g.id)){
     if(hurt(r)) continue;
-    for(const st of BSTATS){
-      const o = bookOf(r, st), x = bookPick(o); if(!x || x.n < 2) continue;      // priced by at least two books
+    for(const st of BSTATS) for(const kk of [0].concat(PEXTRA[st] || [])){
+      const o = bookOf(r, st), x = bookPick(o, kk); if(!x || x.n < 2) continue;      // priced by at least two books
       // a volume line far from our projection usually means the books know about a role change we don't
-      if(!PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
-      const line = PONE[st] ? (st==="3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
-      out.push(betOf(shortName(o.name), line, x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
+      if(!kk && !PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
+      out.push(betOf(shortName(o.name), lineName(st, x, kk), x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
     }
   }
   for(const v of (g.proj.value||[])){
@@ -359,4 +413,71 @@ document.addEventListener("click", e=>{
   plSave(PL); plSync(); plBar();
 }, true);
 setTimeout(plBar, 0);
+// ---------- game logs: Last 5 | vs opponent at the bottom of every player's detail ----------
+// each site supplies logCols(r): [[label, value of a game, tab it belongs to]], first column is minutes or volume
+let LOGTAB = "l5";
+function logBoard(){ return typeof BOARD !== "undefined" && BOARD && BOARD.logcols ? BOARD : (typeof PRO !== "undefined" && PRO ? PRO : null); }
+function logRows(list, opp){
+  const cols = (logBoard() || {}).logcols || [];
+  return (list || []).map(x=>{ const s = {}, o = opp ? 2 : 1; cols.forEach((c, i)=>{ s[c] = +x[o + i] || 0; }); return { d:x[0], opp:opp ? x[1] : "", s }; });
+}
+function logDay(d, yr){
+  let m = /^(\d{4})-W(\d+)$/.exec(d);
+  if(m) return (m[1] !== yr ? "'"+m[1].slice(2)+" " : "")+"Wk "+(+m[2]);
+  m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d); if(!m) return d;
+  const t = new Date(+m[1], +m[2]-1, +m[3]).toLocaleDateString([], { month:"short", day:"numeric" });
+  return m[1] !== yr ? t+" '"+m[1].slice(2) : t;
+}
+function logNum(v){ return Math.round(v*10)/10; }
+function logLine(r){
+  let x = null; try { x = bookPick(bookOf(r)); } catch(e){}
+  if(x) return { k:x.k, txt:x.two ? "o"+(x.k-0.5) : x.k+"+" };
+  const one = PONE[F.stat]; return one ? { k:one, txt:one+"+" } : null;
+}
+function logCards(games, cols, main, line, yr){
+  const sub = cols[0] === main ? cols[1] : cols[0];
+  return '<div class="lg-cards">'+games.map((g, i)=>{
+    const v = main[1](g.s), hit = line ? (v >= line.k ? " hit" : " miss") : "";
+    return '<div class="lg-c'+hit+(i >= 5 ? ' lg-x' : '')+'"><div class="lg-d">'+logDay(g.d, yr)+'</div>'+(g.opp ? '<div class="lg-o">'+esc(g.opp)+'</div>' : '')
+      + '<div class="lg-v">'+logNum(v)+'</div><div class="lg-k">'+main[0]+'</div><div class="lg-s">'+logNum(sub[1](g.s))+' '+sub[0]+'</div></div>';
+  }).join("")+'</div>';
+}
+function logSum(games, main, line, what){
+  if(!games.length) return "";
+  const vals = games.map(g=>main[1](g.s)), avg = vals.reduce((a,b)=>a+b, 0)/vals.length;
+  const hits = line ? vals.filter(v=>v >= line.k).length : null;
+  return '<div class="lg-sum">Avg <b>'+avg.toFixed(1)+'</b> '+main[0]+(line ? ' · cleared <b>'+line.txt+'</b> in <b>'+hits+' of '+vals.length+'</b>' : '')+(what ? ' '+what : '')+'</div>';
+}
+function logsHTML(r){
+  const p = r.p, cols = logCols(r), st = F.stat;
+  if(!cols || !(p.gl || p.vs)) return "";
+  const main = cols.find(c=>c[2]===st) || cols[1] || cols[0], line = logLine(r);
+  const l5 = logRows(p.gl, true), v = p.vs || {}, vg = logRows(v.g, false);
+  const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
+  const opp = v.opp || "", gw = GKIND === "soccer" ? "Matches" : "Games";
+  const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\''+k+'\')">'+t+'</button>';
+  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5)+" "+gw)+tab("vs", gw+" vs "+esc(opp)+(vg.length ? " ("+vg.length+")" : ""))+'</div>';
+  h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
+  h += '<div class="lg-pane lg-vs">';
+  const span = GKIND === "soccer" ? "this season and last" : "last 3 seasons and this one";
+  if(!vg.length) h += '<div class="lg-none">No history against '+esc(opp)+'</div>';
+  else {
+    const avg = c => logNum(vg.reduce((a,g)=>a + c[1](g.s), 0)/vg.length);
+    h += '<div class="lg-grid">'+cols.map(c=>'<div class="lg-gc'+(c===main ? ' on' : '')+'"><div class="lg-gk">'+c[0]+'</div><div class="lg-gv">'+avg(c)+'</div></div>').join("")+'</div>'
+      + '<div class="lg-note">Per game, all '+vg.length+' · '+span+'</div>'
+      + logSum(vg, main, line, "")
+      + logCards(vg, cols, main, line, yr)
+      + (vg.length > 5 ? '<button type="button" class="lg-all" onclick="logAll(event,this)">Show all '+vg.length+'</button>' : '');
+  }
+  return h + '</div></div>';
+}
+function logAll(e, el){
+  e.stopPropagation();
+  const b = el.closest(".lg"), on = b.classList.toggle("all");
+  el.textContent = on ? "Show fewer" : "Show all "+b.querySelectorAll(".lg-vs .lg-c").length;
+}
+function logSwitch(e, el, k){
+  e.stopPropagation(); LOGTAB = k;
+  document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
+}
 /* ===== end games view ===== */
