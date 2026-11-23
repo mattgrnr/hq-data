@@ -163,7 +163,16 @@ function pName(n){
   return n.replace(/[.\-]/g," ").split(/\s+/).filter(w=>w && !["jr","sr","ii","iii","iv"].includes(w)).join(" ");
 }
 function erfc1(x){ const t = 1/(1+0.3275911*Math.abs(x)), y = t*(0.254829592+t*(-0.284496736+t*(1.421413741+t*(-1.453152027+t*1.061405429))))*Math.exp(-x*x); return x >= 0 ? y : 2-y; }
-function atLeast(stat, lam, k){
+// our raw chance, corrected by how chances like it have actually held up this season (see the Results Dashboard)
+function calFix(key, c){
+  const bd = logBoard(), m = bd && bd.cal && bd.cal[key];
+  if(!m || c == null) return c;
+  if(c <= m[0][0]) return c * m[0][1] / m[0][0];
+  for(let i = 1; i < m.length; i++) if(c <= m[i][0]){ const a = m[i-1], b = m[i]; return a[1] + (b[1]-a[1]) * (c-a[0]) / (b[0]-a[0]); }
+  const z = m[m.length-1]; return Math.min(0.99, c + (z[1] - z[0]));
+}
+function atLeast(stat, lam, k){ return PSD[stat] ? atLeastRaw(stat, lam, k) : calFix(stat+k, atLeastRaw(stat, lam, k)); }
+function atLeastRaw(stat, lam, k){
   if(lam == null || !(lam >= 0)) return null;
   if(PSD[stat]){ const sd = Math.max(0.8, PSD[stat](lam)); return 0.5*erfc1((k-0.5-lam)/(sd*Math.SQRT2)); }
   let p = 0, t = Math.exp(-lam);
@@ -416,7 +425,7 @@ setTimeout(plBar, 0);
 // ---------- game logs: Last 5 | vs opponent at the bottom of every player's detail ----------
 // each site supplies logCols(r): [[label, value of a game, tab it belongs to]], first column is minutes or volume
 let LOGTAB = "l5";
-function logBoard(){ return typeof BOARD !== "undefined" && BOARD && BOARD.logcols ? BOARD : (typeof PRO !== "undefined" && PRO ? PRO : null); }
+function logBoard(){ return typeof BOARD !== "undefined" && BOARD && (BOARD.logcols || BOARD.cal) ? BOARD : (typeof PRO !== "undefined" && PRO ? PRO : null); }
 function logRows(list, opp){
   const cols = (logBoard() || {}).logcols || [];
   return (list || []).map(x=>{ const s = {}, o = opp ? 2 : 1; cols.forEach((c, i)=>{ s[c] = +x[o + i] || 0; }); return { d:x[0], opp:opp ? x[1] : "", s }; });

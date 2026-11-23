@@ -255,6 +255,24 @@ def calibration(sport, days):
     return out
 
 
+CAL_K = 150   # a range's record counts in full only once it has well over this many players; until then it leans on our own number
+
+
+def calmap(sport, cal):
+    """Our chance -> the chance our record says it really is, as points to draw a line through: {"P1": [[ours, real], ...]}.
+    Small ranges are pulled toward our own number, and the line never goes down as our chance goes up."""
+    out = {}
+    for label, stat, k in CALIB.get(sport, []):
+        pts, top = [], 0.0
+        for lo, n, ours, hap in cal.get(label, []):
+            real = (n * hap + CAL_K * ours) / (n + CAL_K)
+            top = max(top, real)
+            pts.append([round(ours / 100, 4), round(top / 100, 4)])
+        if len(pts) >= 3:
+            out[f"{stat}{k}"] = pts
+    return out
+
+
 def label_of(key):
     return "Week " + str(int(key.split("-w")[1])) if "-w" in key else key
 
@@ -353,6 +371,7 @@ def summarize(sport):
     cal = calibration(sport, days)
     if cal:
         out["calib"] = cal
+        out["calmap"] = calmap(sport, cal)
     (hdir / "summary.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
 
     # every graded player, for the starred-players panel: season over count and his last five per stat

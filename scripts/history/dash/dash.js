@@ -212,7 +212,9 @@ function calibHTML(){
     + '<svg viewBox="0 0 '+W+' '+H+'" class="cal-svg" role="img" aria-label="Our chance against how often it happened">'+g+'</svg>'
     + '<table class="cal-tbl"><tr><th>We said</th><th>Players</th><th>Avg chance</th><th>Happened</th></tr>'
     + rows.map(r=>'<tr><td>'+r[0]+'–'+(r[0]+10)+'%</td><td>'+r[1].toLocaleString()+'</td><td>'+Math.round(r[2])+'%</td><td class="'+(Math.abs(r[3]-r[2]) <= 4 ? "cg-good" : "cg-off")+'">'+Math.round(r[3])+'%</td></tr>').join("")+'</table>'
-    + '<p class="cal-key">Green: within 4 points of our number. Gold: further off. Ranges with fewer than 20 players are left out. Replay days count too.</p></div>';
+    + '<p class="cal-key">Green: within 4 points of our number. Gold: further off. Ranges with fewer than 20 players are left out. Replay days count too.</p>'
+    + (HIST.calmap ? '<p class="cal-key">The board now corrects every chance like these using this record before comparing it with the books, so the % you see and the value tags already account for where we run high or low.</p>' : '')
+    + '</div>';
 }
 function resultsHTML(){
   const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';

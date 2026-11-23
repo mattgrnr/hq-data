@@ -392,6 +392,19 @@ def pname(n):
     return " ".join(w for w in n.split() if w not in ("jr", "sr", "ii", "iii", "iv"))
 
 
+def attach_cal(sport, bd):
+    """How our yes/no chances have held up, so the sites can correct them before comparing with the books."""
+    f = ROOT / sport / "history" / "summary.json"
+    try:
+        cm = json.loads(f.read_text()).get("calmap")
+    except (OSError, ValueError):
+        cm = None
+    if cm:
+        bd["cal"] = cm
+    else:
+        bd.pop("cal", None)
+
+
 def attach_props(sport, bd):
     """Book prices for player props, as 'at least k' lines: props[name][stat] = [[k, fair, price, book, books, over_under, prices]].
 
@@ -498,6 +511,7 @@ def main():
         return
     {"nhl": nhl, "nba": nba, "nfl": nfl, "soccer": soccer}[sport](bd)
     n = sum(1 for g in bd["games"] if g.get("proj"))
+    attach_cal(sport, bd)
     print(f"{sport}: book lines on {attach_odds(sport, bd)} games, props for {attach_props(sport, bd)} players")
     path.write_text(json.dumps(bd, separators=(",", ":"), ensure_ascii=False))
     print(f"{sport}: {n} of {len(bd['games'])} games projected")
