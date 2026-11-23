@@ -1,0 +1,37 @@
+name: Preview data
+
+# preview branches only: rebuild today's boards with the branch's builders into preview-data/
+on:
+  push:
+    branches: ["preview/**"]
+    paths: ["preview-data/build.txt"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install pyarrow
+      - name: Build boards
+        env:
+          PROPLINE_KEY: ${{ secrets.PROPLINE_KEY }}
+        run: |
+          for sp in nba nhl nfl; do
+            python scripts/build_$sp.py && (python scripts/odds.py $sp || true) && python scripts/build_games.py $sp
+            cp $sp/board.json preview-data/$sp.json
+          done
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add preview-data/
+          git diff --cached --quiet && exit 0
+          git commit -m "Preview data"
+          git push || (git pull --rebase --autostash -X theirs && git push)

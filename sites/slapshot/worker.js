@@ -2,7 +2,7 @@
 // Daily NHL goal scorer board. Skaters only.
 // Data: board.json built daily in mattgrnr/hq-data; live goals from the NHL scoreboard.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/board.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/lines/preview-data/nhl.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/card.png";
 const LIVE_URL = "https://api-web.nhle.com/v1/score/";
@@ -351,6 +351,9 @@ body{background:
 #app .gm-r{color:var(--ink)}
 #app .gm-r span:nth-child(3){color:var(--faint)}
 #app .gm-r em{font-style:normal;color:var(--faint);font-size:11px}
+#app .gm-l{display:flex;align-items:center;gap:8px;min-width:0}
+#app .gm-l i{font-style:normal;min-width:0}
+#app .gm-l .pl-add{flex:none;margin:0}
 #app .gm-note{margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.45}
 #app .gc-sub{margin:14px 0 8px;font-size:12px;color:var(--faint)}
 #app .gc-all{width:100%;margin-top:4px}
@@ -924,39 +927,48 @@ function gEdge(g, mk, side){
   return v ? ' <span class="g-val">+'+Math.round(100*(v.ours-v.book))+'%</span>' : '';
 }
 // one market: a row per side with our chance, the book's fair chance, and the best price out there
-function gTable(title, sides){
+// one market: [label html, our chance, book chance, [best price, book, every book's price, slip ids], what the bet slip calls it]
+function gTable(title, sides, g){
+  const pre = g && gState(g.t, g.fin) === "pre";
   return '<div class="gm-t">'+title+'</div><div class="gm-tbl"><div class="gm-h"><span></span><span>Ours</span><span>Book</span><span>Best price</span></div>'
-    + sides.map(x=>'<div class="gm-r"><span>'+x[0]+'</span><span><b>'+gPct(x[1])+'</b></span><span>'+gPct(x[2])+'</span><span>'+(x[3] ? gPrice(x[3][0])+' <em>'+x[3][1]+'</em>' : '—')+'</span></div>').join("")
+    + sides.map(x=>{
+      const q = x[3], all = q && q[2], top = all ? myBest(all) : (q ? [q[1], q[0]] : null);
+      const leg = pre && top && x[4] && x[1] != null && x[2] != null
+        ? legOf(x[4], { ours:x[1], book:x[2], price:top[1], bk:top[0], all:all || { [q[1]]: q[0] }, links:g.proj.links || {}, ids:q[3] || {},
+                        game:{ n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t:g.t } }) : null;
+      return '<div class="gm-r"><span class="gm-l">'+(leg ? plBtn(leg) : '')+'<i>'+x[0]+'</i></span><span><b>'+gPct(x[1])+'</b></span><span>'+gPct(x[2])+'</span><span>'+(top ? gPrice(top[1])+' <em>'+top[0]+'</em>' : '—')+'</span></div>';
+    }).join("")
     + '</div>';
 }
 function gMarkets(g){
   const p = g.proj, w = p.win, b = p.book && !p.book.src ? p.book : null, out = [];
   const H = esc(g.home), A = esc(g.away);
   if(GKIND === "soccer"){
-    out.push(gTable("Result", [[H+gEdge(g,"Result",g.home), w[0], b&&b.ml&&b.ml[0], b&&b.mlp&&b.mlp[0]],
-      ["Draw"+gEdge(g,"Result","Draw"), w[1], b&&b.ml&&b.ml[1], b&&b.mlp&&b.mlp[1]],
-      [A+gEdge(g,"Result",g.away), w[2], b&&b.ml&&b.ml[2], b&&b.mlp&&b.mlp[2]]]));
+    out.push(gTable("Result", [[H+gEdge(g,"Result",g.home), w[0], b&&b.ml&&b.ml[0], b&&b.mlp&&b.mlp[0], g.home+" to win"],
+      ["Draw"+gEdge(g,"Result","Draw"), w[1], b&&b.ml&&b.ml[1], b&&b.mlp&&b.mlp[1], "Draw"],
+      [A+gEdge(g,"Result",g.away), w[2], b&&b.ml&&b.ml[2], b&&b.mlp&&b.mlp[2], g.away+" to win"]], g));
     const ov = p.over_book != null ? p.over_book : p.over[1];
-    out.push(gTable("Total goals 2.5", [["Over"+gEdge(g,"Total","Over 2.5"), ov, b&&b.over, b&&b.totp&&b.totp[0]],
-      ["Under"+gEdge(g,"Total","Under 2.5"), 1-ov, b&&b.over!=null?1-b.over:null, b&&b.totp&&b.totp[1]]]));
-    out.push(gTable("Both teams score", [["Yes"+gEdge(g,"Both score","Yes"), p.btts, b&&b.btts, b&&b.bttsp&&b.bttsp[0]],
-      ["No"+gEdge(g,"Both score","No"), 1-p.btts, b&&b.btts!=null?1-b.btts:null, b&&b.bttsp&&b.bttsp[1]]]));
+    out.push(gTable("Total goals 2.5", [["Over"+gEdge(g,"Total","Over 2.5"), ov, b&&b.over, b&&b.totp&&b.totp[0], "Over 2.5 goals"],
+      ["Under"+gEdge(g,"Total","Under 2.5"), 1-ov, b&&b.over!=null?1-b.over:null, b&&b.totp&&b.totp[1], "Under 2.5 goals"]], g));
+    out.push(gTable("Both teams score", [["Yes"+gEdge(g,"Both score","Yes"), p.btts, b&&b.btts, b&&b.bttsp&&b.bttsp[0], "Both teams to score: Yes"],
+      ["No"+gEdge(g,"Both score","No"), 1-p.btts, b&&b.btts!=null?1-b.btts:null, b&&b.bttsp&&b.bttsp[1], "Both teams to score: No"]], g));
     return out;
   }
-  out.push(gTable("Moneyline", [[A+gEdge(g,"Moneyline",g.away), w[1], b&&b.ml&&b.ml[1], b&&b.mlp&&b.mlp[1]],
-    [H+gEdge(g,"Moneyline",g.home), w[0], b&&b.ml&&b.ml[0], b&&b.mlp&&b.mlp[0]]]));
+  out.push(gTable("Moneyline", [[A+gEdge(g,"Moneyline",g.away), w[1], b&&b.ml&&b.ml[1], b&&b.mlp&&b.mlp[1], g.away+" to win"],
+    [H+gEdge(g,"Moneyline",g.home), w[0], b&&b.ml&&b.ml[0], b&&b.mlp&&b.mlp[0], g.home+" to win"]], g));
   if(b && b.spread != null){
     const l = b.spread, hs = g.home+" "+(l>0?"+":"")+l, as = g.away+" "+(-l>0?"+":"")+(-l);
     out.push(gTable((GKIND==="hockey"?"Puck line":"Spread")+' <i>ours '+H+' '+gLine(p.spread)+'</i>',
-      [[esc(as)+gEdge(g,"Spread",as), 1-p.cover_book, 1-b.cover, b.spreadp&&b.spreadp[1]],
-       [esc(hs)+gEdge(g,"Spread",hs), p.cover_book, b.cover, b.spreadp&&b.spreadp[0]]]));
+      [[esc(as)+gEdge(g,"Spread",as), 1-p.cover_book, 1-b.cover, b.spreadp&&b.spreadp[1], as],
+       [esc(hs)+gEdge(g,"Spread",hs), p.cover_book, b.cover, b.spreadp&&b.spreadp[0], hs]], g));
   } else {
     out.push('<div class="gm-t">'+(GKIND==="hockey"?"Puck line":"Spread")+' <i>ours '+H+' '+gLine(p.spread)+(p.book&&p.book.spread!=null?' · consensus '+gLine(p.book.spread):'')+'</i></div>');
   }
   if(b && b.total != null){
     const t = b.total;
-    out.push(gTable('Total '+t+' <i>ours '+p.total+'</i>', [["Over"+gEdge(g,"Total","Over "+t), p.over_book, b.over, b.totp&&b.totp[0]],
-      ["Under"+gEdge(g,"Total","Under "+t), 1-p.over_book, 1-b.over, b.totp&&b.totp[1]]]));
+    const unit = GKIND === "hockey" ? " goals" : " points";
+    out.push(gTable('Total '+t+' <i>ours '+p.total+'</i>', [["Over"+gEdge(g,"Total","Over "+t), p.over_book, b.over, b.totp&&b.totp[0], "Over "+t+unit],
+      ["Under"+gEdge(g,"Total","Under "+t), 1-p.over_book, 1-b.over, b.totp&&b.totp[1], "Under "+t+unit]], g));
   } else {
     out.push('<div class="gm-t">Total <i>ours '+p.total+(p.book&&p.book.total!=null?' · consensus '+p.book.total:'')+'</i></div>');
   }
@@ -1153,7 +1165,7 @@ function bestBets(g){
     .slice(0, 3);
 }
 function betHTML(b, top){
-  return '<div class="bb'+(top?" top":"")+'">'+plBtn(legOf(b.name+" "+b.label, b))+'<div class="bb-what"><b>'+esc(b.name)+'</b> '+esc(b.label)+'</div>'
+  return '<div class="bb'+(top?" top":"")+'">'+plBtn(legOf((b.name+" "+b.label).trim(), b))+'<div class="bb-what"><b>'+esc(b.name)+'</b> '+esc(b.label)+'</div>'
     + '<div class="bb-num">'+gPct(b.ours)+' <span>vs book '+gPct(b.book)+'</span></div>'
     + '<div class="bb-px">'+gPrice(b.price)+' <em>'+b.bk+'</em></div></div>';
 }
