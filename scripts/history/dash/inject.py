@@ -11,7 +11,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SITES = {
     "slapshot": ("nhl", '[["G","Goals","goals"],["A","Assists","assists"],["P","Points","points"],["S","SOG","shots on goal"]]'),
-    "slam": ("nba", '[["PTS","PTS","points"],["REB","REB","rebounds"],["AST","AST","assists"],["PRA","PRA","points + rebounds + assists"],["3PM","3PM","threes"],["BLK","BLK","blocks"],["STL","STL","steals"]]'),
+    "slam": ("nba", '[["PTS","PTS","points"],["REB","REB","rebounds"],["AST","AST","assists"],["PRA","PRA","points + rebounds + assists"],["PR","PR","points + rebounds"],["PA","PA","points + assists"],["RA","RA","rebounds + assists"],["3PM","3PM","threes"],["BLK","BLK","blocks"],["STL","STL","steals"]]'),
     "touchdown": ("nfl", '[["TD","TD","touchdowns"],["CYD","REC YDS","receiving yards"],["RYD","RUSH YDS","rushing yards"],["REC","REC","receptions"],["PYD","PASS YDS","passing yards"],["PTD","PASS TD","passing TDs"]]'),
     "moonshot": ("mlb", '[["HR","HR","home runs"]]'),
     "futbol": ("soccer", '[["G","Goals","goals"],["A","Assists","assists"],["GA","TSOA","goals plus assists"],["T","SOT","shots on target"],["S","Shots","shots"]]'),

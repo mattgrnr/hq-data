@@ -10,6 +10,8 @@ const NOW = flag === "--now" ? Date.parse(nowArg) : Date.now();
 const CT = "America/Chicago";
 const ctDate = ms => new Date(ms).toLocaleDateString("en-CA", { timeZone: CT });
 
+// HQ_ONLY=PR,PA,RA adds just those stats to picks already on file and leaves everything else as it was
+const ONLY = process.env.HQ_ONLY ? process.env.HQ_ONLY.split(",") : null;
 // each site: how to build its rows, and how to read stats, projections and games from them
 const SITES = {
   slapshot: {
@@ -22,7 +24,7 @@ const SITES = {
     file: (bd, g) => bd.date,
   },
   slam: {
-    stats: ["PTS", "PRA", "REB", "AST", "3PM", "BLK", "STL"],
+    stats: ["PTS", "PRA", "PR", "PA", "RA", "REB", "AST", "3PM", "BLK", "STL"],
     run: `BOARD = bd; INJ = {}; SEASON = bd.season; DEFRANK = defRanks(bd.teams); GAMES = parseSlate(bd); buildRows();
       ROWS.map(r => { const s = {}, pj = {};
         for(const k of STATS){ s[k] = r.score[KEY[k]]; pj[k] = Math.round(r.proj[KEY[k]]*10)/10; }
@@ -80,8 +82,18 @@ async function rowsFor(cfg, bd) {
   fs.mkdirSync(outDir, { recursive: true });
   for (const [key, gs] of Object.entries(byFile)) {
     const f = path.join(outDir, key + ".json");
+    if (ONLY && !fs.existsSync(f)) continue;
     const out = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : { key, stats: cfg.stats, games: {}, picks: {} };
+    out.stats = cfg.stats;
     for (const g of gs) {
+      if (ONLY) {
+        const mine = new Map(picks.filter(p => p.g === g.key).map(p => [String(p.id), p]));
+        for (const p of out.picks[g.key] || []) {
+          const q = mine.get(String(p.id)); if (!q) continue;
+          for (const k of ONLY) if (q.s[k] != null) { p.s[k] = q.s[k]; p.pj[k] = q.pj[k]; }
+        }
+        continue;
+      }
       out.games[g.key] = { home: g.home, away: g.away, start: new Date(g.start).toISOString(), ...(g.league ? { league: g.league } : {}) };
       out.picks[g.key] = picks.filter(p => p.g === g.key);
     }

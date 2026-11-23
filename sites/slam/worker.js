@@ -918,7 +918,7 @@ function ballSVG(){
     '<path d="M10 9.5 C17 17 17 35 10 42.5 M42 9.5 C35 17 35 35 42 42.5" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.5"/>'+
     '</svg>';
 }
-const RSTATS = [["PTS","PTS","points"],["REB","REB","rebounds"],["AST","AST","assists"],["PRA","PRA","points + rebounds + assists"],["3PM","3PM","threes"],["BLK","BLK","blocks"],["STL","STL","steals"]];
+const RSTATS = [["PTS","PTS","points"],["REB","REB","rebounds"],["AST","AST","assists"],["PRA","PRA","points + rebounds + assists"],["PR","PR","points + rebounds"],["PA","PA","points + assists"],["RA","RA","rebounds + assists"],["3PM","3PM","threes"],["BLK","BLK","blocks"],["STL","STL","steals"]];
 const FAVKEY = "hq.slam.fav";
 /* ===== games view: shared by every HQ site; gList, gRows, GKIND are set per site ===== */
 // a game is "pre" until its start time, then "live", then "final"; only pre-game bets can be added

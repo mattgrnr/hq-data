@@ -92,6 +92,7 @@ def nba_actuals(slate, cache={}):
             continue
         pts, reb, ast = n(r["points"]), n(r["rebounds"]), n(r["assists"])
         out[k][int(r["athlete_id"])] = {"PTS": pts, "REB": reb, "AST": ast, "PRA": pts + reb + ast,
+                                        "PR": pts + reb, "PA": pts + ast, "RA": reb + ast,
                                         "3PM": n(r["three_point_field_goals_made"]), "STL": n(r["steals"]), "BLK": n(r["blocks"])}
     return out
 
