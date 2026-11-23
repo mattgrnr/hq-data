@@ -2,8 +2,8 @@
 // Daily soccer board for the big five leagues: goals, shots on target, shots and assists.
 // Data: soccer/board.json built hourly in mattgrnr/hq-data.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/calfix/preview-data/soccer.json";
-const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/calfix/soccer/history/summary.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/soccer/board.json";
+const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/soccer/history/summary.json";
 
 const SITE_ORIGINS = [
   "https://futbol-hq.com",
