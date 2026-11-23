@@ -410,7 +410,7 @@ def attach_logs(players, games, pl, team_games, state):
         for x in pl[o["id"]]["log"]:
             tg = team_games.get(x[2], {}).get(x[1])
             rows.append((x, tg["opp"] if tg else None))
-        o["gl"] = [[day(x[0]), tname.get(op, ""), round(x[3]), int(x[5]), int(x[8]), int(x[6]), int(x[7])] for x, op in rows[:5]]
+        o["last5"] = [[day(x[0]), tname.get(op, ""), round(x[3]), int(x[5]), int(x[8]), int(x[6]), int(x[7])] for x, op in rows[:5]]
         vs = [[day(x[0]), round(x[3]), int(x[5]), int(x[8]), int(x[6]), int(x[7])] for x, op in rows if op == opp]
         o["vs"] = {"opp": g["a"] if o["home"] else g["h"], "gp": len(vs), "g": vs}
 

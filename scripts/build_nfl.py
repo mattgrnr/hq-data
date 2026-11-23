@@ -411,7 +411,7 @@ def main():
         if want[r["player_id"]] and r["opponent_team"] == want[r["player_id"]]:
             vs[r["player_id"]].append([x[0], *x[2:]])
     for p in players:
-        p["gl"] = sorted(gl.get(p["id"], []), reverse=True)[:5]
+        p["last5"] = sorted(gl.get(p["id"], []), reverse=True)[:5]
         g = sorted(vs.get(p["id"], []), reverse=True)
         p["vs"] = {"opp": want[p["id"]], "gp": len(g), "g": g}
 

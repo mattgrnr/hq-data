@@ -209,7 +209,7 @@ def attach_logs(players, cur, season, slate):
     other = lambda gid, tm: next((o for o in sides.get(gid, ()) if o != tm), "")
     for p in players:
         gl = sorted(cur["games_of"].get(p["id"], []), reverse=True)[:5]
-        p["gl"] = [[d, other(gid, tm), *x] for d, gid, tm, *x in gl]
+        p["last5"] = [[d, other(gid, tm), *x] for d, gid, tm, *x in gl]
     want = {p["id"]: opp_of.get(p["team"]) for p in players}
     rows = [(pid, d, gid, tm, *x) for pid, gl in cur["games_of"].items() if pid in want for d, gid, tm, *x in gl]
     hs = defaultdict(set, {gid: set(t) for gid, t in sides.items()})

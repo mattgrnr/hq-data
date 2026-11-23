@@ -315,7 +315,7 @@ def main():
             "mpg": round(mpg, 1), "r": rate, "sg": c["gp"], "w": round(c["gp"] / (c["gp"] + k), 2),
             "s": {f: round(c[f], 1) for f in ("min", *STATS)},
             "l5": {"n": n5, **{f: round(sum(x[j] for x in gl) / n5, 1) for f, j in (("min", 3), ("pts", 4), ("reb", 5), ("ast", 6), ("fg3m", 7), ("stl", 8), ("blk", 9))}} if n5 else None,
-            "gl": [[x[0], x[2], round(x[3]), *[int(v) for v in x[4:]]] for x in reversed(gl)],   # team for now; swapped for the opponent below
+            "last5": [[x[0], x[2], round(x[3]), *[int(v) for v in x[4:]]] for x in reversed(gl)],   # team for now; swapped for the opponent below
             "last": played[-1][0] if played else "",
             "inj": ro["inj"],
         }
@@ -336,7 +336,7 @@ def main():
     for r in hist:
         sides[r["gid"]].add(r["team"])
     for p in players:
-        for x in p["gl"]:
+        for x in p["last5"]:
             gid = next((y[1] for y in cur["games_of"][p["id"]] if y[0] == x[0]), None)
             x[1] = next((o for o in sides.get(gid, ()) if o != x[1]), "")
     h2h = defaultdict(lambda: {"gp": 0, **{k: 0.0 for k in STATS}})

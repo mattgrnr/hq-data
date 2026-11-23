@@ -1359,9 +1359,9 @@ function logSum(games, main, line, what){
 }
 function logsHTML(r){
   const p = r.p, cols = logCols(r), st = F.stat;
-  if(!cols || !(p.gl || p.vs)) return "";
+  if(!cols || !(p.last5 || p.vs)) return "";
   const main = cols.find(c=>c[2]===st) || cols[1] || cols[0], line = logLine(r);
-  const l5 = logRows(p.gl, true), v = p.vs || {}, vg = logRows(v.g, false);
+  const l5 = logRows(p.last5, true), v = p.vs || {}, vg = logRows(v.g, false);
   const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
   const opp = v.opp || "", gw = GKIND === "soccer" ? "Matches" : "Games";
   const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\\''+k+'\\')">'+t+'</button>';
