@@ -478,7 +478,7 @@ def attach_props(sport, bd):
             continue
         for stat, rows in st.items():
             rows.sort(key=lambda x: x[0])
-            if stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "PR", "PA", "RA", "REC", "3PM", "BLK", "STL"):
+            if stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "PR", "PA", "RA", "REC", "3PM", "BLK", "STL", "S"):
                 two = [x for x in rows if x[5]]
                 keep.setdefault(who, {})[stat] = [max(two, key=lambda x: x[4])] if two else sorted(rows, key=lambda x: -x[4])[:5]
             else:
