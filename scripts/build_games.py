@@ -255,6 +255,11 @@ def find_event(sport, gm, events):
     return None
 
 
+def px(b):
+    """One side's price for the sites: [best price, its book, every book's price, bet-slip ids]."""
+    return [b[1], b[0], b[2], b[3] if len(b) > 3 else {}]
+
+
 def two_way(rows, pick_a, pick_b):
     """Fair chance of side A (vig removed, median across books) and the best price on each side."""
     import statistics
@@ -324,20 +329,20 @@ def attach_odds(sport, bd, lam=None):
                 if fair["h"] and all(bests):
                     fm = [statistics.median(fair[k]) for k in ("h", "d", "a")]
                     book["ml"] = [round(x, 3) for x in fm]
-                    book["mlp"] = [[b[1], b[0]] for b in bests]
+                    book["mlp"] = [px(b) for b in bests]
                     for i, (lab, k) in enumerate(((home, "h"), ("Draw", "d"), (away, "a"))):
                         add_value("Result", lab, p["win"][i], fm[i], bests[i])
             bt = two_way(m.get("both_teams_to_score", []), lambda r: r[0] == "Yes", lambda r: r[0] == "No")
             if bt:
                 book["btts"] = round(bt[0], 3)
-                book["bttsp"] = [[bt[1][1], bt[1][0]], [bt[2][1], bt[2][0]]]
+                book["bttsp"] = [px(bt[1]), px(bt[2])]
                 add_value("Both score", "Yes", p["btts"], bt[0], bt[1])
                 add_value("Both score", "No", 1 - p["btts"], 1 - bt[0], bt[2])
         else:
             ml = two_way(h2h, lambda r: r[0] == hn, lambda r: r[0] == an)
             if ml:
                 book["ml"] = [round(ml[0], 3), round(1 - ml[0], 3)]
-                book["mlp"] = [[ml[1][1], ml[1][0]], [ml[2][1], ml[2][0]]]
+                book["mlp"] = [px(ml[1]), px(ml[2])]
                 add_value("Moneyline", home, p["win"][0], ml[0], ml[1])
                 add_value("Moneyline", away, p["win"][1], 1 - ml[0], ml[2])
             sp = m.get("spreads", [])
@@ -347,7 +352,7 @@ def attach_odds(sport, bd, lam=None):
                 if s2:
                     ours = cover_at(sport, p, line, lam)
                     book["spread"] = line
-                    book["spreadp"] = [[s2[1][1], s2[1][0]], [s2[2][1], s2[2][0]]]
+                    book["spreadp"] = [px(s2[1]), px(s2[2])]
                     book["cover"] = round(s2[0], 3)
                     p["cover_book"] = round(ours, 3)
                     add_value("Spread", f"{home} {line:+g}", ours, s2[0], s2[1])
@@ -359,7 +364,7 @@ def attach_odds(sport, bd, lam=None):
             if t2:
                 ours = over_at(sport, p, tl, lam)
                 book["total"] = tl
-                book["totp"] = [[t2[1][1], t2[1][0]], [t2[2][1], t2[2][0]]]
+                book["totp"] = [px(t2[1]), px(t2[2])]
                 book["over"] = round(t2[0], 3)
                 p["over_book"] = round(ours, 3)
                 add_value("Total", f"Over {tl:g}", ours, t2[0], t2[1])
