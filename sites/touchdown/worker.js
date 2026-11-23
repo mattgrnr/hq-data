@@ -523,6 +523,7 @@ body{padding-bottom:84px}
 #app .tp-us b{display:block;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
 #app .tp-us span{font-size:10.5px;color:var(--faint)}
 #app .tp-bk{grid-area:bk;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
+#app .tp-none{font-size:11.5px;font-style:italic;opacity:.75}
 #app .tp-bk b{color:var(--ink);font-weight:600}
 #app .tp-bk em{font-style:normal;font-size:11px}
 #app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
@@ -1252,7 +1253,7 @@ function tpRow(r, t, rank, best, open){
     const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) }) : null;
     bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
       + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</span></div>';
-  }
+  } else bk = '<div class="tp-bk tp-none">No book line yet</div>';
   const team = r.team || r.p.team || "";
   return '<div class="tp-row'+(lbl ? ' tp-best' : '')+'"><div class="tp-rk">'+(lbl ? '' : rank)+'</div>'
     + '<div class="tp-who">'+(lbl ? '<i class="tp-tag">'+lbl+'</i>' : '')+'<b>'+esc(shortName(r.p.name || r.p.n || ""))+'</b><span>'+esc(team)+'</span></div>'
