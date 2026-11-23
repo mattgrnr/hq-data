@@ -1700,7 +1700,6 @@ function wireTop(){
   }
 }
 
-// tabs shown as a chance instead of a projection: label, and how many it takes
 function shortName(n){
   const parts = String(n).split(" ");
   return n.length <= 10 || parts.length < 2 ? n : parts[0][0] + ". " + parts.slice(1).join(" ");
