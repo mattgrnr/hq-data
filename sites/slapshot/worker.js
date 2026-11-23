@@ -2,7 +2,7 @@
 // Daily NHL goal scorer board. Skaters only.
 // Data: board.json built daily in mattgrnr/hq-data; live goals from the NHL scoreboard.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/metrics/preview-data/nhl.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/board.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/card.png";
 const LIVE_URL = "https://api-web.nhle.com/v1/score/";

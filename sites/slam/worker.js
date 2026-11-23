@@ -2,7 +2,7 @@
 // Daily NBA board: points, rebounds, assists and PRA.
 // Data: board.json built daily in mattgrnr/hq-data; injuries and game status from ESPN.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/metrics/preview-data/nba.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/board.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/card.png";
 const LIVE_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=";
