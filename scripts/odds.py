@@ -104,6 +104,14 @@ def main():
     out = {"fetched": datetime.now(timezone.utc).isoformat(timespec="seconds"), "events": events}
     (ROOT / sport / "odds.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
     print(f"{sport}: {len(events)} events with odds")
+    per = {}
+    for ev in events:
+        for m, rows in ev["m"].items():
+            per[m] = per.get(m, 0) + len(rows)
+    print("  outcomes per market:", ", ".join(f"{m} {n}" for m, n in sorted(per.items())))
+    sample = next((r for ev in events for r in ev["m"].get("player_points_2plus", [])), None)
+    if sample:
+        print("  player_points_2plus sample:", sample[:3])
 
 
 if __name__ == "__main__":
