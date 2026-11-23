@@ -70,7 +70,7 @@ export default {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
       const res = await fetch(BOARD_URL + "?v=" + Math.floor(Date.now() / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
       if (!res.ok) return new Response(JSON.stringify({ error: "board upstream " + res.status }), { status: 502, headers: { "Content-Type": "application/json" } });
-      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
     }
 
     if (path === "/live") {
