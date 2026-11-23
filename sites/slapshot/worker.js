@@ -1291,7 +1291,8 @@ function plBar(){
       + (m.full.length ? '' : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
-      + '<button class="navbtn" id="pl-copy">Copy legs</button></div>'
+      + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
+      + '<p class="pl-note">Share betslip sends a link that opens this parlay, priced at every book and ready to place. <button class="pl-link" id="pl-copy">Copy as text</button></p>'
       + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
         + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
@@ -1318,12 +1319,39 @@ function plBar(){
   const cp = document.getElementById("pl-copy");
   if(cp) cp.onclick = ()=>{
     const txt = PL.map(l=>l.l+" ("+(l.g||"")+")"+(at(l)!=null ? " "+gPrice(at(l)) : "")).join("\\n") + (full ? "\\nParlay "+gPrice(pick.price)+" at "+(BKNAME[pick.bk]||pick.bk) : "");
-    try { navigator.clipboard.writeText(txt).then(()=>{ cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy legs"; }, 1500); }); } catch(e) {}
+    try { navigator.clipboard.writeText(txt).then(()=>{ cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy as text"; }, 1500); }); } catch(e) {}
   };
+  const sh = document.getElementById("pl-share");
+  if(sh){ sharePrep(PL, pick && pick.bk); sh.onclick = ()=> shareGo(PL, pick && pick.bk, sh, "Share betslip"); }   // the link is made while the slip is open, so a tap shares at once
   document.getElementById("pl-toggle").onclick = ()=>{ PLOPEN = !PLOPEN; plBar(); };
   el.querySelectorAll(".pl-x").forEach(b=> b.onclick = ()=>{ PL.splice(+b.dataset.i, 1); plSave(PL); plBar(); plSync(); });
   const c = document.getElementById("pl-clear"); if(c) c.onclick = ()=>{ PL = []; plSave(PL); PLOPEN = false; plBar(); plSync(); };
   plLinks();
+}
+// ---------- share a betslip: a short total-hq.com link that opens the slip, priced at every book, ready to place ----------
+var SHARE = { sig:"", url:null, busy:"" };
+function shareHost(){ return /workers[.]dev$/.test(location.hostname) ? "https://share-total-hq.wehttam30.workers.dev" : "https://total-hq.com"; }
+function shareSig(legs, bk){ return JSON.stringify([legs.map(function(l){ return l.i; }), bk || ""]); }
+function sharePrep(legs, bk, done){
+  var sig = shareSig(legs, bk);
+  if(SHARE.sig === sig && SHARE.url){ if(done) done(SHARE.url); return; }
+  if(SHARE.busy === sig && !done) return;
+  SHARE.busy = sig;
+  fetch(shareHost() + "/p", { method:"POST", headers:{ "Content-Type":"text/plain" }, body: JSON.stringify({ legs: legs, bk: bk || null }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ SHARE.busy = ""; if(d && d.url){ SHARE.sig = sig; SHARE.url = d.url; if(done) done(d.url); } else if(done) done(null); })
+    .catch(function(){ SHARE.busy = ""; if(done) done(null); });
+}
+function shareGo(legs, bk, btn, label){
+  var say = function(t){ btn.textContent = t; setTimeout(function(){ btn.textContent = label; }, 1800); };
+  var copy = function(url){ try { navigator.clipboard.writeText(url).then(function(){ say("Link copied"); }, function(){ prompt("Copy this link", url); }); } catch(e){ prompt("Copy this link", url); } };
+  var go = function(url){
+    if(!url){ say("Couldn't make a link"); return; }
+    if(navigator.share) navigator.share({ title: legs.length + "-leg parlay", url: url }).catch(function(e){ if(e && e.name !== "AbortError") copy(url); });
+    else copy(url);
+  };
+  if(SHARE.sig === shareSig(legs, bk) && SHARE.url) go(SHARE.url);
+  else { btn.textContent = "Making link…"; sharePrep(legs, bk, function(url){ btn.textContent = label; go(url); }); }
 }
 function plSync(){ document.querySelectorAll(".pl-add").forEach(b=>{ const l = JSON.parse(decodeURIComponent(b.dataset.leg)); const on = PL.some(x=>x.i===l.i); b.classList.toggle("on", on); b.textContent = on ? "✓" : "+"; }); }
 document.addEventListener("click", e=>{
