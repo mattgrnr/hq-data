@@ -420,6 +420,29 @@ body{padding-bottom:84px}
 #plbar .pl-gone{opacity:.6}
 #plbar .pl-gone b{text-decoration:line-through}
 #plbar .pl-link{background:none;border:0;padding:0;font:inherit;color:#4ade80;text-decoration:underline;cursor:pointer}
+/* top player picks */
+#app .tp-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+#app .tp-chips::-webkit-scrollbar{display:none}
+#app .tp-chip{flex:none;padding:6px 11px;border-radius:99px;border:0;background:rgba(255,255,255,.05);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+#app .tp-chip.on{background:rgba(255,255,255,.12);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+#app .tp-pane{display:none}
+#app .tp-pane.on{display:block}
+#app .tp-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"rk who us" "rk bk bk";column-gap:10px;row-gap:3px;align-items:center;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.06)}
+#app .tp-row:last-child{border-bottom:0}
+#app .tp-rk{grid-area:rk;align-self:start;min-width:18px;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;padding-top:2px}
+#app .tp-best{grid-template-columns:0 minmax(0,1fr) auto;column-gap:0}
+#app .tp-who{flex-wrap:wrap}
+#app .tp-tag{flex-basis:100%;font-style:normal;font-size:10.5px;font-weight:600;letter-spacing:.05em;color:var(--faint);margin-bottom:1px}
+#app .tp-who{grid-area:who;min-width:0;display:flex;align-items:baseline;gap:7px}
+#app .tp-who b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#app .tp-who span{font-size:11px;color:var(--faint);white-space:nowrap}
+#app .tp-us{grid-area:us;text-align:right;line-height:1.1}
+#app .tp-us b{display:block;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+#app .tp-us span{font-size:10.5px;color:var(--faint)}
+#app .tp-bk{grid-area:bk;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
+#app .tp-bk b{color:var(--ink);font-weight:600}
+#app .tp-bk em{font-style:normal;font-size:11px}
+#app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
 /* game logs */
 #app .lg{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -972,11 +995,7 @@ function gCard(g){
     h += '<div class="gc-mk">'+gMarkets(g).join("")
       + (p.book && !p.book.src ? '<p class="gm-note">Book = the sportsbooks\\' fair chance with their margin removed. Best price = the best odds across DraftKings, FanDuel, BetMGM, Caesars and others. A green tag means we rate that side higher than the books do.</p>' : '')
       + '</div>';
-    const rows = gRows(g.id).slice(0, 3);
-    if(rows.length){
-      h += '<div class="gc-sub">Top picks in this game</div>' + rows.map((r,i)=>rowHTML(r,i)).join("")
-        + '<button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
-    }
+    h += topPicks(g, st);
   }
   return h + '</div>';
 }
@@ -991,12 +1010,62 @@ function gamesHTML(){
 
 function wireGames(){
   document.querySelectorAll(".gcard").forEach(el=> el.onclick = (e)=>{
-    if(e.target.closest(".row, .gc-all")) return;
+    if(e.target.closest(".row, .gc-all, .tp")) return;
     GOPEN[el.dataset.gid] = !GOPEN[el.dataset.gid]; render();
   });
-  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{ GV = false; F.game = b.dataset.all; render(); scrollTo(0, 0); });
+  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{
+    const tp = b.closest(".gcard").querySelector(".tp"), k = tp && tp.dataset.tp;
+    GV = false; F.game = b.dataset.all; if(k && k !== "BEST") F.stat = k; render(); scrollTo(0, 0);
+  });
   if(typeof wireStars === "function") wireStars();
   if(GJUMP){ const el = document.querySelector('.gcard[data-gid="'+GJUMP+'"]'); GJUMP = null; if(el) el.scrollIntoView({ block:"start" }); }
+}
+// ---------- top player picks: the model's top three for each prop in one game ----------
+let GTP = {};   // game -> chip picked ("BEST" = the #1 player for every prop)
+function gTop(id, st){
+  const keep = F.stat; F.stat = st;
+  let rows = [];
+  try { rows = gRows(id).filter(r=>!hurt(r)); } finally { F.stat = keep; }
+  return rows;
+}
+function tpOurs(r, st, tl){
+  const o = bookOf(r, st);
+  if(!o || o.lam == null) return { v:"—", w:"" };
+  if(PONE[st]){ const c = atLeast(st, o.lam, PONE[st]); return { v:gPct(c), w:st === "3PM" ? PONE[st]+"+ threes" : BLBL[st] }; }
+  return { v:o.lam >= 20 ? String(Math.round(o.lam)) : o.lam.toFixed(1), w:"proj "+String(tl).toLowerCase() };
+}
+function tpRow(r, t, rank, best, open){
+  const st = t[0], lbl = best ? t[1] : "", o = bookOf(r, st), us = tpOurs(r, st, t[1]);
+  let bk = "";
+  const x = o ? bookPick(o) : null;
+  if(x){
+    const line = PONE[o.stat] ? (o.stat === "3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
+    const edge = x.ours - x.book;
+    const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) }) : null;
+    bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
+      + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</span></div>';
+  }
+  const team = r.team || r.p.team || "";
+  return '<div class="tp-row'+(lbl ? ' tp-best' : '')+'"><div class="tp-rk">'+(lbl ? '' : rank)+'</div>'
+    + '<div class="tp-who">'+(lbl ? '<i class="tp-tag">'+lbl+'</i>' : '')+'<b>'+esc(shortName(r.p.name || r.p.n || ""))+'</b><span>'+esc(team)+'</span></div>'
+    + '<div class="tp-us"><b>'+us.v+'</b><span>'+esc(us.w)+'</span></div>' + bk + '</div>';
+}
+function topPicks(g, st){
+  const open = st === "pre", tabs = PTABS.filter(t=>gTop(g.id, t[0]).length);
+  if(!tabs.length) return "";
+  const cur = GTP[g.id] || "BEST";
+  const chip = (k, t) => '<button type="button" class="tp-chip'+(cur === k ? ' on' : '')+'" data-k="'+k+'" onclick="tpPick(event,this)">'+t+'</button>';
+  let h = '<div class="gc-sub">Top 3 player picks in this game</div><div class="tp" data-tp="'+cur+'"><div class="tp-chips">'+chip("BEST", "Best of each")+tabs.map(t=>chip(t[0], t[1])).join("")+'</div>';
+  h += '<div class="tp-pane'+(cur === "BEST" ? ' on' : '')+'" data-k="BEST">'+tabs.map(t=>{ const r = gTop(g.id, t[0])[0]; return tpRow(r, t, 1, true, open); }).join("")+'</div>';
+  h += tabs.map(t=>'<div class="tp-pane'+(cur === t[0] ? ' on' : '')+'" data-k="'+t[0]+'">'+gTop(g.id, t[0]).slice(0, 3).map((r, i)=>tpRow(r, t, i+1, false, open)).join("")+'</div>').join("");
+  return h + '</div><button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
+}
+function tpPick(e, el){
+  e.stopPropagation();
+  const tp = el.closest(".tp"), k = el.dataset.k;
+  tp.dataset.tp = k; GTP[el.closest(".gcard").dataset.gid] = k;
+  tp.querySelectorAll(".tp-chip").forEach(c=>c.classList.toggle("on", c === el));
+  tp.querySelectorAll(".tp-pane").forEach(p=>p.classList.toggle("on", p.dataset.k === k));
 }
 // ---------- book prices on player rows ----------
 const PONE = { G:1, A:1, P:1, GA:1, TD:1, BLK:1, STL:1, "3PM":2 };           // tabs shown as a chance of at least this many
@@ -1319,6 +1388,7 @@ function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
   document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
+const PTABS = STATS.map(x=>[x, x]);
 function logCols(r){ return [["MIN",s=>s.min],["PTS",s=>s.pts,"PTS"],["REB",s=>s.reb,"REB"],["AST",s=>s.ast,"AST"],["PRA",s=>s.pts+s.reb+s.ast,"PRA"],["3PM",s=>s.fg3m,"3PM"],["STL",s=>s.stl,"STL"],["BLK",s=>s.blk,"BLK"]]; }
 const GKIND = "points", PSITE = "Slam";
 function gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }

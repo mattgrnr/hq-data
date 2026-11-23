@@ -79,11 +79,7 @@ function gCard(g){
     h += '<div class="gc-mk">'+gMarkets(g).join("")
       + (p.book && !p.book.src ? '<p class="gm-note">Book = the sportsbooks\' fair chance with their margin removed. Best price = the best odds across DraftKings, FanDuel, BetMGM, Caesars and others. A green tag means we rate that side higher than the books do.</p>' : '')
       + '</div>';
-    const rows = gRows(g.id).slice(0, 3);
-    if(rows.length){
-      h += '<div class="gc-sub">Top picks in this game</div>' + rows.map((r,i)=>rowHTML(r,i)).join("")
-        + '<button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
-    }
+    h += topPicks(g, st);
   }
   return h + '</div>';
 }
@@ -98,12 +94,62 @@ function gamesHTML(){
 
 function wireGames(){
   document.querySelectorAll(".gcard").forEach(el=> el.onclick = (e)=>{
-    if(e.target.closest(".row, .gc-all")) return;
+    if(e.target.closest(".row, .gc-all, .tp")) return;
     GOPEN[el.dataset.gid] = !GOPEN[el.dataset.gid]; render();
   });
-  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{ GV = false; F.game = b.dataset.all; render(); scrollTo(0, 0); });
+  document.querySelectorAll(".gc-all").forEach(b=> b.onclick = ()=>{
+    const tp = b.closest(".gcard").querySelector(".tp"), k = tp && tp.dataset.tp;
+    GV = false; F.game = b.dataset.all; if(k && k !== "BEST") F.stat = k; render(); scrollTo(0, 0);
+  });
   if(typeof wireStars === "function") wireStars();
   if(GJUMP){ const el = document.querySelector('.gcard[data-gid="'+GJUMP+'"]'); GJUMP = null; if(el) el.scrollIntoView({ block:"start" }); }
+}
+// ---------- top player picks: the model's top three for each prop in one game ----------
+let GTP = {};   // game -> chip picked ("BEST" = the #1 player for every prop)
+function gTop(id, st){
+  const keep = F.stat; F.stat = st;
+  let rows = [];
+  try { rows = gRows(id).filter(r=>!hurt(r)); } finally { F.stat = keep; }
+  return rows;
+}
+function tpOurs(r, st, tl){
+  const o = bookOf(r, st);
+  if(!o || o.lam == null) return { v:"—", w:"" };
+  if(PONE[st]){ const c = atLeast(st, o.lam, PONE[st]); return { v:gPct(c), w:st === "3PM" ? PONE[st]+"+ threes" : BLBL[st] }; }
+  return { v:o.lam >= 20 ? String(Math.round(o.lam)) : o.lam.toFixed(1), w:"proj "+String(tl).toLowerCase() };
+}
+function tpRow(r, t, rank, best, open){
+  const st = t[0], lbl = best ? t[1] : "", o = bookOf(r, st), us = tpOurs(r, st, t[1]);
+  let bk = "";
+  const x = o ? bookPick(o) : null;
+  if(x){
+    const line = PONE[o.stat] ? (o.stat === "3PM" ? x.k+"+ threes" : BLBL[o.stat]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[o.stat];
+    const edge = x.ours - x.book;
+    const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) }) : null;
+    bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
+      + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</span></div>';
+  }
+  const team = r.team || r.p.team || "";
+  return '<div class="tp-row'+(lbl ? ' tp-best' : '')+'"><div class="tp-rk">'+(lbl ? '' : rank)+'</div>'
+    + '<div class="tp-who">'+(lbl ? '<i class="tp-tag">'+lbl+'</i>' : '')+'<b>'+esc(shortName(r.p.name || r.p.n || ""))+'</b><span>'+esc(team)+'</span></div>'
+    + '<div class="tp-us"><b>'+us.v+'</b><span>'+esc(us.w)+'</span></div>' + bk + '</div>';
+}
+function topPicks(g, st){
+  const open = st === "pre", tabs = PTABS.filter(t=>gTop(g.id, t[0]).length);
+  if(!tabs.length) return "";
+  const cur = GTP[g.id] || "BEST";
+  const chip = (k, t) => '<button type="button" class="tp-chip'+(cur === k ? ' on' : '')+'" data-k="'+k+'" onclick="tpPick(event,this)">'+t+'</button>';
+  let h = '<div class="gc-sub">Top 3 player picks in this game</div><div class="tp" data-tp="'+cur+'"><div class="tp-chips">'+chip("BEST", "Best of each")+tabs.map(t=>chip(t[0], t[1])).join("")+'</div>';
+  h += '<div class="tp-pane'+(cur === "BEST" ? ' on' : '')+'" data-k="BEST">'+tabs.map(t=>{ const r = gTop(g.id, t[0])[0]; return tpRow(r, t, 1, true, open); }).join("")+'</div>';
+  h += tabs.map(t=>'<div class="tp-pane'+(cur === t[0] ? ' on' : '')+'" data-k="'+t[0]+'">'+gTop(g.id, t[0]).slice(0, 3).map((r, i)=>tpRow(r, t, i+1, false, open)).join("")+'</div>').join("");
+  return h + '</div><button class="navbtn gc-all" data-all="'+esc(g.id)+'">Full board for this game</button>';
+}
+function tpPick(e, el){
+  e.stopPropagation();
+  const tp = el.closest(".tp"), k = el.dataset.k;
+  tp.dataset.tp = k; GTP[el.closest(".gcard").dataset.gid] = k;
+  tp.querySelectorAll(".tp-chip").forEach(c=>c.classList.toggle("on", c === el));
+  tp.querySelectorAll(".tp-pane").forEach(p=>p.classList.toggle("on", p.dataset.k === k));
 }
 // ---------- book prices on player rows ----------
 const PONE = { G:1, A:1, P:1, GA:1, TD:1, BLK:1, STL:1, "3PM":2 };           // tabs shown as a chance of at least this many
