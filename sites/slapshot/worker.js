@@ -3,7 +3,7 @@
 // Data: board.json built daily in mattgrnr/hq-data; live goals from the NHL scoreboard.
 
 const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/board.json";
-const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/history/summary.json";
+const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/calib/nhl/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nhl/card.png";
 const LIVE_URL = "https://api-web.nhle.com/v1/score/";
 
@@ -574,6 +574,26 @@ body{padding-bottom:84px}
 .fc-last span.o{box-shadow:inset 0 0 0 1px rgba(74,222,128,.5);color:var(--ink)}
 .fc-last span.o b{color:var(--strong)}
 .fc-last small{color:var(--faint);font-size:10.5px}
+.calib h4{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:var(--faint);margin:0 0 4px}
+.cal-sub{color:var(--faint);font-size:12.5px;line-height:1.45;margin:0 0 12px}
+.cal-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.cal-chips button{padding:6px 11px;border:0;border-radius:99px;background:rgba(255,255,255,.05);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.cal-chips button.on{background:rgba(255,255,255,.12);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+.cal-verdict{font-size:13px;margin:0 0 8px;line-height:1.4}
+.cg-good{color:#4ade80}
+.cg-off{color:#F5C451}
+.cal-svg{width:100%;display:block}
+.cal-svg text{fill:var(--faint);font-size:9px;font-family:inherit}
+.cal-svg .ca{font-size:10px}
+.cal-svg .cg{stroke:rgba(255,255,255,.06)}
+.cal-svg .cd{stroke:rgba(255,255,255,.35);stroke-dasharray:4 4}
+.cal-svg .cl{stroke:#F5C451;stroke-opacity:.35;stroke-width:2}
+.cal-svg .cp{fill:#F5C451;stroke:var(--panel);stroke-width:2}
+.cal-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;font-variant-numeric:tabular-nums}
+.cal-tbl th{text-align:right;color:var(--faint);font-weight:500;font-size:10.5px;padding:4px 2px}
+.cal-tbl td{text-align:right;padding:6px 2px;border-top:1px solid rgba(255,255,255,.06)}
+.cal-tbl th:first-child,.cal-tbl td:first-child{text-align:left}
+.cal-key{font-size:11px;color:var(--faint);margin:8px 0 0;line-height:1.5}
 /* ===== end results dashboard ===== */
 </style>
 </head>
@@ -1550,6 +1570,41 @@ function rangeOptions(){
   const keep = HW;
   return opts.map(o=>{ HW = o[0]; const n = rangeDays().length; HW = keep; return [o[0], o[1]+" ("+n+")"]; });
 }
+// did our chances come true: every yes/no bet grouped by the chance we gave it, against how often it happened
+let HC = null;
+function calibHTML(){
+  const cal = HIST && HIST.calib; if(!cal) return "";
+  const names = Object.keys(cal).filter(k=>cal[k].length); if(!names.length) return "";
+  if(!names.includes(HC)) HC = names[0];
+  const rows = cal[HC], W = 320, H = 230, L = 46, B = 34, T = 10, R = 12;
+  const x = v => L + v/100*(W-L-R), y = v => H - B - v/100*(H-B-T);
+  let g = "";
+  for(const v of [0,25,50,75,100]) g += '<line x1="'+x(0)+'" x2="'+x(100)+'" y1="'+y(v)+'" y2="'+y(v)+'" class="cg"/><text x="'+(L-6)+'" y="'+(y(v)+3.5)+'" text-anchor="end">'+v+'%</text><text x="'+x(v)+'" y="'+(H-B+15)+'" text-anchor="middle">'+v+'%</text>';
+  g += '<line x1="'+x(0)+'" y1="'+y(0)+'" x2="'+x(100)+'" y2="'+y(100)+'" class="cd"/>';
+  for(const r of rows){
+    const [lo, n, us, hap] = r, rad = 3.5 + Math.min(6, Math.sqrt(n)/8);
+    g += '<line x1="'+x(us)+'" x2="'+x(us)+'" y1="'+y(us)+'" y2="'+y(hap)+'" class="cl"/>'
+      + '<circle cx="'+x(us).toFixed(1)+'" cy="'+y(hap).toFixed(1)+'" r="'+rad.toFixed(1)+'" class="cp"><title>We said '+lo+'–'+(lo+10)+'%: '+n.toLocaleString()+' players, avg '+Math.round(us)+'%, happened '+Math.round(hap)+'%</title></circle>';
+  }
+  g += '<text x="'+x(50)+'" y="'+(H-2)+'" text-anchor="middle" class="ca">Our chance</text>'
+    + '<text transform="translate(11 '+y(50)+') rotate(-90)" text-anchor="middle" class="ca">How often it happened</text>';
+  // one line on where we stand: close where it counts, or which way we lean
+  const big = rows.filter(r=>r[1] >= 50), off = big.filter(r=>Math.abs(r[3]-r[2]) > 4);
+  const hi = off.filter(r=>r[3] < r[2]), lo = off.filter(r=>r[3] > r[2]);
+  const span = list => Math.round(Math.min(...list.map(r=>Math.abs(r[3]-r[2]))))+(list.length > 1 ? "–"+Math.round(Math.max(...list.map(r=>Math.abs(r[3]-r[2])))) : "")+" points";
+  const verdict = !off.length ? 'Within <b class="cg-good">4 points</b> of our number in every range'
+    : (hi.length ? 'Runs <b class="cg-off">'+span(hi)+' high</b> from '+Math.min(...hi.map(r=>r[0]))+'%' : '')
+      + (hi.length && lo.length ? ' · ' : '')
+      + (lo.length ? 'runs <b class="cg-off">'+span(lo)+' low</b> under '+(Math.max(...lo.map(r=>r[0]))+10)+'%' : '');
+  return '<div class="dash-card calib"><h4>How our chances held up</h4>'
+    + '<p class="cal-sub">Every yes/no bet we priced this season, grouped by the chance we gave it. If we\\'re right, each dot sits on the dashed line.</p>'
+    + '<div class="cal-chips">'+names.map(k=>'<button class="'+(k===HC ? "on" : "")+'" data-cal="'+esc(k)+'">'+esc(k)+'</button>').join("")+'</div>'
+    + '<p class="cal-verdict">'+verdict+'</p>'
+    + '<svg viewBox="0 0 '+W+' '+H+'" class="cal-svg" role="img" aria-label="Our chance against how often it happened">'+g+'</svg>'
+    + '<table class="cal-tbl"><tr><th>We said</th><th>Players</th><th>Avg chance</th><th>Happened</th></tr>'
+    + rows.map(r=>'<tr><td>'+r[0]+'–'+(r[0]+10)+'%</td><td>'+r[1].toLocaleString()+'</td><td>'+Math.round(r[2])+'%</td><td class="'+(Math.abs(r[3]-r[2]) <= 4 ? "cg-good" : "cg-off")+'">'+Math.round(r[3])+'%</td></tr>').join("")+'</table>'
+    + '<p class="cal-key">Green: within 4 points of our number. Gold: further off. Ranges with fewer than 20 players are left out. Replay days count too.</p></div>';
+}
 function resultsHTML(){
   const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
   if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
@@ -1565,6 +1620,7 @@ function resultsHTML(){
   h += '<div class="dash-card"><div class="seg">'+[["trend","Trend"],["tiers","By tier"],["donut","Over / under"]].map(v=>'<button class="'+(HV===v[0]?"on":"")+'" data-view="'+v[0]+'">'+v[1]+'</button>').join("")+'</div>'
     + (HV==="trend" ? trendSVG(days) : HV==="tiers" ? tiersHTML(days) : donutSVG(days)) + '</div>';
   h += drillHTML();
+  h += calibHTML();
   h += favsHTML();
   h += playersHTML();
   h += nightsHTML(days);
@@ -1607,6 +1663,7 @@ function wireResults(){
   const gp = document.getElementById("d-group"); if(gp) gp.onchange = e=>{ HG = e.target.value; render(); };
   document.querySelectorAll("[data-rstat]").forEach(el=> el.onclick = ()=>{ RS = el.dataset.rstat; render(); });
   document.querySelectorAll("[data-view]").forEach(el=> el.onclick = ()=>{ HV = el.dataset.view; render(); });
+  document.querySelectorAll("[data-cal]").forEach(el=> el.onclick = ()=>{ HC = el.dataset.cal; render(); });
   document.querySelectorAll("[data-day]").forEach(el=> el.onclick = ()=> openDay(el.dataset.day));
   document.querySelectorAll(".tr-row[data-group]").forEach(el=> el.onclick = ()=>{ HG = el.dataset.group; HV = "trend"; render(); });
   document.querySelectorAll("th[data-sort]").forEach(el=> el.onclick = ()=>{ HSORT = el.dataset.sort; render(); });

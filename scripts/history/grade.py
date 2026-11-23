@@ -228,6 +228,33 @@ def grade(sport):
     summarize(sport)
 
 
+# yes/no bets: (label, stat, at least k). Our chance is the Poisson chance of k or more from the saved projection.
+CALIB = {
+    "nhl": [("1+ point", "P", 1), ("2+ points", "P", 2), ("Goal", "G", 1), ("Assist", "A", 1)],
+    "nfl": [("Anytime TD", "TD", 1)],
+    "soccer": [("Goal", "G", 1), ("Assist", "A", 1), ("Goal or assist", "GA", 1)],
+}
+
+
+def calibration(sport, days):
+    """Every priced player grouped by the chance we gave him, against how often it happened: [[lo, n, our avg, happened]]."""
+    out = {}
+    for label, stat, k in CALIB.get(sport, []):
+        b = {}
+        for d in days:
+            for r in d["rows"]:
+                lam, act = r["pj"].get(stat), r["act"].get(stat)
+                if lam is None or act is None:
+                    continue
+                c = 1 - math.exp(-lam) * sum(lam ** i / math.factorial(i) for i in range(k))
+                x = b.setdefault(min(int(c * 10), 9), [0, 0.0, 0])
+                x[0] += 1
+                x[1] += c
+                x[2] += act >= k
+        out[label] = [[i * 10, n, round(100 * c / n, 1), round(100 * h / n, 1)] for i, (n, c, h) in sorted(b.items()) if n >= 20]
+    return out
+
+
 def label_of(key):
     return "Week " + str(int(key.split("-w")[1])) if "-w" in key else key
 
@@ -323,6 +350,9 @@ def summarize(sport):
             }
         out["daily"].append(entry)
     out["daily"].reverse()
+    cal = calibration(sport, days)
+    if cal:
+        out["calib"] = cal
     (hdir / "summary.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
 
     # every graded player, for the starred-players panel: season over count and his last five per stat
