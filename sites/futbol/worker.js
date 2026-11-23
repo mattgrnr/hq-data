@@ -3,7 +3,7 @@
 // Data: soccer/board.json built hourly in mattgrnr/hq-data.
 
 const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/soccer/board.json";
-const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/calib/soccer/history/summary.json";
+const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/soccer/history/summary.json";
 
 const SITE_ORIGINS = [
   "https://futbol-hq.com",

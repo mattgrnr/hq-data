@@ -4,7 +4,7 @@
 // Falls back to the embedded 2025 profiles and the nflverse schedule feed.
 
 const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/board.json";
-const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/calib/nfl/history/summary.json";
+const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nfl/card.png";
 const LIVE_URL = "https://api.sleeper.app/v1/stats/nfl/regular/";
 
