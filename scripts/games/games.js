@@ -359,4 +359,64 @@ document.addEventListener("click", e=>{
   plSave(PL); plSync(); plBar();
 }, true);
 setTimeout(plBar, 0);
+// ---------- game logs: Last 5 | vs opponent at the bottom of every player's detail ----------
+// each site supplies logCols(r): [[label, value of a game, tab it belongs to]], first column is minutes or volume
+let LOGTAB = "l5";
+function logBoard(){ return typeof BOARD !== "undefined" && BOARD && BOARD.logcols ? BOARD : (typeof PRO !== "undefined" && PRO ? PRO : null); }
+function logRows(list, opp){
+  const cols = (logBoard() || {}).logcols || [];
+  return (list || []).map(x=>{ const s = {}, o = opp ? 2 : 1; cols.forEach((c, i)=>{ s[c] = +x[o + i] || 0; }); return { d:x[0], opp:opp ? x[1] : "", s }; });
+}
+function logDay(d, yr){
+  let m = /^(\d{4})-W(\d+)$/.exec(d);
+  if(m) return (m[1] !== yr ? "'"+m[1].slice(2)+" " : "")+"Wk "+(+m[2]);
+  m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d); if(!m) return d;
+  const t = new Date(+m[1], +m[2]-1, +m[3]).toLocaleDateString([], { month:"short", day:"numeric" });
+  return m[1] !== yr ? t+" '"+m[1].slice(2) : t;
+}
+function logNum(v){ return Math.round(v*10)/10; }
+function logLine(r){
+  let x = null; try { x = bookPick(bookOf(r)); } catch(e){}
+  if(x) return { k:x.k, txt:x.two ? "o"+(x.k-0.5) : x.k+"+" };
+  const one = PONE[F.stat]; return one ? { k:one, txt:one+"+" } : null;
+}
+function logCards(games, cols, main, line, yr){
+  const sub = cols[0] === main ? cols[1] : cols[0];
+  return '<div class="lg-cards">'+games.map(g=>{
+    const v = main[1](g.s), hit = line ? (v >= line.k ? " hit" : " miss") : "";
+    return '<div class="lg-c'+hit+'"><div class="lg-d">'+logDay(g.d, yr)+'</div>'+(g.opp ? '<div class="lg-o">'+esc(g.opp)+'</div>' : '')
+      + '<div class="lg-v">'+logNum(v)+'</div><div class="lg-k">'+main[0]+'</div><div class="lg-s">'+logNum(sub[1](g.s))+' '+sub[0]+'</div></div>';
+  }).join("")+'</div>';
+}
+function logSum(games, main, line, what){
+  if(!games.length) return "";
+  const vals = games.map(g=>main[1](g.s)), avg = vals.reduce((a,b)=>a+b, 0)/vals.length;
+  const hits = line ? vals.filter(v=>v >= line.k).length : null;
+  return '<div class="lg-sum">Avg <b>'+avg.toFixed(1)+'</b> '+main[0]+(line ? ' · cleared <b>'+line.txt+'</b> in <b>'+hits+' of '+vals.length+'</b>' : '')+(what ? ' '+what : '')+'</div>';
+}
+function logsHTML(r){
+  const p = r.p, cols = logCols(r), st = F.stat;
+  if(!cols || !(p.gl || p.vs)) return "";
+  const main = cols.find(c=>c[2]===st) || cols[1] || cols[0], line = logLine(r);
+  const l5 = logRows(p.gl, true), v = p.vs || {}, vg = logRows(v.g, false);
+  const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
+  const opp = v.opp || "";
+  const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\''+k+'\')">'+t+'</button>';
+  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5))+tab("vs", "vs "+esc(opp)+(v.gp ? ' <i>'+v.gp+'</i>' : ''))+'</div>';
+  h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
+  h += '<div class="lg-pane lg-vs">';
+  if(!vg.length) h += '<div class="lg-none">No games against '+esc(opp)+' in the last 3 seasons</div>';
+  else {
+    const avg = c => logNum(vg.reduce((a,g)=>a + c[1](g.s), 0)/vg.length);
+    h += '<div class="lg-grid">'+cols.map(c=>'<div class="lg-gc'+(c===main ? ' on' : '')+'"><div class="lg-gk">'+c[0]+'</div><div class="lg-gv">'+avg(c)+'</div></div>').join("")+'</div>'
+      + '<div class="lg-note">Per game, last '+vg.length+' meeting'+(vg.length===1 ? '' : 's')+(v.gp > vg.length ? ' of '+v.gp : '')+' · last 3 seasons and this one</div>'
+      + logSum(vg.slice(0, 5), main, line, vg.length > 5 ? "in the last 5" : "")
+      + logCards(vg.slice(0, 5), cols, main, line, yr);
+  }
+  return h + '</div></div>';
+}
+function logSwitch(e, el, k){
+  e.stopPropagation(); LOGTAB = k;
+  document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
+}
 /* ===== end games view ===== */

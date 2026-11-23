@@ -22,6 +22,8 @@ REPLAY = os.environ.get("REPLAY") and os.environ.get("TODAY")  # rebuild a past 
 ET = ZoneInfo("America/New_York")
 
 K_ROOKIE = 6    # small samples lean on the league average for the position group; the pull fades fast
+HIST_SEASONS = 3  # head to head looks back this many seasons before this one
+LOGCOLS = ["toi", "g", "a", "sog"]
 K_TEAM = 8      # teams lean on the league average early on
 K_GOALIE = 25   # in expected goals faced
 SHOTS = ("SHOT", "MISSED_SHOT", "GOAL")
@@ -130,7 +132,7 @@ def season_totals(season):
         s["toi"] += t
         info.setdefault(pid, {"name": r["player_name"], "pos": r["position"]})
         info[pid]["team"], info[pid]["pos"] = tm, r["position"]
-        games_of[pid].append((r["game_date"], gid, tm))
+        games_of[pid].append((str(r["game_date"])[:10], gid, tm, round(t), int(num(r["goals"])), int(num(r["assists"])), int(num(r["shots_on_goal"]))))
         team_goals[(gid, tm)] += int(num(r["goals"]))
         team_shots[(gid, tm)] += int(num(r["shots_on_goal"]))
         sl = by_slot[(gid, tm)][slot(r["position"])]
@@ -182,6 +184,51 @@ def season_totals(season):
             info[pid]["name"] = nm
     return {"sk": sk, "info": info, "games_of": games_of, "team": team, "goalie": goalie, "starters": starters,
             "game_teams": game_teams}
+
+
+def h2h_rows(season):
+    """Every skater game of one season, playoffs included: (date, gid, team, toi, g, a, sog)."""
+    out = []
+    for r in parquet(f"nhl_player_boxscores/player_box_{season}.parquet"):
+        if str(r["game_id"])[4:6] not in ("02", "03") or not r["position"]:
+            continue
+        t = toi_min(r["toi"])
+        if t > 0:
+            out.append((int(r["player_id"]), str(r["game_date"])[:10], int(r["game_id"]), r["team_abbrev"], round(t),
+                        int(num(r["goals"])), int(num(r["assists"])), int(num(r["shots_on_goal"]))))
+    return out
+
+
+def attach_logs(players, cur, season, slate):
+    """Last five games and every game against tonight's opponent, newest first: [date, opp, toi, g, a, sog]."""
+    opp_of = {}
+    for g in slate:
+        opp_of[g["home_team_abbr"]] = g["away_team_abbr"]
+        opp_of[g["away_team_abbr"]] = g["home_team_abbr"]
+    sides = cur["game_teams"]
+    other = lambda gid, tm: next((o for o in sides.get(gid, ()) if o != tm), "")
+    for p in players:
+        gl = sorted(cur["games_of"].get(p["id"], []), reverse=True)[:5]
+        p["gl"] = [[d, other(gid, tm), *x] for d, gid, tm, *x in gl]
+    want = {p["id"]: opp_of.get(p["team"]) for p in players}
+    rows = [(pid, d, gid, tm, *x) for pid, gl in cur["games_of"].items() if pid in want for d, gid, tm, *x in gl]
+    hs = defaultdict(set, {gid: set(t) for gid, t in sides.items()})
+    for yr in range(season - HIST_SEASONS, season):
+        try:
+            for r in h2h_rows(yr):
+                hs[r[2]].add(r[3])
+                if r[0] in want:
+                    rows.append(r)
+        except Exception as e:
+            print(f"h2h {yr}: {type(e).__name__}")
+    vs = defaultdict(list)
+    for pid, d, gid, tm, *x in rows:
+        opp = want[pid]
+        if opp and tm != opp and opp in hs[gid]:
+            vs[pid].append([d, *x])
+    for p in players:
+        g = sorted(vs.get(p["id"], []), reverse=True)
+        p["vs"] = {"opp": want[p["id"]], "gp": len(g), "g": g[:10]}
 
 
 def prior_profile(season):
@@ -252,12 +299,12 @@ def main():
     # who dressed in each team's latest game
     last_game = {}
     for pid, gl in cur["games_of"].items():
-        for date, gid, tm in gl:
+        for date, gid, tm, *_ in gl:
             if tm not in last_game or (date, gid) > last_game[tm]:
                 last_game[tm] = (date, gid)
     dressed = defaultdict(set)
     for pid, gl in cur["games_of"].items():
-        for date, gid, tm in gl:
+        for date, gid, tm, *_ in gl:
             if last_game.get(tm) == (date, gid) and info[pid]["team"] == tm:
                 dressed[tm].add(pid)
 
@@ -279,6 +326,8 @@ def main():
             p["w"] = round(gc / (gc + k), 2)
             p["s"] = {"g": c["g"], "a": c["a"], "sog": c["sog"], "ppg": c["ppg"], "toi": round(c["toi"], 1)}
             players.append(p)
+
+    attach_logs(players, cur, season, slate)
 
     teams = {}
     for tm in sorted(set(team) | set(prior["team"])):
@@ -353,6 +402,7 @@ def main():
         "players": sorted(players, key=lambda p: (p["team"], p["pos"], p["name"])),
         "teams": teams,
         "goalies": goalies,
+        "logcols": LOGCOLS,
         "games": games,
     }
 

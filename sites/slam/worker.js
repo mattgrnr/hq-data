@@ -2,7 +2,7 @@
 // Daily NBA board: points, rebounds, assists and PRA.
 // Data: board.json built daily in mattgrnr/hq-data; injuries and game status from ESPN.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/board.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/metrics/preview-data/nba.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/card.png";
 const LIVE_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=";
@@ -420,6 +420,33 @@ body{padding-bottom:84px}
 #plbar .pl-gone{opacity:.6}
 #plbar .pl-gone b{text-decoration:line-through}
 #plbar .pl-link{background:none;border:0;padding:0;font:inherit;color:#4ade80;text-decoration:underline;cursor:pointer}
+/* game logs */
+#app .lg{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
+#app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
+#app .lg-tab{flex:1;padding:8px 0;border-radius:10px;border:0;background:rgba(255,255,255,.045);color:var(--faint);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+#app .lg-tab.on{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+#app .lg-tab i{font-style:normal;font-weight:500;opacity:.6;margin-left:3px}
+#app .lg-pane{display:none}
+#app .lg[data-tab="l5"] .lg-l5,#app .lg[data-tab="vs"] .lg-vs{display:block}
+#app .lg-sum{font-size:12px;color:var(--faint);margin-bottom:8px}
+#app .lg-sum b{color:var(--ink);font-weight:600}
+#app .lg-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+#app .lg-c{background:rgba(255,255,255,.035);border-radius:10px;padding:7px 3px 8px;text-align:center;font-variant-numeric:tabular-nums;border-top:3px solid transparent;min-width:0}
+#app .lg-c.hit{border-top-color:#4ade80;background:rgba(74,222,128,.07)}
+#app .lg-c.miss{border-top-color:rgba(255,255,255,.12)}
+#app .lg-d{font-size:10.5px;color:var(--faint);white-space:nowrap}
+#app .lg-o{font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+#app .lg-v{font-size:19px;font-weight:700;margin-top:4px;line-height:1.1}
+#app .lg-c.hit .lg-v{color:#4ade80}
+#app .lg-k{font-size:9.5px;letter-spacing:.06em;color:var(--faint)}
+#app .lg-s{font-size:10.5px;color:var(--faint);margin-top:4px;white-space:nowrap}
+#app .lg-none{font-size:12.5px;color:var(--faint);padding:14px 0;text-align:center}
+#app .lg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:6px;margin-bottom:6px}
+#app .lg-gc{background:rgba(255,255,255,.035);border-radius:9px;padding:7px 2px;text-align:center}
+#app .lg-gk{font-size:9.5px;letter-spacing:.06em;color:var(--faint)}
+#app .lg-gv{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+#app .lg-gc.on .lg-gv{color:var(--red)}
+#app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
@@ -847,8 +874,8 @@ function detailHTML(r){
    + '<div class="frow"><span>Built from</span><b>'+blend+'</b></div>'
    + '<div class="frow"><span>Minutes / game (model)</span><b>'+p.mpg.toFixed(1)+'</b></div>'
    + '<div class="frow"><span>Game pace</span><b>'+(lg.pace*r.paceIdx).toFixed(1)+' <span style="color:var(--faint)">(lg '+lg.pace.toFixed(1)+')</span></b></div>'
-   + histRows(p, k)
    + '</div>'
+   + logsHTML(r)
    + '</div>';
 }
 
@@ -1222,6 +1249,67 @@ document.addEventListener("click", e=>{
   plSave(PL); plSync(); plBar();
 }, true);
 setTimeout(plBar, 0);
+// ---------- game logs: Last 5 | vs opponent at the bottom of every player's detail ----------
+// each site supplies logCols(r): [[label, value of a game, tab it belongs to]], first column is minutes or volume
+let LOGTAB = "l5";
+function logBoard(){ return typeof BOARD !== "undefined" && BOARD && BOARD.logcols ? BOARD : (typeof PRO !== "undefined" && PRO ? PRO : null); }
+function logRows(list, opp){
+  const cols = (logBoard() || {}).logcols || [];
+  return (list || []).map(x=>{ const s = {}, o = opp ? 2 : 1; cols.forEach((c, i)=>{ s[c] = +x[o + i] || 0; }); return { d:x[0], opp:opp ? x[1] : "", s }; });
+}
+function logDay(d, yr){
+  let m = /^(\\d{4})-W(\\d+)$/.exec(d);
+  if(m) return (m[1] !== yr ? "'"+m[1].slice(2)+" " : "")+"Wk "+(+m[2]);
+  m = /^(\\d{4})-(\\d\\d)-(\\d\\d)$/.exec(d); if(!m) return d;
+  const t = new Date(+m[1], +m[2]-1, +m[3]).toLocaleDateString([], { month:"short", day:"numeric" });
+  return m[1] !== yr ? t+" '"+m[1].slice(2) : t;
+}
+function logNum(v){ return Math.round(v*10)/10; }
+function logLine(r){
+  let x = null; try { x = bookPick(bookOf(r)); } catch(e){}
+  if(x) return { k:x.k, txt:x.two ? "o"+(x.k-0.5) : x.k+"+" };
+  const one = PONE[F.stat]; return one ? { k:one, txt:one+"+" } : null;
+}
+function logCards(games, cols, main, line, yr){
+  const sub = cols[0] === main ? cols[1] : cols[0];
+  return '<div class="lg-cards">'+games.map(g=>{
+    const v = main[1](g.s), hit = line ? (v >= line.k ? " hit" : " miss") : "";
+    return '<div class="lg-c'+hit+'"><div class="lg-d">'+logDay(g.d, yr)+'</div>'+(g.opp ? '<div class="lg-o">'+esc(g.opp)+'</div>' : '')
+      + '<div class="lg-v">'+logNum(v)+'</div><div class="lg-k">'+main[0]+'</div><div class="lg-s">'+logNum(sub[1](g.s))+' '+sub[0]+'</div></div>';
+  }).join("")+'</div>';
+}
+function logSum(games, main, line, what){
+  if(!games.length) return "";
+  const vals = games.map(g=>main[1](g.s)), avg = vals.reduce((a,b)=>a+b, 0)/vals.length;
+  const hits = line ? vals.filter(v=>v >= line.k).length : null;
+  return '<div class="lg-sum">Avg <b>'+avg.toFixed(1)+'</b> '+main[0]+(line ? ' · cleared <b>'+line.txt+'</b> in <b>'+hits+' of '+vals.length+'</b>' : '')+(what ? ' '+what : '')+'</div>';
+}
+function logsHTML(r){
+  const p = r.p, cols = logCols(r), st = F.stat;
+  if(!cols || !(p.gl || p.vs)) return "";
+  const main = cols.find(c=>c[2]===st) || cols[1] || cols[0], line = logLine(r);
+  const l5 = logRows(p.gl, true), v = p.vs || {}, vg = logRows(v.g, false);
+  const yr = l5.length ? String(l5[0].d).slice(0, 4) : String(new Date().getFullYear());
+  const opp = v.opp || "";
+  const tab = (k, t) => '<button type="button" class="lg-tab'+(LOGTAB===k ? ' on' : '')+'" onclick="logSwitch(event,this,\\''+k+'\\')">'+t+'</button>';
+  let h = '<div class="lg" data-tab="'+LOGTAB+'"><div class="lg-tabs">'+tab("l5", "Last "+(l5.length || 5))+tab("vs", "vs "+esc(opp)+(v.gp ? ' <i>'+v.gp+'</i>' : ''))+'</div>';
+  h += '<div class="lg-pane lg-l5">'+(l5.length ? logSum(l5, main, line, "") + logCards(l5, cols, main, line, yr) : '<div class="lg-none">No games logged yet this season</div>')+'</div>';
+  h += '<div class="lg-pane lg-vs">';
+  if(!vg.length) h += '<div class="lg-none">No games against '+esc(opp)+' in the last 3 seasons</div>';
+  else {
+    const avg = c => logNum(vg.reduce((a,g)=>a + c[1](g.s), 0)/vg.length);
+    h += '<div class="lg-grid">'+cols.map(c=>'<div class="lg-gc'+(c===main ? ' on' : '')+'"><div class="lg-gk">'+c[0]+'</div><div class="lg-gv">'+avg(c)+'</div></div>').join("")+'</div>'
+      + '<div class="lg-note">Per game, last '+vg.length+' meeting'+(vg.length===1 ? '' : 's')+(v.gp > vg.length ? ' of '+v.gp : '')+' · last 3 seasons and this one</div>'
+      + logSum(vg.slice(0, 5), main, line, vg.length > 5 ? "in the last 5" : "")
+      + logCards(vg.slice(0, 5), cols, main, line, yr);
+  }
+  return h + '</div></div>';
+}
+function logSwitch(e, el, k){
+  e.stopPropagation(); LOGTAB = k;
+  document.querySelectorAll(".lg").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
+}
+function logCols(r){ return [["MIN",s=>s.min],["PTS",s=>s.pts,"PTS"],["REB",s=>s.reb,"REB"],["AST",s=>s.ast,"AST"],["PRA",s=>s.pts+s.reb+s.ast,"PRA"],["3PM",s=>s.fg3m,"3PM"],["STL",s=>s.stl,"STL"],["BLK",s=>s.blk,"BLK"]]; }
 const GKIND = "points", PSITE = "Slam";
 function gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }
 function gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final }; }

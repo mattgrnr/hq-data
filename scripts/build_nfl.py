@@ -24,6 +24,9 @@ POS = ("QB", "RB", "WR", "TE")
 K_PLAYER = 4   # TD rates lean on the league rate per opportunity until he has ~4 games
 K_DEF = 4      # defenses lean on the league average early on
 STAT = ("pyd", "ptd", "att", "car", "ryd", "rtd", "tgt", "rec", "cyd", "ctd")
+HIST_SEASONS = 3  # head to head looks back this many seasons before this one
+LOGCOLS = ["pyd", "ptd", "car", "ryd", "rtd", "tgt", "rec", "cyd", "ctd"]
+LOGSRC = ["passing_yards", "passing_tds", "carries", "rushing_yards", "rushing_tds", "targets", "receptions", "receiving_yards", "receiving_tds"]
 EMIT = ("pyd", "ptd", "car", "ryd", "rtd", "tgt", "rec", "cyd", "ctd", "rz", "i5")
 ROUND_LABELS = {19: "Wild Card", 20: "Divisional", 21: "Conference", 22: "Super Bowl"}
 
@@ -386,6 +389,32 @@ def main():
                 out[k] = p[k]
         players.append(out)
 
+    # last five games and every game against this week's opponent, newest first: [season-week, opp, *LOGCOLS]
+    opp_of = {}
+    for g in week_games:
+        opp_of[g["home_team"]] = g["away_team"]
+        opp_of[g["away_team"]] = g["home_team"]
+    want = {p["id"]: opp_of.get(p["team"]) for p in players}
+    def log(r):
+        return [f'{r["season"]}-W{int(r["week"]):02d}', r["opponent_team"], *[int(num(r[k])) for k in LOGSRC]]
+    hist = [r for r in cur_weekly if r["player_id"] in want and int(r["week"]) < week]
+    for yr in range(season - HIST_SEASONS, season):
+        try:
+            hist += [r for r in rows(rel(f"stats_player/stats_player_week_{yr}.csv")) if r["player_id"] in want]
+        except Exception as e:
+            print(f"h2h {yr}: {type(e).__name__}")
+    gl, vs = defaultdict(list), defaultdict(list)
+    for r in hist:
+        x = log(r)
+        if r["season"] == str(season):
+            gl[r["player_id"]].append(x)
+        if want[r["player_id"]] and r["opponent_team"] == want[r["player_id"]]:
+            vs[r["player_id"]].append([x[0], *x[2:]])
+    for p in players:
+        p["gl"] = sorted(gl.get(p["id"], []), reverse=True)[:5]
+        g = sorted(vs.get(p["id"], []), reverse=True)
+        p["vs"] = {"opp": want[p["id"]], "gp": len(g), "g": g[:10]}
+
     # defense vs position this season, leaning on the league average early, expressed per 17 games
     lg_def = {pos: [0.0] * 7 for pos in POS}
     lg_games = sum(len(v) for v in dg_cur.values())
@@ -452,6 +481,7 @@ def main():
         "players": players,
         "dvp": dvp,
         "games": slate,
+        "logcols": LOGCOLS,
     }
 
     if dest.exists():
