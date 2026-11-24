@@ -153,6 +153,15 @@ h2{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:28px
 .d-btns{display:flex;flex-wrap:wrap;gap:8px}
 .d-btns span{font-weight:600;font-size:12.5px;padding:7px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.14)}
 .d-btns span.go{background:var(--paper);color:var(--void);border-color:var(--paper)}
+.d-books{display:grid;gap:5px}
+.d-books span{display:flex;justify-content:space-between;align-items:baseline;padding:8px 10px;border-radius:8px;border:1px solid var(--rule)}
+.d-books span.on{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.55)}
+.d-books span.part{color:var(--mute)}
+.d-books b{font-weight:700}
+.d-books i{font-style:normal;font-size:12px}
+.d-chips{display:flex;flex-wrap:wrap;gap:6px}
+.d-chips span{padding:6px 11px;border-radius:99px;border:1px solid rgba(255,255,255,.14);color:var(--mute);font-size:12.5px}
+.d-chips span.on{background:var(--open);border-color:var(--open);color:#06240f;font-weight:600}
 .tiers{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--mute)}
 .tiers b{color:var(--paper);font-weight:700;letter-spacing:.06em}
 footer{color:var(--dim);font-size:12px;line-height:1.6;margin-top:30px;padding-top:16px;border-top:1px solid var(--rule)}
@@ -234,9 +243,19 @@ footer a:hover{color:var(--paper)}
     <p>Any player prop or game line can go in. Your slip <b>follows you across every HQ site</b>, so you can mix an NBA prop with a soccer scorer.</p>
   </div>
   <div class="item">
-    <h3>Send it to a book or a friend</h3>
-    <p>Tap a sportsbook to price the whole parlay there; set <b>My books</b> to the ones you use. Where the book supports it, <b>Open bet slip</b> loads every leg for you. <b>Share betslip</b> makes a short link anyone can open, until two days after its last game.</p>
-    <div class="demo d-btns"><span class="go">Open DraftKings bet slip</span><span>Share betslip</span><span>Track this bet</span></div>
+    <h3>Compare every book</h3>
+    <p>The slip prices your whole parlay at <b>every sportsbook</b>, best price first, and flags any book that’s missing a leg. Tap a book to see its price on each leg.</p>
+    <div class="demo d-books"><span class="on">DraftKings<b>+612</b></span><span>FanDuel<b>+580</b></span><span class="part">BetMGM<i>3 of 4 legs</i></span></div>
+  </div>
+  <div class="item">
+    <h3>My books</h3>
+    <p>Tap the sportsbooks you use. From then on, <b>every price on every board</b> and in your slip comes from those books only, on every HQ site.</p>
+    <div class="demo"><span class="d-chips"><span class="on">FanDuel</span><span class="on">DraftKings</span><span>Fanatics</span><span>Hard Rock</span><span>BetMGM</span><span>BetRivers</span></span></div>
+  </div>
+  <div class="item">
+    <h3>Place it or share it</h3>
+    <p>Where the book supports it, <b>Open bet slip</b> loads every leg there for you. <b>Share betslip</b> makes a short link anyone can open, until two days after its last game.</p>
+    <div class="demo d-btns"><span class="go">Open bet slip</span><span>Share betslip</span><span>Track this bet</span></div>
   </div>
 </section>
 
