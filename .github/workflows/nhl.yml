@@ -53,6 +53,10 @@ jobs:
           TODAY=$(TZ=America/Chicago date -d tomorrow +%F) BOARD_OUT=nhl/board-tomorrow.json python scripts/build_nhl.py
           python scripts/build_games.py nhl nhl/board-tomorrow.json
 
+      - name: Best bets for Total HQ
+        continue-on-error: true
+        run: node scripts/best.cjs slapshot nhl/board.json nhl/best.json
+
       - name: Save picks for games that haven't started
         run: node scripts/history/score.cjs slapshot nhl/board.json nhl/history/picks
 

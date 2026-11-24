@@ -64,6 +64,8 @@ export default {
     if (path === "/slate") return slate();
     if (path === "/betlink") return betLink(url, request, env);
     if (path === "/p") return saveSlip(request, env, url);
+    if (path === "/best") return best();
+    if (path === "/track") return track(request);
     const sm = /^\/p\/([A-Za-z0-9]{7})$/.exec(path);
     if (sm) return showSlip(sm[1], env, url);
 
@@ -151,6 +153,7 @@ async function saveSlip(request, env, url) {
     i: str(l.i, 240), s: str(l.s, 20), g: str(l.g, 80), t: num(l.t), l: str(l.l, 120), p: num(l.p), b: str(l.b, 4),
     a: map(l.a, num), u: map(l.u, v => typeof v === "string" && /^(https:\/\/|hardrock:\/\/)/.test(v) ? v.slice(0, 300) : undefined),
     x: map(l.x, v => typeof v === "string" || typeof v === "number" ? String(v).slice(0, 80) : undefined), o: num(l.o), k: num(l.k),
+    q: l.q && typeof l.q === "object" ? { sp: str(l.q.sp, 4), gid: str(l.q.gid, 40), pid: str(l.q.pid, 20), st: str(l.q.st, 4), k: num(l.q.k), wk: str(l.q.wk, 10), h: str(l.q.h, 40), a: str(l.q.a, 40), lbl: str(l.q.lbl, 80) } : undefined,
   })).filter(l => l.i && l.l);
   if (!legs.length) return out({ error: "no legs" }, 400);
   const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789", r = crypto.getRandomValues(new Uint8Array(7));
@@ -176,6 +179,86 @@ async function showSlip(id, env, url) {
   const title = n + "-leg parlay" + (best ? " · " + amer(best.d) + " at " + (names[best.bk] || best.bk) : "");
   const desc = slip.legs.map(l => l.l).join(" · ").slice(0, 190);
   return html(page(url.origin, { id, ...slip }, { id, title, desc }));
+}
+
+// ---------- tonight's best bets across every sport (each board's build saves its own) ----------
+const BEST_RAW = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/hub/preview-data/";
+const BEST_OF = { nhl: ["nhl", "Slapshot"], nba: ["nba", "Slam"], nfl: ["nfl", "Touchdown"], soc: ["soccer", "Futbol"] };
+async function best() {
+  const now = Date.now(), all = [];
+  await Promise.all(Object.values(BEST_OF).map(async ([dir]) => {
+    try {
+      const res = await fetch(BEST_RAW + dir + "/best.json?v=" + Math.floor(now / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
+      if (!res.ok) return;
+      for (const b of (await res.json()).bets || []) if (b.leg && (!b.leg.t || b.leg.t > now)) all.push(b);
+    } catch (e) {}
+  }));
+  all.sort((a, b) => b.ev - a.ev);
+  return new Response(JSON.stringify({ bets: all.slice(0, 20) }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=120" } });
+}
+
+// ---------- following a parlay's legs live ----------
+// each leg carries q: { sp, gid, pid, st, k } for a player stat, or { sp, gid, h, a, lbl } for a game result
+const NBA_STAT = { points: "PTS", rebounds: "REB", assists: "AST", steals: "STL", blocks: "BLK", PTS: "PTS", REB: "REB", AST: "AST", STL: "STL", BLK: "BLK" };
+const COMBO = { PRA: ["PTS", "REB", "AST"], PR: ["PTS", "REB"], PA: ["PTS", "AST"], RA: ["REB", "AST"] };
+async function gameNow(sp, gid, wk) {
+  const get = async u => (await fetch(u, { cf: { cacheTtl: 15, cacheEverything: true } })).json();
+  if (sp === "nhl") {
+    const b = await get("https://api-web.nhle.com/v1/gamecenter/" + gid + "/boxscore"), players = {};
+    const side = b.playerByGameStats || {};
+    for (const t of [side.awayTeam, side.homeTeam]) for (const x of [...((t || {}).forwards || []), ...((t || {}).defense || [])])
+      players[x.playerId] = { G: x.goals || 0, A: x.assists || 0, P: x.points != null ? x.points : (x.goals || 0) + (x.assists || 0), S: x.sog || 0 };
+    const st = ["LIVE", "CRIT"].includes(b.gameState) ? "live" : ["FINAL", "OFF"].includes(b.gameState) ? "final" : "pre";
+    return { st, sc: [(b.homeTeam || {}).score, (b.awayTeam || {}).score], players };
+  }
+  if (sp === "nba") {
+    const b = await get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=" + gid), players = {};
+    for (const team of (b.boxscore && b.boxscore.players) || []) for (const grp of team.statistics || []) {
+      const names = grp.keys && grp.keys.length ? grp.keys : (grp.labels || []);
+      for (const a of grp.athletes || []) {
+        if (!a.athlete || !a.stats || !a.stats.length) continue;
+        const o = players[a.athlete.id] = players[a.athlete.id] || {};
+        names.forEach((k, i) => { const v = a.stats[i]; if (NBA_STAT[k]) o[NBA_STAT[k]] = +v || 0; else if (/^threePointFieldGoalsMade/.test(k) || k === "3PT") o["3PM"] = parseInt(v, 10) || 0; });
+      }
+    }
+    const c = ((b.header || {}).competitions || [])[0] || {}, state = ((c.status || {}).type || {}).state;
+    const score = w => +(((c.competitors || []).find(x => x.homeAway === w) || {}).score || 0);
+    return { st: state === "in" ? "live" : state === "post" ? "final" : "pre", sc: [score("home"), score("away")], players };
+  }
+  if (sp === "nfl") {
+    const d = await get("https://api.sleeper.app/v1/stats/nfl/regular/" + wk), players = {};
+    for (const [id, x] of Object.entries(d || {})) players[id] = { TD: Math.round((+x.rush_td || 0) + (+x.rec_td || 0)), CYD: Math.round(+x.rec_yd || 0),
+      RYD: Math.round(+x.rush_yd || 0), REC: Math.round(+x.rec || 0), PYD: Math.round(+x.pass_yd || 0), PTD: Math.round(+x.pass_td || 0) };
+    return { st: null, players };
+  }
+  if (sp === "soc") {
+    const bd = await get(RAW + "soccer/board.json?v=" + Math.floor(Date.now() / 300000)), players = {};
+    const g = (bd.games || []).find(x => String(x.id) === String(gid)), gi = (bd.games || []).indexOf(g);
+    for (const p of bd.players || []) if (p.g === gi) players[p.id] = p.lv || (g && g.fin ? { G: 0, A: 0, GA: 0, T: 0, S: 0 } : null);
+    return { st: g && g.fin ? "final" : null, players };
+  }
+  return null;
+}
+async function track(request) {
+  const ref = request.headers.get("Referer") || request.headers.get("Origin") || "";
+  if (!HQ_REF.test(ref.endsWith("/") ? ref : ref + "/") && !/^https:\/\/total-hq\.com\//.test(ref)) return new Response("Forbidden", { status: 403 });
+  let qs = [];
+  try { qs = (await request.json()).qs || []; } catch (e) {}
+  qs = qs.slice(0, 30);
+  const games = {};
+  for (const q of qs) if (q && q.sp && (q.gid || q.wk)) { const k = q.sp + "|" + (q.sp === "nfl" ? q.wk : q.gid); games[k] = games[k] || gameNow(q.sp, q.gid, q.wk).catch(() => null); }
+  const out = await Promise.all(qs.map(async q => {
+    if (!q || !q.sp) return null;
+    const g = await games[q.sp + "|" + (q.sp === "nfl" ? q.wk : q.gid)];
+    if (!g) return null;
+    if (q.st) {
+      const x = g.players[q.pid];
+      const v = !x ? null : COMBO[q.st] ? COMBO[q.st].reduce((a, k) => a + (x[k] || 0), 0) : x[q.st];
+      return { st: g.st, v: v == null ? null : v };
+    }
+    return { st: g.st, sc: g.sc || null };
+  }));
+  return new Response(JSON.stringify({ r: out }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 
 // today's projected games per sport, small enough to load with the page
@@ -325,6 +408,31 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .lv{font-style:normal;display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#dc2626;vertical-align:2px}
 .gm.live{opacity:.6}
 .pl-leg.gone{opacity:.6}
+.pl-leg.gone.live,.pl-leg.gone.hit,.pl-leg.gone.miss{opacity:1}
+.pl-leg .tk{font-weight:600;color:var(--paper)}
+.pl-leg.hit .tk{color:var(--open)}
+.pl-leg.miss .tk{color:#f87171}
+.lv.hit{background:var(--open);color:#0c1a10}
+.lv.miss{background:#7f1d1d}
+.pl.won{box-shadow:inset 0 0 0 1px var(--open)}
+.pl.lost{box-shadow:inset 0 0 0 1px rgba(248,113,113,.5);background:linear-gradient(180deg,rgba(248,113,113,.06),rgba(248,113,113,.01))}
+.pl.lost .px{color:#f87171}
+/* tonight's best bets */
+#best{margin-bottom:18px}
+.bst{border-radius:14px;padding:16px 16px 10px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
+.bst-h .t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:24px;letter-spacing:.02em}
+.bst-s{font-size:12px;color:var(--mute);margin:2px 0 6px}
+.bst-r{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule)}
+.bst-r:last-of-type{border-bottom:0}
+.bst-add{width:30px;height:30px;border-radius:8px;border:1px solid var(--rule);background:transparent;color:var(--paper);font:inherit;font-size:17px;cursor:pointer}
+.bst-add.on{background:var(--open);border-color:var(--open);color:#0c1a10;font-weight:700}
+.bst-w{min-width:0}
+.bst-w b{display:block;font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bst-w span{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
+.bst-p{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;font-size:14px}
+.bst-p em{display:block;font-style:normal;font-size:10.5px;color:var(--dim);font-weight:500}
+.bst-p i{display:inline-block;margin-top:3px;padding:1px 6px;border-radius:5px;background:var(--open);color:#0c1a10;font-style:normal;font-size:11px;font-weight:700}
+.bst-more{display:block;width:100%;margin-top:8px;padding:9px;border:0;border-radius:9px;background:rgba(255,255,255,.04);color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
 .pl-link{background:none;border:0;padding:0;font:inherit;color:var(--open);text-decoration:underline;cursor:pointer}
 .pl-chip{display:inline-block;margin:0 6px 6px 0;padding:6px 11px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
 .pl-chip.on{color:#0c1a10;background:var(--open);border-color:var(--open);font-weight:600}
@@ -404,6 +512,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   </header>
 
   <div id="shared"></div>
+  <div id="best"></div>
   <div id="parlay"></div>
 
   <div class="boardhead"><span class="hl">League</span><span class="hb">Board</span><span class="hs">Status</span></div>
@@ -555,16 +664,20 @@ function renderParlay(mode){
   var nm = function(bk){ return BKNAME[bk] || bk; };
   var sports = [];
   L.forEach(function(l){ if(sports.indexOf(l.s) < 0) sports.push(l.s); });
-  var h = '<div class="pl"><div class="pl-top"><div><div class="t">'+(share ? 'Shared parlay' : 'Your parlay')+'</div><div class="pl-sub">' + L.length + ' leg' + (L.length > 1 ? "s" : "")
-    + (full ? ' · ours ' + pct(ours) + ' · book ' + pct(book) : '') + (pick ? ' · at ' + esc(nm(pick.bk)) : '') + '</div></div>'
-    + '<div class="px">' + (full && !L.some(function(l){ return l.t && Date.now() >= l.t; }) ? amer(pick.d) : '—') + '</div></div>';
+  var anyOn = L.some(function(l){ return l.t && Date.now() >= l.t; }), tl = anyOn ? trackTally(L) : null;
+  var tsum = tl ? [tl.hit ? tl.hit + ' hit' : '', tl.miss ? tl.miss + ' missed' : '', tl.live ? tl.live + ' live' : '', tl.todo ? tl.todo + ' to start' : ''].filter(Boolean).join(' · ') : '';
+  var h = '<div class="pl' + (tl && tl.miss ? ' lost' : tl && tl.hit === L.length ? ' won' : '') + '"><div class="pl-top"><div><div class="t">'+(share ? 'Shared parlay' : 'Your parlay')+'</div><div class="pl-sub">' + L.length + ' leg' + (L.length > 1 ? "s" : "")
+    + (tl ? ' · ' + tsum : (full ? ' · ours ' + pct(ours) + ' · book ' + pct(book) : '') + (pick ? ' · at ' + esc(nm(pick.bk)) : '')) + '</div></div>'
+    + '<div class="px">' + (tl ? (tl.miss ? 'Lost' : tl.hit === L.length ? 'Won' : tl.hit + '/' + L.length) : full ? amer(pick.d) : '—') + '</div></div>';
   sports.forEach(function(sp){
     h += '<div class="pl-sport">' + esc(sp) + ' HQ</div>';
     L.forEach(function(l, i){
       if(l.s !== sp) return;
       var gone = l.t && Date.now() >= l.t;
       if(gone){
-        h += '<div class="pl-leg gone"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + '</span></div><div class="p"><i class="lv">Started</i></div><button data-i="' + i + '" aria-label="Remove">✕</button></div>';
+        var now = legNow(l);
+        h += '<div class="pl-leg gone' + (now ? ' ' + now.cls : '') + '"><div>' + esc(l.l) + '<span>' + esc(l.g || "") + (now ? ' · <b class="tk">' + esc(now.txt) + '</b>' : '') + '</span></div>'
+          + '<div class="p">' + (now && now.cls !== "live" ? '<i class="lv ' + now.cls + '">' + (now.cls === "hit" ? 'Hit' : 'Miss') + '</i>' : '<i class="lv">Live</i>') + '</div><button data-i="' + i + '" aria-label="Remove">✕</button></div>';
         return;
       }
       var p = pick ? legPrices(l)[pick.bk] : l.p, url = pick && l.u && l.u[pick.bk];
@@ -630,6 +743,80 @@ function renderParlay(mode){
     try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy as text"; }, 1500); }); } catch(e) {}
   };
 }
+// ---------- tonight's best bets across every sport ----------
+var BEST = [], BESTALL = false;
+function inSlip(i){ return PL.some(function(l){ return l.i === i; }); }
+function renderBest(){
+  var el = document.getElementById("best");
+  var list = BEST.filter(function(b){ return !b.leg.t || b.leg.t > Date.now(); });
+  if(!list.length){ el.innerHTML = ""; return; }
+  var show = BESTALL ? list : list.slice(0, 5);
+  el.innerHTML = '<div class="bst"><div class="bst-h"><div class="t">Tonight’s best bets</div><div class="bst-s">Biggest edges across every sport · ours vs the books</div></div>'
+    + show.map(function(b, n){
+      var l = b.leg, on = inSlip(l.i);
+      return '<div class="bst-r"><button class="bst-add' + (on ? ' on' : '') + '" data-n="' + n + '" aria-label="' + (on ? 'Remove from parlay' : 'Add to parlay') + '">' + (on ? '✓' : '+') + '</button>'
+        + '<div class="bst-w"><b>' + esc(l.l) + '</b><span>' + esc(l.s) + ' · ' + esc(l.g || "") + ' · ours ' + pct(l.o) + ' vs ' + pct(l.k) + '</span></div>'
+        + '<div class="bst-p">' + price(l.p) + '<em>' + esc(l.b) + '</em><i>+' + Math.round(100 * b.edge) + '%</i></div></div>';
+    }).join("")
+    + (list.length > 5 ? '<button class="bst-more">' + (BESTALL ? 'Show fewer' : 'See all ' + list.length) + '</button>' : '') + '</div>';
+  el.querySelectorAll(".bst-add").forEach(function(btn){ btn.onclick = function(){
+    var l = show[+btn.dataset.n].leg;
+    if(inSlip(l.i)) PL = PL.filter(function(x){ return x.i !== l.i; }); else PL.push(l);
+    plSave(PL); renderParlay(); renderBest(); trackStart();
+  }; });
+  var mo = el.querySelector(".bst-more"); if(mo) mo.onclick = function(){ BESTALL = !BESTALL; renderBest(); };
+}
+fetch("/best").then(function(r){ return r.json(); }).then(function(d){ BEST = d.bets || []; renderBest(); }).catch(function(){});
+
+// ---------- following started legs live ----------
+var TRACK = {}, TRACK_T = null;
+var STLBL = { PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast", "3PM":"threes", STL:"stl", BLK:"blk",
+  G:"goals", A:"assists", P:"points", S:"shots", GA:"goals+assists", T:"shots on target", TD:"TD", CYD:"rec yds", RYD:"rush yds", REC:"rec", PYD:"pass yds", PTD:"pass TD" };
+function started(l){ return l.t && Date.now() >= l.t; }
+// what a started leg has done so far: { cls: "hit" | "miss" | "live", txt }
+function legNow(l){
+  var q = l.q, r = TRACK[l.i];
+  if(!q || !r) return null;
+  var fin = r.st === "final" || (!r.st && l.t && Date.now() > l.t + (q.sp === "nfl" ? 4.5 : 3) * 3600e3 && q.sp === "nfl");
+  if(q.st){
+    if(r.v == null) return fin ? { cls:"miss", txt:"Didn’t play" } : null;
+    var lbl = STLBL[q.st] || q.st, hit = r.v >= q.k;
+    if(hit) return { cls:"hit", txt:"✓ " + r.v + " " + lbl };
+    return fin ? { cls:"miss", txt:"✗ " + r.v + " " + lbl } : { cls:"live", txt:r.v + " " + lbl + " · " + (q.k - r.v) + " to go" };
+  }
+  if(!r.sc || r.sc[0] == null) return null;
+  var h = +r.sc[0], a = +r.sc[1], lb = q.lbl || "", ok = null, m;
+  var mine = function(t){ return t === q.h ? h - a : a - h; };
+  if((m = /^(.+) to win$/.exec(lb))) ok = mine(m[1]) > 0;
+  else if(lb === "Draw") ok = h === a;
+  else if((m = /^(Over|Under) ([0-9.]+)/.exec(lb))) ok = m[1] === "Over" ? h + a > +m[2] : h + a < +m[2];
+  else if((m = /^(.+) ([+-][0-9.]+)$/.exec(lb))) ok = mine(m[1]) + (+m[2]) > 0;
+  else if((m = /^Both teams to score: (Yes|No)$/.exec(lb))) ok = (h > 0 && a > 0) === (m[1] === "Yes");
+  if(ok === null) return null;
+  var score = q.a + " " + a + "–" + h + " " + q.h;
+  if(fin) return { cls: ok ? "hit" : "miss", txt: (ok ? "✓ " : "✗ ") + score };
+  return { cls:"live", txt: score + " · " + (ok ? "on track" : "behind") };
+}
+function trackTally(L){
+  var t = { hit:0, miss:0, live:0, todo:0 };
+  L.forEach(function(l){ if(!started(l)){ t.todo++; return; } var n = legNow(l); if(!n) t.live++; else t[n.cls]++; });
+  return t;
+}
+function trackNow(){
+  var legs = PL.concat(SHARED && SHARED.legs ? SHARED.legs : []).filter(function(l){ return started(l) && l.q; });
+  if(!legs.length){ if(TRACK_T){ clearInterval(TRACK_T); TRACK_T = null; } return; }
+  fetch("/track", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ qs: legs.map(function(l){ return l.q; }) }) })
+    .then(function(r){ return r.json(); }).then(function(d){
+      (d.r || []).forEach(function(x, i){ if(x) TRACK[legs[i].i] = x; });
+      renderParlay(); if(SHARED && SHARED.legs) renderParlay("share");
+    }).catch(function(){});
+}
+function trackStart(){
+  if(TRACK_T) return;
+  if(!PL.concat(SHARED && SHARED.legs ? SHARED.legs : []).some(function(l){ return started(l) && l.q; })) return;
+  trackNow(); TRACK_T = setInterval(function(){ if(!document.hidden) trackNow(); }, 30000);
+}
+document.addEventListener("visibilitychange", function(){ if(!document.hidden && TRACK_T) trackNow(); });
 function ago(t){ var m = Math.round((Date.now() - t) / 60000); return m < 2 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " hr ago" : Math.round(m / 1440) + " days ago"; }
 var SBK = SHARED && SHARED.bk || null;
 // ---------- share a betslip: a short total-hq.com link that opens the slip, priced at every book, ready to place ----------
@@ -665,6 +852,7 @@ if(SHARED && SHARED.gone){
 }
 renderParlay();
 plLinks();
+trackStart();
 
 var SLATE = null;
 function fillGames(){

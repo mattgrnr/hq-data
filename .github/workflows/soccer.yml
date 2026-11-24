@@ -44,6 +44,10 @@ jobs:
           PROPLINE_KEY: ${{ secrets.PROPLINE_KEY }}
         run: python scripts/build_soccer.py && (python scripts/odds.py soccer || true) && python scripts/build_games.py soccer
 
+      - name: Best bets for Total HQ
+        continue-on-error: true
+        run: node scripts/best.cjs futbol soccer/board.json soccer/best.json
+
       - name: Save picks for games that haven't started
         run: node scripts/history/score.cjs futbol soccer/board.json soccer/history/picks
 

@@ -1183,7 +1183,7 @@ function gTable(title, sides, g){
     + sides.map(x=>{
       const q = x[3], all = q && q[2], top = all ? myBest(all) : (q ? [q[1], q[0]] : null);
       const leg = pre && top && x[4] && x[1] != null && x[2] != null
-        ? legOf(x[4], { ours:x[1], book:x[2], price:top[1], bk:top[0], all:all || { [q[1]]: q[0] }, links:g.proj.links || {}, ids:q[3] || {},
+        ? legOf(x[4], { ours:x[1], book:x[2], price:top[1], bk:top[0], all:all || { [q[1]]: q[0] }, links:g.proj.links || {}, ids:q[3] || {}, q:gameQ(g, x[4]),
                         game:{ n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t:g.t } }) : null;
       return '<div class="gm-r"><span class="gm-l">'+(leg ? plBtn(leg) : '')+'<i>'+x[0]+'</i></span><span><b>'+gPct(x[1])+'</b></span><span>'+gPct(x[2])+'</span><span>'+(top ? gPrice(top[1])+' <em>'+top[0]+'</em>' : '—')+'</span></div>';
     }).join("")
@@ -1286,7 +1286,7 @@ function tpRow(r, t, rank, best, open){
   if(x){
     const line = lineName(o.stat, x);
     const edge = x.ours - x.book;
-    const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) }) : null;
+    const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r), q:legQ(r, o.stat, x.k) }) : null;
     bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
       + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</span></div>';
   } else bk = '<div class="tp-bk tp-none">No book line yet</div>';
@@ -1394,7 +1394,7 @@ function bookHTML(r){
     const x = bookPick(o, kk); if(!x) return "";
     const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
     const edge = x.ours - x.book;
-    const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r) });
+    const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r), q:legQ(r, o.stat, x.k) });
     return '<div class="bk">'+plBtn(leg)+'Book '+lbl+gPct(x.book)+' · ours '+gPct(x.ours)+' · '+gPrice(x.price)+' <em>'+x.bk+'</em>'
       + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</div>';
   }).join("");
@@ -1419,7 +1419,8 @@ function bestBets(g){
       const o = bookOf(r, st), x = bookPick(o, kk); if(!x || x.n < 2) continue;      // priced by at least two books
       // a volume line far from our projection usually means the books know about a role change we don't
       if(!kk && !PONE[st] && st !== "S" && Math.abs(o.lam - x.k) > 0.5 * Math.max(x.k, 4)) continue;
-      out.push(betOf(shortName(o.name), lineName(st, x, kk), x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids));
+      const b = betOf(shortName(o.name), lineName(st, x, kk), x.ours, x.book, x.price, x.bk, "prop", gInfo(r), x.all, x.links, x.ids);
+      b.q = legQ(r, st, x.k); out.push(b);
     }
   }
   for(const v of (g.proj.value||[])){
@@ -1427,8 +1428,9 @@ function bestBets(g){
     const what = v.mk === "Moneyline" || v.mk === "Result" ? [v.side, v.side === "Draw" ? "" : "to win"]
       : v.mk === "Total" ? [v.side, GKIND === "soccer" ? "goals" : GKIND === "hockey" ? "goals" : "points"]
       : v.mk === "Both score" ? ["Both teams to score:", v.side] : [v.side, ""];
-    out.push(betOf(what[0], what[1], v.ours, v.book, top[1], top[0], "game",
-      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links, v.ids));
+    const b = betOf(what[0], what[1], v.ours, v.book, top[1], top[0], "game",
+      { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links, v.ids);
+    b.q = gameQ(g, (what[0]+" "+what[1]).trim()); out.push(b);
   }
   return out.filter(b=>b.adj >= 0.2 && b.ours > b.book && b.ev > 0)
     .sort((a,c)=>c.ev - a.ev)
@@ -1476,9 +1478,14 @@ function plLinks(){
 let PLMO = null;
 try { new MutationObserver(()=>{ clearTimeout(PLMO); PLMO = setTimeout(plLinks, 50); }).observe(document.documentElement, { childList:true, subtree:true }); } catch(e) {}
 let PLOPEN = false;
+// q: what the leg needs to happen, so Total HQ can follow it live: a player stat reaching k, or a game result
+function legQ(r, st, k){ try { return Object.assign(legWho(r), { st, k }); } catch(e){ return null; } }
+function gameQ(g, label){ return { sp:LEGSPORT, gid:String(g.gid || g.id), h:g.home, a:g.away, lbl:label }; }
 function legOf(label, b){
-  return { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
+  const leg = { i: PSITE+"|"+(b.game&&b.game.n)+"|"+label, s:PSITE, g:b.game&&b.game.n, t:b.game&&b.game.t, l:label,
            p:b.price, b:b.bk, a:b.all || { [b.bk]: b.price }, u:b.links || {}, x:b.ids || {}, o:Math.round(1000*b.ours)/1000, k:Math.round(1000*b.book)/1000 };
+  if(b.q) leg.q = b.q;
+  return leg;
 }
 // a leg already in the parlay picks up the board's latest prices, links and bet ids whenever its row is drawn
 let PLFIX = null;
@@ -1700,12 +1707,13 @@ function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
   document.querySelectorAll(".glog").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
+const LEGSPORT = "nfl"; function legWho(r){ return { sp:"nfl", gid:r.gm.away+"@"+r.gm.home, pid:String(r.p.sl), wk:SEASON+"/"+WEEKNO }; }
 let LIVEP = {}; function liveVal(r, st){ const x = LIVEP[r.p.sl]; return x ? x[st] : null; }
 const PTABS = TABS;
 function logCols(r){ return r.p.pos === "QB" ? [["PYD",s=>s.pyd,"PYD"],["PTD",s=>s.ptd,"PTD"],["RUSH YDS",s=>s.ryd,"RYD"],["TD",s=>s.rtd+s.ctd,"TD"]]
   : [["TGT",s=>s.tgt],["REC",s=>s.rec,"REC"],["REC YDS",s=>s.cyd,"CYD"],["CAR",s=>s.car],["RUSH YDS",s=>s.ryd,"RYD"],["TD",s=>s.rtd+s.ctd,"TD"]]; }
 const GKIND = "points", PSITE = "Touchdown";
-function gList(){ return GAMES.map(g=>({ id:g.id, home:g.home, away:g.away, when:g.detail, t:g.ko ? g.ko*1000 : null, fin:g.final, proj:g.proj })); }
+function gList(){ return GAMES.map(g=>({ id:g.id, gid:g.gid, home:g.home, away:g.away, when:g.detail, t:g.ko ? g.ko*1000 : null, fin:g.final, proj:g.proj })); }
 function gInfo(r){ return { n:r.gm.short, t:r.gm.ko ? r.gm.ko*1000 : null, f:r.gm.final }; }
 function bookOf(r, st){ st = st || F.stat; const x = r.tab && r.tab[st]; return { name:r.p.name, stat:st, lam:st==="TD" ? r.projTD : x && x.proj }; }
 const BSTATS = ["TD","CYD","RYD","REC","PYD","PTD"]; function hurt(r){ return !!r.p.st; }
