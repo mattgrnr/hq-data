@@ -406,7 +406,7 @@ def main():
         "games": games,
     }
 
-    out = ROOT / "replay" / f"{today.isoformat()}.json" if REPLAY else OUT
+    out = ROOT / "replay" / f"{today.isoformat()}.json" if REPLAY else Path(os.environ["BOARD_OUT"]) if os.environ.get("BOARD_OUT") else OUT   # BOARD_OUT: tomorrow's board
     if out.exists():
         old = json.loads(out.read_text())
         old.pop("built", None)
