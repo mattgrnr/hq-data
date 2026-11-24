@@ -505,7 +505,7 @@ async function slate() {
       const now = Date.now(), today = ctDay(now);
       const start = g => key === "soc" ? Date.parse(g.t) : g.ko ? g.ko * 1000 : Date.parse(String(g.start).replace("Z", ":00Z"));
       const keep = g => key === "nfl" ? start(g) < now + 7 * 24 * 3600e3 : ctDay(start(g)) === today;
-      out[key] = (bd.games || []).filter(g => g.proj && !g.final && start(g) > now - 3 * 3600e3 && keep(g)).map(g => key === "soc"
+      out[key] = (bd.games || []).filter(g => g.proj && !g.final && !g.fin && start(g) > now - 3 * 3600e3 && keep(g)).map(g => key === "soc"
         ? { h: g.h, a: g.a, k: String(g.id), lg: g.league, t: g.t, win: g.proj.win, hs: g.proj.hs, as: g.proj.as }
         : { h: g.home, a: g.away, k: g.home, t: g.start || (g.ko ? new Date(g.ko * 1000).toISOString() : null), win: g.proj.win, hs: g.proj.hs, as: g.proj.as });
     } catch (e) {}
