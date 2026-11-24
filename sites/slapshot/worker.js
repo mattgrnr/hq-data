@@ -629,7 +629,7 @@ body{padding-bottom:84px}
 <div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="https://total-hq.com/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
   try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
-  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime in the HQ drop down.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
+  e.hidden = false; e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime in the HQ drop down.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
   <div id="app">
     <div class="status"><div class="spinner"></div><h2>Loading SLAPSHOT HQ</h2><p>Fetching tonight\\'s slate…</p></div>
   </div>

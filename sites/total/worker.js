@@ -750,7 +750,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 <div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
   try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
-  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime at the bottom of the page.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
+  e.hidden = false; e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime at the bottom of the page.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
 
   <div id="shared"></div>
   <div id="bets"></div>
