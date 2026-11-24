@@ -738,7 +738,6 @@ function sportsMenuHTML(){
           ? '<a class="cur"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>'
           : '<a href="'+s.url+'"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>';
       }).join("")
-    + '<span class="soon">More sports coming soon</span>'
     + '</div></div>';
 }
 
@@ -1453,7 +1452,8 @@ function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4
 let PLU = 0, PLBK = null, PLMY = [], PLBETS = [];      // PLMY: the books this person uses (empty = every book); PLBETS: parlays they placed
 // a placed bet keeps only what following it needs; settled bets go after three days
 function betSlim(l){ return { i:l.i, s:l.s, g:l.g, t:l.t, l:l.l, p:l.p, b:l.b, q:l.q, r:l.r }; }
-function betsFresh(v){ return (v || []).filter(b=>!b.end || b.end > Date.now() - 3*86400e3).slice(0, 30); }
+function betLast(b){ return (b.legs || []).reduce((m, l)=>Math.max(m, l.t || 0), 0); }
+function betsFresh(v){ const now = Date.now(); return (v || []).filter(b=> b.end ? b.end > now - 2*86400e3 : !betLast(b) || betLast(b) > now - 2*86400e3).slice(0, 30); }
 let PL = (function(){
   let st = plRead();
   const m = /[#&]pl=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -1470,7 +1470,9 @@ let PL = (function(){
 })();
 function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY, bets:PLBETS })); } catch(e){} plLinks(); }
 // tapping the place button saves the slip as a placed bet (followed on Total HQ) and clears the builder for the next one
+let PLWENT = false;
 function plPlaced(bk, px){
+  PLWENT = false;
   PLBETS.unshift({ id: Date.now().toString(36), at: Date.now(), bk, px, legs: PL.map(betSlim) });
   PL = []; plSave(PL);
   setTimeout(()=>{ plBar(); plSync(); }, 400);
@@ -1580,7 +1582,7 @@ function plBar(){
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
-      + (pick ? '<p class="pl-note">'+(slip ? 'Adding it to the bet slip saves it to My bets on Total HQ, where it\\'s followed live. ' : '')+'Placed it another way? <button class="pl-link" id="pl-placed">I placed this</button></p>' : '')
+      + (pick ? '<p class="pl-note">'+(PLWENT ? '<b>Placed it?</b> ' : '')+'<button class="pl-link" id="pl-placed">Track this bet</button> to follow it live in My bets on Total HQ.</p>' : '')
       + '<p class="pl-note">Share betslip sends a link that opens this parlay, priced at every book and ready to place. <button class="pl-link" id="pl-copy">Copy as text</button></p>'
       + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
         + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
@@ -1604,7 +1606,7 @@ function plBar(){
     }).catch(()=>{});
   }
   const go = document.getElementById("pl-go"), placed = ()=> plPlaced(pick.bk, full ? gPrice(pick.price) : null);
-  if(go && slip) go.addEventListener("click", placed);
+  if(go) go.addEventListener("click", ()=>{ PLWENT = true; setTimeout(plBar, 600); });      // back from the book: offer to track it
   const ip = document.getElementById("pl-placed"); if(ip) ip.onclick = placed;
   const dr = document.getElementById("pl-drop");
   if(dr) dr.onclick = ()=>{ PL = PL.filter(l=>!(l.t && Date.now() >= l.t)); plSave(PL); plBar(); plSync(); };
@@ -2110,6 +2112,7 @@ function render(banner){
     return;
   }
   if(banner) h += '<div class="banner">'+esc(banner)+'</div>';
+  if(GAMES.length && GAMES.every(g=>g.final)) h += '<div class="banner">No games left this week. Next week’s board goes up Wednesday, once the lines are out.</div>';
   h += '<div class="linescore">'
     + '<div class="ls-cell"><div class="k">Games</div><div class="v">'+GAMES.length+'</div></div>'
     + '<div class="ls-cell"><div class="k">Players</div><div class="v">'+all.length+'</div></div>'
@@ -2272,7 +2275,7 @@ async function boot(force){
     if(!GAMES.length){
       ROWS = [];
       if(F.view === "results"){ render(); return; }
-      app.innerHTML = '<div class="status"><div class="big">\\ud83c\\udfc8</div><h2>No games on the slate</h2><p>Check back when the next week posts.</p><p style="margin-top:14px"><button class="navbtn" id="btn-results">See how the board did</button> <button class="navbtn" id="btn-refresh">\\u21bb Refresh</button></p></div>';
+      app.innerHTML = '<div class="status"><div class="big">\\ud83c\\udfc8</div><h2>No games left this week</h2><p>Next week’s board goes up Wednesday, once the lines are out.</p><p style="margin-top:14px"><button class="navbtn" id="btn-results">See how the board did</button> <button class="navbtn" id="btn-refresh">\\u21bb Refresh</button></p></div>';
       document.getElementById("btn-refresh").onclick = ()=>boot(true);
       document.getElementById("btn-results").onclick = ()=> openResults();
       return;

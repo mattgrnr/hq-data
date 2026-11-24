@@ -540,7 +540,6 @@ function sportsMenuHTML(){
           ? '<a class="cur"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>'
           : '<a href="'+s.url+'"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>';
       }).join("")
-    + '<span class="soon">More sports coming soon</span>'
     + '</div></div>';
 }
 function wireSports(){

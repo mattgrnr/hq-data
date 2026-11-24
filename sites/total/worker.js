@@ -420,6 +420,11 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 /* my bets */
 #bets{margin-bottom:18px}
 .mb{border-radius:14px;padding:16px 16px 8px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
+.mb-h{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;list-style:none;padding-bottom:6px}
+.mb-h::-webkit-details-marker{display:none}
+.mb-ch{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+.mb-foot{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:10px 0 8px;border-top:1px solid var(--rule);font-size:12.5px}
+.mb-foot span{color:var(--dim);font-size:11.5px}
 .mb-h .t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:24px;letter-spacing:.02em}
 .mb-s{font-size:12px;color:var(--mute);margin:2px 0 8px}
 .mb-b{border-top:1px solid var(--rule)}
@@ -540,7 +545,6 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   <div id="board"></div>
   <div id="best"></div>
 
-  <div class="soon"><div class="t">More sports coming soon</div></div>
 
   <footer>Each board reads the same way: one score, five tiers, every input shown.</footer>
 
@@ -617,7 +621,8 @@ function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).
 function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
 var PLU = 0, PLBK = null, PLMY = [], PLBETS = [];
 function betSlim(l){ return { i:l.i, s:l.s, g:l.g, t:l.t, l:l.l, p:l.p, b:l.b, q:l.q, r:l.r }; }
-function betsFresh(v){ return (v || []).filter(function(b){ return !b.end || b.end > Date.now() - 3*86400e3; }).slice(0, 30); }
+function betLast(b){ return (b.legs || []).reduce(function(m, l){ return Math.max(m, l.t || 0); }, 0); }
+function betsFresh(v){ var now = Date.now(); return (v || []).filter(function(b){ return b.end ? b.end > now - 2*86400e3 : !betLast(b) || betLast(b) > now - 2*86400e3; }).slice(0, 30); }
 var PL = (function(){
   var st = plRead();
   var m = /[#&](?:pl|parlay)=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -633,7 +638,10 @@ var PL = (function(){
   return plFresh(st.legs || []);
 })();
 function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY, bets:PLBETS })); } catch(e){} plLinks(); }
+var PLWENT = false;
 function plPlaced(legs, bk, px, fromShare){
+  PLWENT = false;
+  MBOPEN = true;
   PLBETS.unshift({ id: Date.now().toString(36), at: Date.now(), bk: bk, px: px, legs: legs.map(betSlim) });
   if(!fromShare) PL = [];
   plSave(PL);
@@ -741,7 +749,7 @@ function renderParlay(mode){
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button class="pl-cp pl-share">Share betslip</button></div>'
-    + (pick ? '<p class="pl-note">' + (slip ? 'Adding it to the bet slip saves it to My bets, where it\u2019s followed live. ' : '') + 'Placed it another way? <button class="pl-link pl-placed">I placed this</button></p>' : '')
+    + (pick ? '<p class="pl-note">' + (PLWENT ? '<b>Placed it?</b> ' : '') + '<button class="pl-link pl-placed">Track this bet</button> to follow it live in My bets.</p>' : '')
     + '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '. ' : 'Opens ' + esc(pick ? nm(pick.bk) : 'the book') + '; add each leg there, or use "open game" on a leg. ')
       + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip.') + '</p>'
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
@@ -769,7 +777,7 @@ function renderParlay(mode){
   }
   var cl = el.querySelector(".pl-clear"); if(cl) cl.onclick = function(){ PL = []; plSave(PL); renderParlay(); };
   var placed = function(){ plPlaced(L, pick.bk, full ? amer(pick.d) : null, share); };
-  var go = el.querySelector("#pl-go"); if(go && slip) go.addEventListener("click", placed);
+  var go = el.querySelector("#pl-go"); if(go) go.addEventListener("click", function(){ PLWENT = true; setTimeout(function(){ renderParlay(); if(SHARED && SHARED.legs) renderParlay("share"); }, 600); });
   var ip = el.querySelector(".pl-placed"); if(ip) ip.onclick = placed;
   var mine = el.querySelector(".pl-mine");
   if(mine) mine.onclick = function(){
@@ -862,7 +870,7 @@ function trackStart(){
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden && TRACK_T) trackNow(); });
 // ---------- my bets: every parlay you placed, followed live, settled ones kept three days ----------
-var BETOPEN = {};
+var BETOPEN = {}, MBOPEN = false;
 function betLegs(){ var v = []; PLBETS.forEach(function(b){ if(!b.end) b.legs.forEach(function(l){ if(!l.r) v.push(l); }); }); return v; }
 function betTally(b){
   var t = { hit:0, miss:0, live:0, todo:0 }, keep = false;
@@ -890,12 +898,23 @@ function renderBets(){
         return '<div class="mb-l ' + (n ? n.cls : '') + '"><div>' + esc(l.l) + '<span>' + esc(l.s || '') + ' · ' + esc(l.g || '') + '</span></div><div class="mb-r">'
           + (n ? esc(n.txt) : started(l) ? (l.q ? 'Live' : 'Started') : (l.t ? new Date(l.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }) : '')) + '</div></div>';
       }).join("")
-      + '<div class="mb-acts"><button class="pl-link mb-x" data-id="' + esc(b.id) + '">Remove this bet</button></div></details>';
+      + '<div class="mb-acts"><button class="pl-link mb-x" data-id="' + esc(b.id) + '">' + (b.end ? 'Clear' : 'Cashed out or done? Stop tracking') + '</button></div></details>';
   });
   if(keep) plSave(PL);
-  el.innerHTML = '<div class="mb"><div class="mb-h"><div class="t">My bets</div><div class="mb-s">' + (open ? open + ' open' : 'None open') + (PLBETS.length > open ? ' · ' + (PLBETS.length - open) + ' settled' : '') + ' · followed live, kept on this device</div></div>' + rows.join("") + '</div>';
+  var live = 0, hits = 0, legsN = 0, settled = PLBETS.length - open;
+  PLBETS.forEach(function(b){ if(b.end) return; var t = betTally(b).t; live += t.live; hits += t.hit; legsN += b.legs.length; });
+  var sum = (open ? open + ' open' : 'None open') + (live ? ' · ' + live + ' leg' + (live > 1 ? 's' : '') + ' live' : '') + (settled ? ' · ' + settled + ' settled' : '');
+  el.innerHTML = '<details class="mb"' + (MBOPEN ? ' open' : '') + '><summary class="mb-h"><div><div class="t">My bets</div><div class="mb-s">' + sum + '</div></div><span class="mb-ch">' + (MBOPEN ? 'Hide' : 'Show') + '</span></summary>'
+    + rows.join("")
+    + '<div class="mb-foot">' + (settled ? '<button class="pl-link mb-clr" data-what="settled">Clear settled</button>' : '') + '<button class="pl-link mb-clr" data-what="all">Clear all</button>'
+    + '<span>Settled bets clear on their own after two days.</span></div></details>';
+  var top = el.querySelector("details.mb");
+  top.addEventListener("toggle", function(){ MBOPEN = top.open; el.querySelector(".mb-ch").textContent = MBOPEN ? 'Hide' : 'Show'; });
   el.querySelectorAll("details.mb-b").forEach(function(d){ d.addEventListener("toggle", function(){ BETOPEN[d.dataset.id] = d.open; }); });
   el.querySelectorAll(".mb-x").forEach(function(btn){ btn.onclick = function(){ PLBETS = PLBETS.filter(function(b){ return b.id !== btn.dataset.id; }); plSave(PL); renderBets(); }; });
+  el.querySelectorAll(".mb-clr").forEach(function(btn){ btn.onclick = function(){
+    PLBETS = btn.dataset.what === "all" ? [] : PLBETS.filter(function(b){ return !b.end; }); plSave(PL); renderBets();
+  }; });
 }
 function ago(t){ var m = Math.round((Date.now() - t) / 60000); return m < 2 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " hr ago" : Math.round(m / 1440) + " days ago"; }
 var SBK = SHARED && SHARED.bk || null;
