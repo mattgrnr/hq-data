@@ -151,6 +151,10 @@ h2{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:28px
 .d-days span{font-weight:600;padding:6px 14px;border-radius:99px;color:var(--mute)}
 .d-days span.on{background:rgba(255,255,255,.12);color:var(--paper)}
 .d-btns{display:flex;flex-wrap:wrap;gap:8px}
+.d-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.d-grid span{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:600;font-size:12.5px;padding:9px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.14)}
+.d-grid span.wide{grid-column:1 / -1}
+.d-grid span.go{background:var(--open);color:#06240f;border-color:var(--open)}
 .d-btns span{font-weight:600;font-size:12.5px;padding:7px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.14)}
 .d-btns span.go{background:var(--paper);color:var(--void);border-color:var(--paper)}
 .d-books{display:grid;gap:5px}
@@ -254,8 +258,8 @@ footer a:hover{color:var(--paper)}
   </div>
   <div class="item">
     <h3>Place it or share it</h3>
-    <p>Where the book supports it, <b>Open bet slip</b> loads every leg there for you. <b>Share betslip</b> makes a short link anyone can open, until two days after its last game.</p>
-    <div class="demo d-btns"><span class="go">Open bet slip</span><span>Share betslip</span><span>Track this bet</span></div>
+    <p>Where the book supports it, the green button loads every leg into that book’s bet slip. <b>Share betslip</b> opens your phone’s share menu with a short link that opens the same parlay, priced at every book; it works until two days after the last game.</p>
+    <div class="demo d-grid"><span class="go">Add to FanDuel bet slip</span><span>Share betslip</span><span class="wide">Track this bet</span></div>
   </div>
 </section>
 
@@ -263,7 +267,7 @@ footer a:hover{color:var(--paper)}
   <h2>Tracking your bets</h2>
   <div class="item">
     <h3>Track this bet</h3>
-    <p>Once you’ve placed it, tap <b>Track this bet</b>. It moves to <b>My bets</b> on Total HQ, where every leg updates live as the games play.</p>
+    <p>Once you’ve placed it, tap <b>Track this bet</b> in your slip. It moves to <b>My bets</b> on Total HQ, where every leg updates live as the games play. <b>Clear betslip</b> starts a fresh one.</p>
   </div>
   <div class="item">
     <h3>Keeping it tidy</h3>
@@ -1008,7 +1012,7 @@ function renderParlay(mode){
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button class="pl-cp pl-share">Share betslip</button></div>'
-    + '<div class="pl-place pl-two">' + (pick ? '<button class="pl-cp pl-placed">Track this bet</button>' : '') + '<button class="pl-cp pl-copy">Copy as plain text</button></div>'
+    + (pick ? '<div class="pl-place pl-two"><button class="pl-cp pl-placed">Track this bet</button></div>' : '')
     + (pick && PLWENT ? '<p class="pl-note"><b>Placed it?</b> Track it to follow it live in My bets.</p>' : '')
     + (pick ? '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : one ? 'Opens this game at ' + esc(nm(pick.bk)) + '.' : 'Opens ' + esc(nm(pick.bk)) + '; add each leg there.') + '</p>' : '')
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
@@ -1046,12 +1050,6 @@ function renderParlay(mode){
   if(dr) dr.onclick = function(){ var keep = L.filter(function(l){ return !(l.t && Date.now() >= l.t); }); if(share) SHARED.legs = keep; else PL = keep; again(); };
   var sh = el.querySelector(".pl-share");
   if(sh){ var live = L.filter(function(l){ return !(l.t && Date.now() >= l.t); }); if(!share) sharePrep(live, pick && pick.bk); sh.onclick = function(){ shareGo(live, pick && pick.bk, sh, "Share betslip"); }; }
-  var cp = el.querySelector(".pl-copy");
-  cp.onclick = function(){
-    var txt = L.map(function(l){ var p = pick ? legPrices(l)[pick.bk] : l.p; return l.l + " (" + (l.g || "") + ")" + (p != null ? " " + price(p) : ""); }).join("\\n")
-      + (full ? "\\nParlay " + amer(pick.d) + " at " + nm(pick.bk) : "");
-    try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy as plain text"; }, 1500); }); } catch(e) {}
-  };
 }
 // ---------- today's best bets across every sport ----------
 var BEST = [], BESTALL = false, BESTHIDE = false;

@@ -457,7 +457,7 @@ function plBar(){
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
-      + '<div class="pl-acts">'+(pick ? '<button class="navbtn" id="pl-placed">Track this bet</button>' : '')+'<button class="navbtn" id="pl-copy">Copy as plain text</button></div>'
+      + (pick ? '<div class="pl-acts"><button class="navbtn" id="pl-placed">Track this bet</button></div>' : '')
       + (pick && PLWENT ? '<p class="pl-note"><b>Placed it?</b> Track it to follow it live in My bets on Total HQ.</p>' : '')
       + (pick ? '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip.' : oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'.' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk)+'; add each leg there.')+'</p>' : '')
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear betslip</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
@@ -484,11 +484,6 @@ function plBar(){
   const ip = document.getElementById("pl-placed"); if(ip) ip.onclick = placed;
   const dr = document.getElementById("pl-drop");
   if(dr) dr.onclick = ()=>{ PL = PL.filter(l=>!(l.t && Date.now() >= l.t)); plSave(PL); plBar(); plSync(); };
-  const cp = document.getElementById("pl-copy");
-  if(cp) cp.onclick = ()=>{
-    const txt = PL.map(l=>l.l+" ("+(l.g||"")+")"+(at(l)!=null ? " "+gPrice(at(l)) : "")).join("\n") + (full ? "\nParlay "+gPrice(pick.price)+" at "+(BKNAME[pick.bk]||pick.bk) : "");
-    try { navigator.clipboard.writeText(txt).then(()=>{ cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy as plain text"; }, 1500); }); } catch(e) {}
-  };
   const sh = document.getElementById("pl-share");
   if(sh){ sharePrep(PL, pick && pick.bk); sh.onclick = ()=> shareGo(PL, pick && pick.bk, sh, "Share betslip"); }   // the link is made while the slip is open, so a tap shares at once
   document.getElementById("pl-toggle").onclick = ()=>{ PLOPEN = !PLOPEN; plBar(); };
