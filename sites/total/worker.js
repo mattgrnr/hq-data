@@ -446,6 +446,9 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 /* tonight's best bets */
 #best{margin:26px 0 8px}
 .bst{border-radius:14px;padding:16px 16px 10px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
+.bst-h{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;list-style:none}
+.bst-h::-webkit-details-marker{display:none}
+.bst:not([open]){padding-bottom:14px}
 .bst-h .t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:24px;letter-spacing:.02em}
 .bst-s{font-size:12px;color:var(--mute);margin:2px 0 6px}
 .bst-r{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule)}
@@ -796,21 +799,27 @@ function renderParlay(mode){
   };
 }
 // ---------- tonight's best bets across every sport ----------
-var BEST = [], BESTALL = false;
+var BEST = [], BESTALL = false, BESTHIDE = false;
+try { BESTHIDE = localStorage.getItem("hq.besthide") === "1"; } catch(e) {}
 function inSlip(i){ return PL.some(function(l){ return l.i === i; }); }
 function renderBest(){
   var el = document.getElementById("best");
   var list = BEST.filter(function(b){ return !b.leg.t || b.leg.t > Date.now(); });
   if(!list.length){ el.innerHTML = ""; return; }
   var show = BESTALL ? list : list.slice(0, 5);
-  el.innerHTML = '<div class="bst"><div class="bst-h"><div class="t">Tonight’s best bets</div><div class="bst-s">Biggest edges across every sport · ours vs the books</div></div>'
+  var lead = list[0].leg;
+  el.innerHTML = '<details class="bst"' + (BESTHIDE ? '' : ' open') + '><summary class="bst-h"><div><div class="t">Tonight’s best bets</div><div class="bst-s">'
+    + (BESTHIDE ? list.length + ' edge' + (list.length > 1 ? 's' : '') + ' tonight · top: ' + esc(lead.l) + ' +' + Math.round(100 * list[0].edge) + '%' : 'Biggest edges across every sport · ours vs the books')
+    + '</div></div><span class="mb-ch">' + (BESTHIDE ? 'Show' : 'Hide') + '</span></summary>'
     + show.map(function(b, n){
       var l = b.leg, on = inSlip(l.i);
       return '<div class="bst-r"><button class="bst-add' + (on ? ' on' : '') + '" data-n="' + n + '" aria-label="' + (on ? 'Remove from parlay' : 'Add to parlay') + '">' + (on ? '✓' : '+') + '</button>'
         + '<div class="bst-w"><b>' + esc(l.l) + '</b><span>' + esc(l.s) + ' · ' + esc(l.g || "") + ' · ours ' + pct(l.o) + ' vs ' + pct(l.k) + '</span></div>'
         + '<div class="bst-p">' + price(l.p) + '<em>' + esc(l.b) + '</em><i>+' + Math.round(100 * b.edge) + '%</i></div></div>';
     }).join("")
-    + (list.length > 5 ? '<button class="bst-more">' + (BESTALL ? 'Show fewer' : 'See all ' + list.length) + '</button>' : '') + '</div>';
+    + (list.length > 5 ? '<button class="bst-more">' + (BESTALL ? 'Show fewer' : 'See all ' + list.length) + '</button>' : '') + '</details>';
+  var box = el.querySelector("details.bst");
+  box.addEventListener("toggle", function(){ if(BESTHIDE === !box.open) return; BESTHIDE = !box.open; try { localStorage.setItem("hq.besthide", BESTHIDE ? "1" : "0"); } catch(e) {} renderBest(); });
   el.querySelectorAll(".bst-add").forEach(function(btn){ btn.onclick = function(){
     var l = show[+btn.dataset.n].leg;
     if(inSlip(l.i)) PL = PL.filter(function(x){ return x.i !== l.i; }); else PL.push(l);
@@ -898,7 +907,7 @@ function renderBets(){
         return '<div class="mb-l ' + (n ? n.cls : '') + '"><div>' + esc(l.l) + '<span>' + esc(l.s || '') + ' · ' + esc(l.g || '') + '</span></div><div class="mb-r">'
           + (n ? esc(n.txt) : started(l) ? (l.q ? 'Live' : 'Started') : (l.t ? new Date(l.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }) : '')) + '</div></div>';
       }).join("")
-      + '<div class="mb-acts"><button class="pl-link mb-x" data-id="' + esc(b.id) + '">' + (b.end ? 'Clear' : 'Cashed out or done? Stop tracking') + '</button></div></details>';
+      + '<div class="mb-acts"><button class="pl-link mb-x" data-id="' + esc(b.id) + '">' + (b.end ? 'Clear' : 'Stop tracking bet') + '</button></div></details>';
   });
   if(keep) plSave(PL);
   var live = 0, hits = 0, legsN = 0, settled = PLBETS.length - open;
