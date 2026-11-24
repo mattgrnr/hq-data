@@ -64,5 +64,10 @@ jobs:
             exit 0
           fi
           git commit -m "NFL board update"
-          git pull --rebase -X theirs
-          git push
+          # another board can save in the gap: fetch its work and try again (each board only touches its own folder)
+          for i in 1 2 3 4 5; do
+            git pull --rebase -X theirs && git push && exit 0
+            echo "save collided with another build; retrying ($i)"
+            sleep $((i * 5))
+          done
+          exit 1
