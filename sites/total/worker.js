@@ -494,6 +494,9 @@ async function track(request) {
 // the calendar day in Central time, so "today" matches what the boards show
 function ctDay(ms) { return new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }); }
 
+// ESPN's NFL abbreviations where they differ from the board's
+const NFL_ESPN = { LA: "LAR", WAS: "WSH" };
+
 async function slate() {
   const out = {};
   await Promise.all(Object.entries(SPORT_DIR).map(async ([key, dir]) => {
@@ -501,16 +504,46 @@ async function slate() {
       const res = await fetch(RAW + dir + "/board.json", { cf: { cacheTtl: 300, cacheEverything: true } });
       if (!res.ok) return;
       const bd = await res.json();
-      // games that haven't finished: today's (Central time), or the NFL's whole week
+      // today's games (Central time), or the NFL's whole week; finished ones stay until the day is over
       const now = Date.now(), today = ctDay(now);
       const start = g => key === "soc" ? Date.parse(g.t) : g.ko ? g.ko * 1000 : Date.parse(String(g.start).replace("Z", ":00Z"));
-      const keep = g => key === "nfl" ? start(g) < now + 7 * 24 * 3600e3 : ctDay(start(g)) === today;
-      out[key] = (bd.games || []).filter(g => g.proj && !g.final && !g.fin && start(g) > now - 3 * 3600e3 && keep(g)).map(g => key === "soc"
-        ? { h: g.h, a: g.a, k: String(g.id), lg: g.league, t: g.t, win: g.proj.win, hs: g.proj.hs, as: g.proj.as }
-        : { h: g.home, a: g.away, k: g.home, t: g.start || (g.ko ? new Date(g.ko * 1000).toISOString() : null), win: g.proj.win, hs: g.proj.hs, as: g.proj.as });
+      const keep = g => key === "nfl" ? (g.final ? ctDay(start(g)) === today : start(g) < now + 7 * 24 * 3600e3) : ctDay(start(g)) === today;
+      const list = (bd.games || []).filter(g => g.proj && keep(g)).map(g => key === "soc"
+        ? { h: g.h, a: g.a, k: String(g.id), id: g.id, lg: g.league, t: g.t, win: g.proj.win, hs: g.proj.hs, as: g.proj.as, st: g.fin ? "final" : null, sc: g.sc || null }
+        : { h: g.home, a: g.away, k: g.home, id: g.id, t: g.start || (g.ko ? new Date(g.ko * 1000).toISOString() : null), win: g.proj.win, hs: g.proj.hs, as: g.proj.as, st: g.final ? "final" : null, sc: null });
+      await scores(key, list, now);
+      const rank = g => g.st === "live" ? 0 : g.st === "final" ? 2 : 1;
+      out[key] = list.sort((x, y) => rank(x) - rank(y) || Date.parse(x.t) - Date.parse(y.t)).map(g => { delete g.id; return g; });
     } catch (e) {}
   }));
-  return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+  return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
+}
+
+// live and final scores for games under way, from the same sources bet tracking uses;
+// sc is in the order the lane shows the teams (soccer home first, everything else away first)
+async function scores(key, list, now) {
+  const started = list.filter(g => g.t && Date.parse(g.t) <= now);
+  if (!started.length) return;
+  if (key === "nba" || key === "nhl") {
+    await Promise.all(started.map(async g => {
+      try {
+        const x = await gameNow(key, g.id);
+        if (x && x.st) { g.st = x.st; g.sc = x.st === "pre" ? null : [x.sc[1], x.sc[0]]; }
+      } catch (e) {}
+    }));
+  } else if (key === "nfl") {
+    try {
+      const d = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", { cf: { cacheTtl: 30, cacheEverything: true } })).json();
+      for (const ev of d.events || []) {
+        const c = (ev.competitions || [])[0] || {}, team = w => (c.competitors || []).find(x => x.homeAway === w) || {};
+        const g = started.find(x => (NFL_ESPN[x.h] || x.h) === (team("home").team || {}).abbreviation && (NFL_ESPN[x.a] || x.a) === (team("away").team || {}).abbreviation);
+        const state = ((c.status || {}).type || {}).state;
+        if (g && state && state !== "pre") { g.st = state === "post" ? "final" : "live"; g.sc = [+team("away").score || 0, +team("home").score || 0]; }
+      }
+    } catch (e) {}
+  }
+  // the board's own word, or kickoff long enough ago that it must be over
+  for (const g of started) if (!g.st) g.st = now - Date.parse(g.t) > (key === "soc" ? 2.5 : 4) * 3600e3 ? "final" : "live";
 }
 
 const HTML = `<!doctype html>
@@ -654,6 +687,8 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-chips{margin-top:8px}
 .lv{font-style:normal;display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#dc2626;vertical-align:2px}
 .gm.live{opacity:.6}
+.gm.fin{opacity:.45}
+.lv.fn{background:#3a3f48;color:var(--paper)}
 .pl-leg.gone{opacity:.6}
 .pl-leg.gone.live,.pl-leg.gone.hit,.pl-leg.gone.miss{opacity:1}
 .pl-leg .tk{font-weight:600;color:var(--paper)}
@@ -871,9 +906,11 @@ function gameHTML(key, url, g){
   var top = Math.max.apply(null, w), f = function(x){ return x === top ? ' fav' : ''; };
   var bar = soc ? '<i class="h' + f(w[0]) + '" style="flex:' + w[0] + '"></i><i class="d" style="flex:' + w[1] + '"></i><i class="a' + f(w[2]) + '" style="flex:' + w[2] + '"></i>'
                 : '<i class="a' + f(w[1]) + '" style="flex:' + w[1] + '"></i><i class="h' + f(w[0]) + '" style="flex:' + w[0] + '"></i>';
-  var live = g.t && Date.now() >= Date.parse(g.t);
-  return '<a class="gm' + (live ? ' live' : '') + '" href="' + esc(url) + '/?game=' + encodeURIComponent(g.k) + '">'
-    + '<div class="tm">' + esc(first) + '<span>' + (soc ? 'v' : '@') + '</span>' + esc(second) + (live ? ' <i class="lv">Live</i>' : '') + '</div>'
+  var fin = g.st === "final", live = !fin && (g.st === "live" || (g.t && Date.now() >= Date.parse(g.t)));
+  var sc = g.sc ? ' · ' + g.sc[0] + '–' + g.sc[1] : '';
+  return '<a class="gm' + (fin ? ' fin' : live ? ' live' : '') + '" href="' + esc(url) + '/?game=' + encodeURIComponent(g.k) + '">'
+    + '<div class="tm">' + esc(first) + '<span>' + (soc ? 'v' : '@') + '</span>' + esc(second)
+    + (fin ? ' <i class="lv fn">Final' + sc + '</i>' : live ? ' <i class="lv">Live' + sc + '</i>' : '') + '</div>'
     + '<div class="wn">' + esc(first) + ' <b>' + pct(wf) + '</b>' + (soc ? ' · draw <b>' + pct(w[1]) + '</b>' : '') + ' · ' + esc(second) + ' <b>' + pct(ws) + '</b></div>'
     + '<div class="pr">' + bar + '</div></a>';
 }

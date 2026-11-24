@@ -443,6 +443,9 @@ def attach_logs(players, games, pl, team_games, state):
         done = next((x for x, op in rows if str(x[1]) == str(g["id"])), None)
         if done:
             g["fin"] = True
+            if not g.get("sc"):     # the fixture list hasn't caught up: goals from the players' own lines (misses own goals)
+                tg = lambda t: round(team_games.get(t, {}).get(done[1], {}).get("gf", 0))
+                g["sc"] = [tg(g["hid"]), tg(g["aid"])]
             gg, aa = int(done[5]), int(done[8])
             o["lv"] = {"G": gg, "A": aa, "GA": gg + aa, "T": int(done[6]), "S": int(done[7])}
 
@@ -505,7 +508,7 @@ def build_board(state, rows):
         la = lg.get(lid, allavg)
         out_games.append({"id": m["id"], "lid": lid, "league": LNAME[lid], "t": k.isoformat(),
                           "day": 0 if k.date() == days[0] else 1, "h": m["hn"], "a": m["an"], "hid": m["h"], "aid": m["a"],
-                          "lu": lu.get("kind", "unavailable")})
+                          "lu": lu.get("kind", "unavailable"), **({"fin": True, "sc": m["sc"]} if m.get("sc") else {})})
         for side, team, opp, home in (("homeTeam", m["h"], m["a"], 1), ("awayTeam", m["a"], m["h"], 0)):
             tf, of = form.get(team), form.get(opp)
             # attack: this team's chance creation; defense: what the opponent allows (both vs league average)
