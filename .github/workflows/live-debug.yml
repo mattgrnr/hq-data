@@ -1,0 +1,19 @@
+name: Live debug
+on:
+  push:
+    branches: ["preview/live"]
+    paths: [".github/live-debug.txt"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          D=$(TZ=America/Chicago date +%F)
+          for s in slapshot slam; do
+            echo "== $s /live"
+            curl -s -H "Referer: https://live-$s-hq.wehttam30.workers.dev/" "https://live-$s-hq.wehttam30.workers.dev/live?d=$D" | python3 -c "import json,sys; d=json.load(sys.stdin); print(list(d.keys())); p=d.get('players') or {}; print(len(p), list(p.items())[:3]); print(d.get('error'))" || true
+          done
+          G=$(curl -s "https://api-web.nhle.com/v1/score/$D" | python3 -c "import json,sys; d=json.load(sys.stdin); print([g['id'] for g in d['games'] if g['gameState'] in ('LIVE','CRIT','FINAL','OFF')][0])")
+          echo "== nhl box $G"; curl -s "https://api-web.nhle.com/v1/gamecenter/$G/boxscore" | python3 -c "import json,sys; d=json.load(sys.stdin); s=d.get('playerByGameStats',{}); print(list(d.keys())); print(list(s.keys())); a=s.get('awayTeam',{}); print(list(a.keys())); print(json.dumps((a.get('forwards') or [{}])[0])[:600])"
+          E=$(curl -s "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=$(echo $D | tr -d -)" | python3 -c "import json,sys; d=json.load(sys.stdin); print([e['id'] for e in d['events'] if e['status']['type']['state'] in ('in','post')][0])")
+          echo "== espn summary $E"; curl -s "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=$E" | python3 -c "import json,sys; d=json.load(sys.stdin); t=d['boxscore']['players'][0]['statistics'][0]; print(t.get('keys')); print(t.get('labels')); a=t['athletes'][0]; print(a['athlete']['id'], a['stats'])"
