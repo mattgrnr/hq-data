@@ -153,7 +153,7 @@ h2{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:28px
 .d-btns{display:flex;flex-wrap:wrap;gap:8px}
 .d-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .d-grid span{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:600;font-size:12.5px;padding:9px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.14)}
-.d-grid span.wide{grid-column:1 / -1}
+.d-grid span.quiet{color:var(--mute)}
 .d-grid span.go{background:var(--open);color:#06240f;border-color:var(--open)}
 .d-btns span{font-weight:600;font-size:12.5px;padding:7px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.14)}
 .d-btns span.go{background:var(--paper);color:var(--void);border-color:var(--paper)}
@@ -259,7 +259,7 @@ footer a:hover{color:var(--paper)}
   <div class="item">
     <h3>Place it or share it</h3>
     <p>Where the book supports it, the green button loads every leg into that book’s bet slip. <b>Share betslip</b> opens your phone’s share menu with a short link that opens the same parlay, priced at every book; it works until two days after the last game.</p>
-    <div class="demo d-grid"><span class="go">Add to FanDuel bet slip</span><span>Share betslip</span><span class="wide">Track this bet</span></div>
+    <div class="demo d-grid"><span class="go">Add to FanDuel bet slip</span><span>Share betslip</span><span>Track this bet</span><span class="quiet">Clear betslip</span></div>
   </div>
 </section>
 
@@ -646,8 +646,10 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-leg a{color:var(--open);text-decoration:none}
 .pl-leg .no{font-style:normal;font-size:11px;color:#fbbf24}
 .pl-place{display:flex;gap:10px;margin-top:14px}
-.pl-two button{flex:1}
+.pl-place > a,.pl-place > button{flex:1 1 0;min-width:0}
 .pl-place .pl-clear,.pl-place .pl-mine{flex:1;color:var(--mute)}
+.pl-toast{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pl-toast span{font-size:14px}
 .pl-place .pl-mine{color:var(--paper)}
 .pl-chips{margin-top:8px}
 .lv{font-style:normal;display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#dc2626;vertical-align:2px}
@@ -710,7 +712,7 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-link{background:none;border:0;padding:0;font:inherit;color:var(--open);text-decoration:underline;cursor:pointer}
 .pl-chip{display:inline-block;margin:0 6px 6px 0;padding:6px 11px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
 .pl-chip.on{color:#0c1a10;background:var(--open);border-color:var(--open);font-weight:600}
-.pl-go{flex:1;text-align:center;padding:11px;border-radius:10px;background:var(--open);color:#0c1a10;font-weight:600;text-decoration:none;font-size:14px}
+.pl-go{flex:1;text-align:center;padding:11px 14px;border:1px solid var(--open);border-radius:10px;background:var(--open);color:#0c1a10;font-weight:600;text-decoration:none;font-size:14px}
 .pl-cp{padding:11px 14px;border-radius:10px;border:1px solid var(--rule);background:transparent;color:var(--paper);font:inherit;font-size:14px;cursor:pointer}
 .pl-warn{color:#fbbf24}
 .pl-acts button{background:none;border:0;padding:0;font:inherit;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--mute);cursor:pointer}
@@ -954,10 +956,19 @@ function slipUrl(bk, legs){
   if(bk === "MGM") return "https://sports.betmgm.com/en/sports?options=" + ids.map(encodeURIComponent).join(",");
   return null;
 }
+var PLUNDO = null;
+function clearSlip(){ PLUNDO = { legs: PL, until: Date.now() + 5000 }; PL = []; plSave(PL); renderParlay(); setTimeout(function(){ renderParlay(); }, 5100); }
 function renderParlay(mode){
   var share = mode === "share", L = share ? SHARED.legs : PL, BK = share ? SBK : PLBK;
   var el = document.getElementById(share ? "shared" : "parlay");
-  if(!L.length){ el.innerHTML = share ? '<div class="pl"><div class="t">Shared parlay</div><p class="pl-note">Every leg was removed. Reload the link to see them again.</p></div>' : ""; return; }
+  if(!L.length){
+    if(!share && PLUNDO && Date.now() < PLUNDO.until){
+      el.innerHTML = '<div class="pl pl-toast"><span>Betslip cleared</span><button class="pl-link pl-undo">Undo</button></div>';
+      el.querySelector(".pl-undo").onclick = function(){ PL = PLUNDO.legs; PLUNDO = null; plSave(PL); renderParlay(); };
+      return;
+    }
+    el.innerHTML = share ? '<div class="pl"><div class="t">Shared parlay</div><p class="pl-note">Every leg was removed. Reload the link to see them again.</p></div>' : ""; return;
+  }
   var ours = 1, book = 1, games = {}, same = false;
   L.forEach(function(l){ ours *= l.o; book *= l.k; if(games[l.g]) same = true; games[l.g] = 1; });
   var books = byBook(L), hasFull = books.length && books[0].n === L.length;
@@ -995,7 +1006,7 @@ function renderParlay(mode){
       + (share ? '' : '<div class="pl-place"><button class="pl-cp pl-clear">Clear betslip</button></div>') + '</div>';
     el.innerHTML = h;
     el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ L.splice(+b.dataset.i, 1); if(share) renderParlay("share"); else { plSave(PL); renderParlay(); } }; });
-    var cl0 = el.querySelector(".pl-clear"); if(cl0) cl0.onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+    var cl0 = el.querySelector(".pl-clear"); if(cl0) cl0.onclick = clearSlip;
     return;
   }
   h += '<div class="pl-sport">Tap a sportsbook to price your parlay there</div>' + books.slice(0, 8).map(function(b){
@@ -1012,12 +1023,12 @@ function renderParlay(mode){
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button class="pl-cp pl-share">Share betslip</button></div>'
-    + (pick ? '<div class="pl-place pl-two"><button class="pl-cp pl-placed">Track this bet</button></div>' : '')
     + (pick && PLWENT ? '<p class="pl-note"><b>Placed it?</b> Track it to follow it live in My bets.</p>' : '')
-    + (pick ? '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : one ? 'Opens this game at ' + esc(nm(pick.bk)) + '.' : 'Opens ' + esc(nm(pick.bk)) + '; add each leg there.') + '</p>' : '')
+    + (pick && !slip ? '<p class="pl-note">' + (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '.' : 'Opens ' + esc(nm(pick.bk)) + '; add each leg there.') + '</p>' : '')
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
     + (share ? '<p class="pl-note">Prices as of when this was shared'+(SHARED.at ? ', '+ago(SHARED.at) : '')+'. Books move, so check the price in your slip.</p>' : '')
-    + '<div class="pl-place">' + (share ? '<button class="pl-cp pl-mine">Add these legs to my parlay</button>' : '<button class="pl-cp pl-clear">Clear betslip</button>') + '</div></div>';
+    + '<div class="pl-place pl-two">' + (pick ? '<button class="pl-cp pl-placed">Track this bet</button>' : '')
+    + (share ? '<button class="pl-cp pl-mine">Add these legs to my parlay</button>' : '<button class="pl-cp pl-clear">Clear betslip</button>') + '</div></div>';
   el.innerHTML = h;
   var again = function(){ if(share) renderParlay("share"); else { plSave(PL); renderParlay(); } };
   el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ L.splice(+b.dataset.i, 1); again(); }; });
@@ -1037,7 +1048,7 @@ function renderParlay(mode){
       var a = el.querySelector("#pl-go"); if(a) a.setAttribute("href", d.link);
     }).catch(function(){});
   }
-  var cl = el.querySelector(".pl-clear"); if(cl) cl.onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+  var cl = el.querySelector(".pl-clear"); if(cl) cl.onclick = clearSlip;
   var placed = function(){ plPlaced(L, pick.bk, full ? amer(pick.d) : null, share); };
   var go = el.querySelector("#pl-go"); if(go) go.addEventListener("click", function(){ PLWENT = true; setTimeout(function(){ renderParlay(); if(SHARED && SHARED.legs) renderParlay("share"); }, 600); });
   var ip = el.querySelector(".pl-placed"); if(ip) ip.onclick = placed;

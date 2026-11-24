@@ -434,6 +434,8 @@ body{padding-bottom:84px}
 #app .gc-closed{margin-top:8px;font-size:12px;color:var(--faint)}
 #plbar .pl-gone{opacity:.6}
 #plbar .pl-gone b{text-decoration:line-through}
+#plbar .pl-quiet{color:var(--faint)}
+#plbar .pl-toast{max-width:640px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid rgba(74,222,128,.5);background:#0f1a14;color:var(--ink);font-size:14px}
 #plbar .pl-link{background:none;border:0;padding:0;font:inherit;color:#4ade80;text-decoration:underline;cursor:pointer}
 /* top player picks */
 #app .tp-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
@@ -1285,8 +1287,11 @@ let PL = (function(){
 function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY, bets:PLBETS })); } catch(e){} plLinks(); }
 // tapping the place button saves the slip as a placed bet (followed on Total HQ) and clears the builder for the next one
 let PLWENT = false;
+let PLNOTE = null;
+function plNote(n, ms){ PLNOTE = Object.assign(n, { until: Date.now() + ms }); setTimeout(plBar, ms + 100); }
 function plPlaced(bk, px){
   PLWENT = false;
+  plNote({ k:"tracked" }, 6000);
   PLBETS.unshift({ id: Date.now().toString(36), at: Date.now(), bk, px, legs: PL.map(betSlim) });
   PL = []; plSave(PL);
   setTimeout(()=>{ plBar(); plSync(); }, 400);
@@ -1366,7 +1371,20 @@ function plMath(legs){
 function plBar(){
   let el = document.getElementById("plbar");
   if(!el){ el = document.createElement("div"); el.id = "plbar"; document.body.appendChild(el); }
-  if(!PL.length){ el.innerHTML = ""; el.className = ""; return; }
+  if(!PL.length){
+    // a short note once the slip empties: tracked (with the way to My bets) or cleared (with undo)
+    if(PLNOTE && Date.now() < PLNOTE.until){
+      el.className = "on";
+      el.innerHTML = '<div class="pl-toast">'+(PLNOTE.k === "undo"
+        ? '<span>Betslip cleared</span><button class="pl-link" id="pl-undo">Undo</button>'
+        : '<span>Tracking it live</span><a class="pl-link" href="https://total-hq.com/">See it in My bets →</a>')+'</div>';
+      const u = document.getElementById("pl-undo");
+      if(u) u.onclick = ()=>{ PL = PLNOTE.legs; PLNOTE = null; plSave(PL); plBar(); plSync(); };
+      plLinks();
+      return;
+    }
+    el.innerHTML = ""; el.className = ""; return;
+  }
   const m = plMath(PL), all = m.full.concat(m.partial);
   const pick = all.find(b=>b.bk===PLBK) || m.best || all[0];
   const full = pick && pick.n === PL.length;
@@ -1396,10 +1414,9 @@ function plBar(){
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
-      + (pick ? '<div class="pl-acts"><button class="navbtn" id="pl-placed">Track this bet</button></div>' : '')
       + (pick && PLWENT ? '<p class="pl-note"><b>Placed it?</b> Track it to follow it live in My bets on Total HQ.</p>' : '')
-      + (pick ? '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip.' : oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'.' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk)+'; add each leg there.')+'</p>' : '')
-      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear betslip</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
+      + (pick && !slip ? '<p class="pl-note">'+(oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'.' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk)+'; add each leg there.')+'</p>' : '')
+      + '<div class="pl-acts">'+(pick ? '<button class="navbtn" id="pl-placed">Track this bet</button>' : '')+'<button class="navbtn pl-quiet" id="pl-clear">Clear betslip</button></div></div>' : '')
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
     + '<b>'+(full && !gone.length ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(gone.length ? gone.length+' leg'+(gone.length>1?"s":"")+' started · tap to fix' : full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
   el.querySelectorAll(".pl-bk[data-bk]").forEach(b=> b.onclick = ()=>{ PLBK = b.dataset.bk; plSave(PL); plBar(); });
@@ -1427,7 +1444,7 @@ function plBar(){
   if(sh){ sharePrep(PL, pick && pick.bk); sh.onclick = ()=> shareGo(PL, pick && pick.bk, sh, "Share betslip"); }   // the link is made while the slip is open, so a tap shares at once
   document.getElementById("pl-toggle").onclick = ()=>{ PLOPEN = !PLOPEN; plBar(); };
   el.querySelectorAll(".pl-x").forEach(b=> b.onclick = ()=>{ PL.splice(+b.dataset.i, 1); plSave(PL); plBar(); plSync(); });
-  const c = document.getElementById("pl-clear"); if(c) c.onclick = ()=>{ PL = []; plSave(PL); PLOPEN = false; plBar(); plSync(); };
+  const c = document.getElementById("pl-clear"); if(c) c.onclick = ()=>{ plNote({ k:"undo", legs:PL }, 5000); PL = []; plSave(PL); PLOPEN = false; plBar(); plSync(); };
   plLinks();
 }
 // ---------- share a betslip: a short total-hq.com link that opens the slip, priced at every book, ready to place ----------
