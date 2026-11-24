@@ -1303,7 +1303,7 @@ function tpRow(r, t, rank, best, open){
     const line = lineName(o.stat, x);
     const edge = x.ours - x.book;
     const leg = open ? legOf(shortName(o.name)+" "+line, { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r), q:legQ(r, o.stat, x.k) }) : null;
-    bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
+    bk = '<div class="tp-bk">'+(leg ? plBtn(leg) : '')+'<span>'+(PONE[o.stat] ? '' : '<b>'+(x.two && GKIND !== "soccer" ? "o"+(x.k-0.5) : x.k+"+")+'</b> ')+gPrice(x.price)+' <em>'+x.bk+'</em>'
       + (edge >= 0.05 ? ' <span class="g-val">+'+Math.round(100*edge)+'%</span>' : '')+'</span></div>';
   } else bk = '<div class="tp-bk tp-none">No book line yet</div>';
   const team = r.team || r.p.team || "";
@@ -1378,7 +1378,7 @@ function bookPick(o, kk){
 }
 function lineName(st, x, kk){
   if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
-  return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+blbl(st);
+  return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two && GKIND !== "soccer" ? "o"+(x.k-0.5) : x.k+"+")+" "+blbl(st);
 }
 // ---------- live: once a game starts, each card shows the stat so far against the line ----------
 // each site keeps LIVEP (player -> stats so far) and gives liveVal(r, stat)
