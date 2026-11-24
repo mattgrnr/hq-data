@@ -1,0 +1,23 @@
+name: probe
+on: { push: { branches: [preview/socscores], paths: [".github/workflows/probe.yml"] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - env: { PROPLINE_KEY: "${{ secrets.PROPLINE_KEY }}" }
+        run: |
+          python3 - <<'PY'
+          import sys, json; sys.path.insert(0, "scripts")
+          import odds
+          for path, kw in [("sports/soccer_uefa_champions_league/scores", {}), ("sports/soccer_uefa_champions_league/scores", {"daysFrom": "1"}),
+                           ("sports/basketball_nba/scores", {}), ("sports/soccer_uefa_champions_league/events", {})]:
+              try:
+                  d = odds.get(path, **kw)
+              except Exception as e:
+                  print("PATH", path, kw, "ERROR", str(e)[:120]); continue
+              evs = d if isinstance(d, list) else (d or {}).get("events") or (d or {}).get("data") or d
+              print("PATH", path, kw, type(d).__name__, (len(evs) if hasattr(evs, "__len__") else ""))
+              sample = evs[0] if isinstance(evs, list) and evs else evs
+              print("  SAMPLE", json.dumps(sample)[:600])
+          PY
