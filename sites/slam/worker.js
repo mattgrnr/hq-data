@@ -2,7 +2,7 @@
 // Daily NBA board: points, rebounds, assists and PRA.
 // Data: board.json built daily in mattgrnr/hq-data; injuries and game status from ESPN.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/board.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/tomorrow/preview-data/nba/board.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/history/summary.json";
 const CARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/nba/card.png";
 const LIVE_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=";
@@ -1891,6 +1891,7 @@ function render(banner){
   if(GV){ h += gamesHTML(); app.innerHTML = h; wire(); return; }
   h += '<div class="controls">'
     + '<div class="ctrl srch"><label>Search</label><input id="f-q" type="text" autocapitalize="none" autocorrect="off" placeholder="player, team, or game…" value="'+esc(F.q)+'"><span id="f-qx" class="qx">✕</span></div>'
+    + '<div class="ctrl"><label>Day</label><select id="f-day">'+[0,1].map(d=>'<option value="'+d+'"'+(DAYSEL===d?" selected":"")+'>'+(d?"Tomorrow":"Today")+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Game</label><select id="f-game"><option value="all">All games</option>'
     + GAMES.map(g=>'<option value="'+g.id+'"'+(F.game===g.id?" selected":"")+'>'+esc(g.short)+'</option>').join("")+'</select></div>'
     + '<div class="ctrl"><label>Position</label><select id="f-pos"><option value="all">All</option>'
@@ -1929,6 +1930,7 @@ function wire(){
   qx.onclick = ()=>{ F.q=""; render(); };
   qx.style.display = F.q? "block":"none";
   document.getElementById("f-game").onchange = e=>{ F.game=e.target.value; render(); };
+  document.getElementById("f-day").onchange = e=>{ DAYSEL = +e.target.value; F.game = "all"; boot(true); };
   document.getElementById("f-pos").onchange = e=>{ F.pos=e.target.value; render(); };
   document.getElementById("f-tier").onchange = e=>{ F.tier=e.target.value; render(); };
 }
@@ -1988,10 +1990,11 @@ function renderError(msg){
   document.getElementById("btn-refresh").onclick = ()=>boot(true);
 }
 
+let DAYSEL = 0;   // 0 today, 1 tomorrow
 async function boot(force){
   try{
-    showStatus("Fetching tonight’s slate…");
-    const res = await Promise.all([fetchJSON("/board"), fetchJSON("/inj").catch(function(){ return null; })]);
+    showStatus(DAYSEL ? "Fetching tomorrow’s slate…" : "Fetching tonight’s slate…");
+    const res = await Promise.all([fetchJSON(DAYSEL ? "/board?day=1" : "/board"), fetchJSON("/inj").catch(function(){ return null; })]);
     const bd = res[0];
     if(!bd || !bd.players || !bd.games) throw new Error("Board unavailable");
     BOARD = bd;
@@ -2003,7 +2006,7 @@ async function boot(force){
     if(!GAMES.length){
       ROWS = [];
       if(F.view === "results"){ render(); return; }
-      app.innerHTML = '<div class="status"><div class="big">🏀</div><h2>No games tonight</h2><p>Check back tomorrow for the next slate.</p><p style="margin-top:14px"><button class="navbtn" id="btn-results">See how the board did</button> <button class="navbtn" id="btn-refresh">↻ Refresh</button></p></div>';
+      app.innerHTML = '<div class="status"><div class="big">🏀</div><h2>No games '+(DAYSEL ? 'tomorrow' : 'tonight')+'</h2><p>'+(DAYSEL ? 'Switch back to today, or check again later.' : 'Check back tomorrow for the next slate.')+'</p><p style="margin-top:14px"><button class="navbtn" id="btn-results">See how the board did</button> <button class="navbtn" id="btn-refresh">↻ Refresh</button></p></div>';
       document.getElementById("btn-refresh").onclick = ()=>boot(true);
       document.getElementById("btn-results").onclick = ()=> openResults();
       return;
@@ -2053,8 +2056,9 @@ export default {
 
     if (path === "/board") {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
-      const res = await fetch(BOARD_URL + "?v=" + Math.floor(Date.now() / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
-      if (!res.ok) return json({ error: "board upstream " + res.status }, 502);
+      const src = url.searchParams.get("day") === "1" ? BOARD_URL.replace("board.json", "board-tomorrow.json") : BOARD_URL;   // ?day=1: tomorrow's slate
+      const res = await fetch(src + "?v=" + Math.floor(Date.now() / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
+      if (!res.ok) return json({ error: res.status === 404 ? "Tomorrow's board isn't built yet. It's added with the morning build." : "board upstream " + res.status }, 502);
       return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
     }
 
