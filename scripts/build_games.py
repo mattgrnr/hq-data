@@ -9,6 +9,7 @@ Reads <sport>/board.json (or the file given) and writes a "proj" block into each
   cover      chance the home side covers our spread's nearest book-style line (NFL uses the book's line)
 usage: build_games.py <nhl|nba|nfl|soccer> [board.json]
 """
+import re
 import csv
 import gzip
 import json
@@ -258,9 +259,7 @@ def implied(price):
     return 100 / (price + 100) if price > 0 else -price / (-price + 100)
 
 
-SHORT = {"man utd": "manutd", "man united": "manutd", "manchester united": "manutd", "manchester united fc": "manutd",
-         "man city": "mancity", "manchester city": "mancity", "manchester city fc": "mancity",
-         "spurs": "tottenham", "wolves": "wolverhampton", "nottm forest": "nottingham forest", "psg": "paris saint germain",
+SHORT = {"spurs": "tottenham", "wolves": "wolverhampton", "nottm forest": "nottingham forest", "psg": "paris saint germain",
          "bayern": "bayern munchen", "bayern munich": "bayern munchen", "atletico": "atletico madrid", "atl madrid": "atletico madrid"}
 
 
@@ -268,6 +267,9 @@ def norm(name):
     import unicodedata
     n = (name or "").lower().strip()
     n = SHORT.get(n, n)
+    # the two Manchester clubs, however a feed spells them, kept apart before " city" / " united" are dropped
+    n = re.sub(r"\bman(chester|\.)?\s*(city)\b.*", "mancity", n)
+    n = re.sub(r"\bman(chester|\.)?\s*(utd|united)\b.*", "manutd", n)
     for x, y in (("ø", "o"), ("æ", "ae"), ("ß", "ss"), ("đ", "d"), ("ł", "l"), ("ı", "i"), ("/", " ")):   # letters NFKD can't split
         n = n.replace(x, y)
     n = unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode()
@@ -401,6 +403,10 @@ def attach_odds(sport, bd, lam=None):
         p = gm.get("proj")
         ev = p and find_event(sport, gm, events)
         if not ev:
+            if p:
+                who = (gm.get("h"), gm.get("a")) if sport == "soccer" else (gm.get("away"), gm.get("home"))
+                near = [f'{e.get("h")} v {e.get("a")}' for e in events if str(e.get("t", ""))[:10] == str(gm.get("t") or gm.get("start") or "")[:10]]
+                print(f"{sport}: no book lines for {who[0]} v {who[1]}; the books' games that day: {near[:12]}")
             continue
         m, book, value = ev["m"], {}, []
         hn, an = ev["h"], ev["a"]
