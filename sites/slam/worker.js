@@ -1438,11 +1438,10 @@ function plBar(){
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
-      + (pick ? '<p class="pl-note">'+(PLWENT ? '<b>Placed it?</b> ' : '')+'<button class="pl-link" id="pl-placed">Track this bet</button> to follow it live in My bets on Total HQ.</p>' : '')
-      + '<p class="pl-note">Share betslip sends a link that opens this parlay, priced at every book and ready to place. <button class="pl-link" id="pl-copy">Copy as plain text</button></p>'
-      + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
-        + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
-      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
+      + '<div class="pl-acts">'+(pick ? '<button class="navbtn" id="pl-placed">Track this bet</button>' : '')+'<button class="navbtn" id="pl-copy">Copy as plain text</button></div>'
+      + (pick && PLWENT ? '<p class="pl-note"><b>Placed it?</b> Track it to follow it live in My bets on Total HQ.</p>' : '')
+      + (pick ? '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip.' : oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'.' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk)+'; add each leg there.')+'</p>' : '')
+      + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear betslip</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
     + '<button class="pl-head" id="pl-toggle"><span>Parlay · '+PL.length+' leg'+(PL.length>1?"s":"")+(pick ? ' · '+esc(BKNAME[pick.bk]||pick.bk) : '')+'</span>'
     + '<b>'+(full && !gone.length ? gPrice(pick.price) : '—')+'</b><span class="pl-ch">'+(gone.length ? gone.length+' leg'+(gone.length>1?"s":"")+' started · tap to fix' : full ? 'ours '+gPct(m.ours)+' · book '+gPct(m.book) : pick ? pick.n+' of '+PL.length+' legs at this book' : '')+'</span></button>';
   el.querySelectorAll(".pl-bk[data-bk]").forEach(b=> b.onclick = ()=>{ PLBK = b.dataset.bk; plSave(PL); plBar(); });
