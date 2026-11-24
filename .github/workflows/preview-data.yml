@@ -26,6 +26,17 @@ jobs:
         env:
           PROPLINE_KEY: ${{ secrets.PROPLINE_KEY }}
         run: |
+          python3 - <<'PY'
+          import sys, json; sys.path.insert(0, "scripts")
+          import build_soccer as B, odds
+          d = B.page("/leagues/42/fixtures/x")
+          ms = [m for m in d["fixtures"]["allMatches"] if (m.get("status") or {}).get("finished")][:3]
+          for m in ms: print("score check:", m["home"].get("name"), B.score_of(m), m["away"].get("name"), {k: m["home"].get(k) for k in ("score",)}, m["status"].get("scoreStr"))
+          for mk in ("draw_no_bet", "double_chance"):
+              r = odds.get("sports/soccer_uefa_champions_league/odds", markets=mk)
+              evs = r if isinstance(r, list) else (r or {}).get("events") or []
+              print(mk, "books:", sorted({b.get("key") for e in evs for b in e.get("bookmakers") or [] for m in b.get("markets") or [] if m.get("outcomes")}))
+          PY
           python scripts/build_soccer.py && python scripts/odds.py soccer && python scripts/build_games.py soccer
           cp soccer/board.json preview-data/soccer/board.json
           node scripts/best.cjs futbol soccer/board.json preview-data/soccer/best.json || true
