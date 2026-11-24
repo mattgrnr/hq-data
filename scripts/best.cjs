@@ -33,10 +33,10 @@ const SETUP = {
     vm.runInContext(SETUP[site], ctx);
     ctx.__days = [0, 1];
     out.bets = vm.runInContext(`(typeof F !== "undefined" && "day" in F ? __days : [null]).flatMap(d => { if(d != null) F.day = d;
-      return gList().flatMap(g => bestBets(g).map(b => ({ leg: legOf((b.name+" "+b.label).trim(), b), ev: Math.round(b.ev*1000)/1000,
+      return gList().flatMap(g => bestBets(g).map(b => ({ leg: legOf((b.name+" "+b.label).trim(), b), ev: Math.round(b.ev*1000)/1000, score: Math.round(b.score*1000)/1000,
         edge: Math.round((b.ours-b.book)*1000)/1000, kind: b.kind }))); })`, ctx);
     const seen = new Set();
-    out.bets = out.bets.filter(x => !seen.has(x.leg.i) && seen.add(x.leg.i)).sort((a, b) => b.ev - a.ev).slice(0, 25);
+    out.bets = out.bets.filter(x => !seen.has(x.leg.i) && seen.add(x.leg.i)).sort((a, b) => b.score - a.score).slice(0, 25);
   }
   fs.writeFileSync(outPath, JSON.stringify(out));
   console.log(site + ": " + out.bets.length + " best bets");

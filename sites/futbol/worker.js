@@ -1118,9 +1118,13 @@ const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", T
   PTD:"pass TDs", S:"shots on goal", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
+// the books are sharp on game lines, so we only trust part of a gap there (less again in soccer)
+function btrust(kind){ return kind === "prop" ? 0.5 : GKIND === "soccer" ? 0.25 : 0.35; }
+const BMAXGAP = { prop:0.2, game:0.15 };     // a gap bigger than this is far more likely our miss than theirs
 function betOf(name, label, ours, book, price, bk, kind, game, all, links, ids){
-  const adj = book + 0.5*(ours - book);
-  return { name, label, ours, book, adj, price, bk, kind, game, all, links, ids, ev: adj*dec(price) - 1 };
+  const adj = book + btrust(kind)*(ours - book), ev = adj*dec(price) - 1;
+  // ranked by the share of a bankroll the edge is worth, so a long price alone doesn't float a bet to the top
+  return { name, label, ours, book, adj, price, bk, kind, game, all, links, ids, ev, score: ev/(dec(price) - 1) };
 }
 function bestBets(g){
   const out = [], seen = {};
@@ -1144,8 +1148,8 @@ function bestBets(g){
       { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links, v.ids);
     b.q = gameQ(g, (what[0]+" "+what[1]).trim()); out.push(b);
   }
-  return out.filter(b=>b.adj >= 0.2 && b.ours > b.book && b.ev > 0)
-    .sort((a,c)=>c.ev - a.ev)
+  return out.filter(b=>b.adj >= 0.2 && b.price >= -150 && b.adj - b.book >= 0.02 && b.ours - b.book <= BMAXGAP[b.kind] && b.ev > 0)
+    .sort((a,c)=>c.score - a.score)
     .filter(b=>{ if(b.kind==="prop"){ if(seen[b.name]) return false; seen[b.name] = 1; } return true; })
     .slice(0, 3);
 }

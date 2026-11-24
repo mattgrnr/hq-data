@@ -182,7 +182,7 @@ async function showSlip(id, env, url) {
 }
 
 // ---------- tonight's best bets across every sport (each board's build saves its own) ----------
-const BEST_RAW = RAW;
+const BEST_RAW = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/best/preview-data/";
 const BEST_OF = { nhl: ["nhl", "Slapshot"], nba: ["nba", "Slam"], nfl: ["nfl", "Touchdown"], soc: ["soccer", "Futbol"] };
 async function best() {
   const now = Date.now(), all = [];
@@ -193,8 +193,12 @@ async function best() {
       for (const b of (await res.json()).bets || []) if (b.leg && (!b.leg.t || b.leg.t > now)) all.push(b);
     } catch (e) {}
   }));
-  all.sort((a, b) => b.ev - a.ev);
-  return new Response(JSON.stringify({ bets: all.slice(0, 20) }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=120" } });
+  // up to four per sport, dealt out in turns so one busy slate can't fill the list
+  const by = {}, out = [];
+  all.sort((a, b) => (b.score ?? b.ev) - (a.score ?? a.ev));
+  for (const b of all) (by[b.leg.s] = by[b.leg.s] || []).push(b);
+  for (let i = 0; i < 4; i++) for (const s of Object.keys(by)) if (by[s][i]) out.push(by[s][i]);
+  return new Response(JSON.stringify({ bets: out }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=120" } });
 }
 
 // ---------- following a parlay's legs live ----------
