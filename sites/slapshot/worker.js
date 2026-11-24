@@ -1205,7 +1205,10 @@ function plFresh(v){ return v.filter(l=>!l.t || l.t > Date.now() - 6*3600e3); }
 function plRead(){ try { const v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
 function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""); }
 function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
-let PLU = 0, PLBK = null, PLMY = [];      // PLMY: the books this person uses (empty = every book)
+let PLU = 0, PLBK = null, PLMY = [], PLBETS = [];      // PLMY: the books this person uses (empty = every book); PLBETS: parlays they placed
+// a placed bet keeps only what following it needs; settled bets go after three days
+function betSlim(l){ return { i:l.i, s:l.s, g:l.g, t:l.t, l:l.l, p:l.p, b:l.b, q:l.q, r:l.r }; }
+function betsFresh(v){ return (v || []).filter(b=>!b.end || b.end > Date.now() - 3*86400e3).slice(0, 30); }
 let PL = (function(){
   let st = plRead();
   const m = /[#&]pl=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -1217,12 +1220,19 @@ let PL = (function(){
   PLU = st.u || 0;
   PLBK = st.bk || null;
   PLMY = st.my || [];
+  PLBETS = betsFresh(st.bets);
   return plFresh(st.legs || []);
 })();
-function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY })); } catch(e){} plLinks(); }
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY, bets:PLBETS })); } catch(e){} plLinks(); }
+// tapping the place button saves the slip as a placed bet (followed on Total HQ) and clears the builder for the next one
+function plPlaced(bk, px){
+  PLBETS.unshift({ id: Date.now().toString(36), at: Date.now(), bk, px, legs: PL.map(betSlim) });
+  PL = []; plSave(PL);
+  setTimeout(()=>{ plBar(); plSync(); }, 400);
+}
 // every link to another HQ site carries the slip
 function plLinks(){
-  const tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK, my:PLMY }) : "";
+  const tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK, my:PLMY, bets:PLBETS }) : "";
   document.querySelectorAll("a[href]").forEach(a=>{
     let u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
     if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
@@ -1325,6 +1335,7 @@ function plBar(){
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
+      + (pick ? '<p class="pl-note">'+(slip ? 'Adding it to the bet slip saves it to My bets on Total HQ, where it\\'s followed live. ' : '')+'Placed it another way? <button class="pl-link" id="pl-placed">I placed this</button></p>' : '')
       + '<p class="pl-note">Share betslip sends a link that opens this parlay, priced at every book and ready to place. <button class="pl-link" id="pl-copy">Copy as text</button></p>'
       + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
         + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
@@ -1347,6 +1358,9 @@ function plBar(){
       const a = document.getElementById("pl-go"); if(a) a.setAttribute("href", d.link);
     }).catch(()=>{});
   }
+  const go = document.getElementById("pl-go"), placed = ()=> plPlaced(pick.bk, full ? gPrice(pick.price) : null);
+  if(go && slip) go.addEventListener("click", placed);
+  const ip = document.getElementById("pl-placed"); if(ip) ip.onclick = placed;
   const dr = document.getElementById("pl-drop");
   if(dr) dr.onclick = ()=>{ PL = PL.filter(l=>!(l.t && Date.now() >= l.t)); plSave(PL); plBar(); plSync(); };
   const cp = document.getElementById("pl-copy");

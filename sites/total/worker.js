@@ -417,6 +417,27 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl.won{box-shadow:inset 0 0 0 1px var(--open)}
 .pl.lost{box-shadow:inset 0 0 0 1px rgba(248,113,113,.5);background:linear-gradient(180deg,rgba(248,113,113,.06),rgba(248,113,113,.01))}
 .pl.lost .px{color:#f87171}
+/* my bets */
+#bets{margin-bottom:18px}
+.mb{border-radius:14px;padding:16px 16px 8px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
+.mb-h .t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:24px;letter-spacing:.02em}
+.mb-s{font-size:12px;color:var(--mute);margin:2px 0 8px}
+.mb-b{border-top:1px solid var(--rule)}
+.mb-b summary{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;cursor:pointer;list-style:none}
+.mb-b summary::-webkit-details-marker{display:none}
+.mb-b summary b{display:block;font-size:14.5px;font-weight:600}
+.mb-b summary span{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
+.mb-st{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.mb-st b{font-family:'Big Shoulders Display',sans-serif;font-size:22px;font-weight:800;color:var(--open)}
+.mb-st em{font-style:normal;font-size:12px;color:var(--dim)}
+.mb-b.lost summary b{color:var(--mute)}
+.mb-l{display:flex;justify-content:space-between;gap:12px;padding:8px 0 8px 12px;border-left:2px solid var(--rule);margin-left:2px;font-size:13.5px}
+.mb-l span{display:block;font-size:11px;color:var(--dim)}
+.mb-r{text-align:right;font-size:12.5px;font-weight:600;white-space:nowrap}
+.mb-l.hit{border-left-color:var(--open)} .mb-l.hit .mb-r{color:var(--open)}
+.mb-l.miss{border-left-color:#f87171} .mb-l.miss .mb-r{color:#f87171}
+.mb-l.live{border-left-color:#dc2626}
+.mb-acts{padding:6px 0 12px 14px;font-size:12px}
 /* tonight's best bets */
 #best{margin:26px 0 8px}
 .bst{border-radius:14px;padding:16px 16px 10px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
@@ -512,6 +533,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   </header>
 
   <div id="shared"></div>
+  <div id="bets"></div>
   <div id="parlay"></div>
 
   <div class="boardhead"><span class="hl">League</span><span class="hb">Board</span><span class="hs">Status</span></div>
@@ -593,7 +615,9 @@ function plFresh(v){ return v.filter(function(l){ return !l.t || l.t > Date.now(
 function plRead(){ try { var v = JSON.parse(localStorage.getItem(PLKEY) || "[]"); return Array.isArray(v) ? { u:0, legs:v } : v; } catch(e){ return { u:0, legs:[] }; } }
 function plEnc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""); }
 function plDec(x){ x = x.replace(/-/g,"+").replace(/_/g,"/"); while(x.length % 4) x += "="; return JSON.parse(decodeURIComponent(escape(atob(x)))); }
-var PLU = 0, PLBK = null, PLMY = [];
+var PLU = 0, PLBK = null, PLMY = [], PLBETS = [];
+function betSlim(l){ return { i:l.i, s:l.s, g:l.g, t:l.t, l:l.l, p:l.p, b:l.b, q:l.q, r:l.r }; }
+function betsFresh(v){ return (v || []).filter(function(b){ return !b.end || b.end > Date.now() - 3*86400e3; }).slice(0, 30); }
 var PL = (function(){
   var st = plRead();
   var m = /[#&](?:pl|parlay)=([A-Za-z0-9_-]+)/.exec(location.hash);
@@ -605,11 +629,18 @@ var PL = (function(){
   PLU = st.u || 0;
   PLBK = st.bk || null;
   PLMY = st.my || [];
+  PLBETS = betsFresh(st.bets);
   return plFresh(st.legs || []);
 })();
-function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY })); } catch(e){} plLinks(); }
+function plSave(v){ PLU = Date.now(); try { localStorage.setItem(PLKEY, JSON.stringify({ u:PLU, legs:v, bk:PLBK, my:PLMY, bets:PLBETS })); } catch(e){} plLinks(); }
+function plPlaced(legs, bk, px, fromShare){
+  PLBETS.unshift({ id: Date.now().toString(36), at: Date.now(), bk: bk, px: px, legs: legs.map(betSlim) });
+  if(!fromShare) PL = [];
+  plSave(PL);
+  setTimeout(function(){ renderParlay(); renderBets(); renderBest(); trackStart(); }, 400);
+}
 function plLinks(){
-  var tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK, my:PLMY }) : "";
+  var tag = PLU ? "pl=" + plEnc({ u:PLU, legs:PL, bk:PLBK, my:PLMY, bets:PLBETS }) : "";
   document.querySelectorAll("a[href]").forEach(function(a){
     var u; try { u = new URL(a.getAttribute("href"), location.href); } catch(e){ return; }
     if(!HQ_HOSTS.test(u.hostname) || u.hostname === location.hostname) return;
@@ -710,6 +741,7 @@ function renderParlay(mode){
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button class="pl-cp pl-share">Share betslip</button></div>'
+    + (pick ? '<p class="pl-note">' + (slip ? 'Adding it to the bet slip saves it to My bets, where it\u2019s followed live. ' : '') + 'Placed it another way? <button class="pl-link pl-placed">I placed this</button></p>' : '')
     + '<p class="pl-note">' + (slip ? 'Loads every leg into your ' + esc(nm(pick.bk)) + ' bet slip.' : (one ? 'Opens this game at ' + esc(nm(pick.bk)) + '. ' : 'Opens ' + esc(pick ? nm(pick.bk) : 'the book') + '; add each leg there, or use "open game" on a leg. ')
       + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip.') + '</p>'
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
@@ -736,6 +768,9 @@ function renderParlay(mode){
     }).catch(function(){});
   }
   var cl = el.querySelector(".pl-clear"); if(cl) cl.onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+  var placed = function(){ plPlaced(L, pick.bk, full ? amer(pick.d) : null, share); };
+  var go = el.querySelector("#pl-go"); if(go && slip) go.addEventListener("click", placed);
+  var ip = el.querySelector(".pl-placed"); if(ip) ip.onclick = placed;
   var mine = el.querySelector(".pl-mine");
   if(mine) mine.onclick = function(){
     L.forEach(function(l){ if(!PL.some(function(x){ return x.i === l.i; })) PL.push(l); });
@@ -812,20 +847,56 @@ function trackTally(L){
   return t;
 }
 function trackNow(){
-  var legs = PL.concat(SHARED && SHARED.legs ? SHARED.legs : []).filter(function(l){ return started(l) && l.q; });
+  var legs = PL.concat(SHARED && SHARED.legs ? SHARED.legs : [], betLegs()).filter(function(l){ return started(l) && l.q; });
   if(!legs.length){ if(TRACK_T){ clearInterval(TRACK_T); TRACK_T = null; } return; }
   fetch("/track", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ qs: legs.map(function(l){ return l.q; }) }) })
     .then(function(r){ return r.json(); }).then(function(d){
       (d.r || []).forEach(function(x, i){ if(x) TRACK[legs[i].i] = x; });
-      renderParlay(); if(SHARED && SHARED.legs) renderParlay("share");
+      renderParlay(); if(SHARED && SHARED.legs) renderParlay("share"); renderBets();
     }).catch(function(){});
 }
 function trackStart(){
   if(TRACK_T) return;
-  if(!PL.concat(SHARED && SHARED.legs ? SHARED.legs : []).some(function(l){ return started(l) && l.q; })) return;
+  if(!PL.concat(SHARED && SHARED.legs ? SHARED.legs : [], betLegs()).some(function(l){ return started(l) && l.q; })) return;
   trackNow(); TRACK_T = setInterval(function(){ if(!document.hidden) trackNow(); }, 30000);
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden && TRACK_T) trackNow(); });
+// ---------- my bets: every parlay you placed, followed live, settled ones kept three days ----------
+var BETOPEN = {};
+function betLegs(){ var v = []; PLBETS.forEach(function(b){ if(!b.end) b.legs.forEach(function(l){ if(!l.r) v.push(l); }); }); return v; }
+function betTally(b){
+  var t = { hit:0, miss:0, live:0, todo:0 }, keep = false;
+  b.legs.forEach(function(l){
+    var n = l.r || (started(l) ? legNow(l) : null);
+    if(n && n.cls !== "live" && !l.r){ l.r = { cls:n.cls, txt:n.txt }; keep = true; }
+    if(!started(l)) t.todo++; else if(!n) t.live++; else t[n.cls]++;
+  });
+  if(!b.end && (t.miss || t.hit === b.legs.length)){ b.end = Date.now(); b.won = !t.miss; keep = true; }
+  return { t:t, keep:keep };
+}
+function renderBets(){
+  var el = document.getElementById("bets");
+  if(!PLBETS.length){ el.innerHTML = ""; return; }
+  var keep = false, open = 0, rows = PLBETS.slice().sort(function(a, b){ return (a.end ? 1 : 0) - (b.end ? 1 : 0); }).map(function(b){
+    var x = betTally(b), t = x.t; if(x.keep) keep = true; if(!b.end) open++;
+    var first = b.legs.reduce(function(m, l){ return l.t && (!m || l.t < m) ? l.t : m; }, 0);
+    var st = b.end ? (b.won ? '<i class="lv hit">Won</i>' : '<i class="lv miss">Lost</i>')
+      : t.todo === b.legs.length ? '<em>' + (first ? new Date(first).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }) : 'Not started') + '</em>'
+      : '<b>' + t.hit + '/' + b.legs.length + '</b>' + (t.live ? '<i class="lv">Live</i>' : '');
+    return '<details class="mb-b' + (b.end ? (b.won ? ' won' : ' lost') : '') + '"' + (BETOPEN[b.id] ? ' open' : '') + ' data-id="' + esc(b.id) + '"><summary><div><b>' + b.legs.length + ' leg' + (b.legs.length > 1 ? 's' : '') + (b.px ? ' · ' + esc(b.px) : '') + '</b>'
+      + '<span>' + esc(BKNAME[b.bk] || b.bk || '') + ' · placed ' + ago(b.at) + '</span></div><div class="mb-st">' + st + '</div></summary>'
+      + b.legs.map(function(l){
+        var n = l.r || (started(l) ? legNow(l) : null);
+        return '<div class="mb-l ' + (n ? n.cls : '') + '"><div>' + esc(l.l) + '<span>' + esc(l.s || '') + ' · ' + esc(l.g || '') + '</span></div><div class="mb-r">'
+          + (n ? esc(n.txt) : started(l) ? (l.q ? 'Live' : 'Started') : (l.t ? new Date(l.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }) : '')) + '</div></div>';
+      }).join("")
+      + '<div class="mb-acts"><button class="pl-link mb-x" data-id="' + esc(b.id) + '">Remove this bet</button></div></details>';
+  });
+  if(keep) plSave(PL);
+  el.innerHTML = '<div class="mb"><div class="mb-h"><div class="t">My bets</div><div class="mb-s">' + (open ? open + ' open' : 'None open') + (PLBETS.length > open ? ' · ' + (PLBETS.length - open) + ' settled' : '') + ' · followed live, kept on this device</div></div>' + rows.join("") + '</div>';
+  el.querySelectorAll("details.mb-b").forEach(function(d){ d.addEventListener("toggle", function(){ BETOPEN[d.dataset.id] = d.open; }); });
+  el.querySelectorAll(".mb-x").forEach(function(btn){ btn.onclick = function(){ PLBETS = PLBETS.filter(function(b){ return b.id !== btn.dataset.id; }); plSave(PL); renderBets(); }; });
+}
 function ago(t){ var m = Math.round((Date.now() - t) / 60000); return m < 2 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " hr ago" : Math.round(m / 1440) + " days ago"; }
 var SBK = SHARED && SHARED.bk || null;
 // ---------- share a betslip: a short total-hq.com link that opens the slip, priced at every book, ready to place ----------
@@ -860,6 +931,7 @@ if(SHARED && SHARED.gone){
   renderParlay("share");
 }
 renderParlay();
+renderBets();
 plLinks();
 trackStart();
 
