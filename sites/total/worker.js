@@ -168,7 +168,7 @@ footer a:hover{color:var(--paper)}
   <a class="back" href="/">‹ Total HQ</a>
   <div class="rule"></div>
   <h1>How HQ <span>works</span></h1>
-  <p class="lede">Every HQ board rates tonight’s players and games, puts <b>our chance next to the sportsbooks’</b>, and lets you build, share and track a bet. Here’s everything you can do.</p>
+  <p class="lede">Every HQ board rates today’s players and games, puts <b>our chance next to the sportsbooks’</b>, and lets you build, share and track a bet. Here’s everything you can do.</p>
 </header>
 
 <nav class="toc" aria-label="Sections">
@@ -179,7 +179,7 @@ footer a:hover{color:var(--paper)}
   <h2>Reading the numbers</h2>
   <div class="item">
     <h3>The score</h3>
-    <p>Every player gets a score from <b>0 to 100</b> for the stat you’re viewing. Higher means a better spot tonight. The tier sums it up:</p>
+    <p>Every player gets a score from <b>0 to 100</b> for the stat you’re viewing. Higher means a better spot today. The tier sums it up:</p>
     <div class="demo tiers"><span><b>ELITE</b> 80+</span><span><b>STRONG</b> 68+</span><span><b>SOLID</b> 56+</span><span><b>FRINGE</b> 44+</span><span><b>LONGSHOT</b> below</span></div>
   </div>
   <div class="item">
@@ -202,7 +202,7 @@ footer a:hover{color:var(--paper)}
   </div>
   <div class="item">
     <h3>Game logs</h3>
-    <p><b>Last 5 Games</b> shows his recent form. <b>Games vs Team</b> shows every meeting with tonight’s opponent; tap Show all for the full list.</p>
+    <p><b>Last 5 Games</b> shows his recent form. <b>Games vs Team</b> shows every meeting with today’s opponent; tap Show all for the full list.</p>
   </div>
   <div class="item">
     <h3>Today or tomorrow</h3>
@@ -253,7 +253,7 @@ footer a:hover{color:var(--paper)}
 </section>
 
 <section id="best">
-  <h2>Tonight’s best bets</h2>
+  <h2>Today’s best bets</h2>
   <div class="item">
     <h3>The biggest believable edges</h3>
     <p>On Total HQ, under the boards: the best edges across every sport, up to four per sport. Nothing shorter than −150, and no long shot makes it on price alone. Tap Hide to tuck it away; we remember.</p>
@@ -379,7 +379,7 @@ async function showSlip(id, env, url) {
   return html(page(url.origin, { id, ...slip }, { id, title, desc }));
 }
 
-// ---------- tonight's best bets across every sport (each board's build saves its own) ----------
+// ---------- today's best bets across every sport (each board's build saves its own) ----------
 const BEST_RAW = RAW;
 const BEST_OF = { nhl: ["nhl", "Slapshot"], nba: ["nba", "Slam"], nfl: ["nfl", "Touchdown"], soc: ["soccer", "Futbol"] };
 async function best() {
@@ -388,7 +388,7 @@ async function best() {
     try {
       const res = await fetch(BEST_RAW + dir + "/best.json?v=" + Math.floor(now / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
       if (!res.ok) return;
-      for (const b of (await res.json()).bets || []) if (b.leg && (!b.leg.t || b.leg.t > now)) all.push(b);
+      for (const b of (await res.json()).bets || []) if (b.leg && (!b.leg.t || (b.leg.t > now && ctDay(b.leg.t) === ctDay(now)))) all.push(b);
     } catch (e) {}
   }));
   // up to four per sport, dealt out in turns so one busy slate can't fill the list
@@ -464,6 +464,9 @@ async function track(request) {
 }
 
 // today's projected games per sport, small enough to load with the page
+// the calendar day in Central time, so "today" matches what the boards show
+function ctDay(ms) { return new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }); }
+
 async function slate() {
   const out = {};
   await Promise.all(Object.entries(SPORT_DIR).map(async ([key, dir]) => {
@@ -471,10 +474,11 @@ async function slate() {
       const res = await fetch(RAW + dir + "/board.json", { cf: { cacheTtl: 300, cacheEverything: true } });
       if (!res.ok) return;
       const bd = await res.json();
-      // games that haven't finished: from a few hours back through the next day (the NFL's whole week)
-      const now = Date.now(), ahead = (key === "nfl" ? 7 * 24 : 30) * 3600e3;
+      // games that haven't finished: today's (Central time), or the NFL's whole week
+      const now = Date.now(), today = ctDay(now);
       const start = g => key === "soc" ? Date.parse(g.t) : g.ko ? g.ko * 1000 : Date.parse(String(g.start).replace("Z", ":00Z"));
-      out[key] = (bd.games || []).filter(g => g.proj && !g.final && start(g) > now - 3 * 3600e3 && start(g) < now + ahead).map(g => key === "soc"
+      const keep = g => key === "nfl" ? start(g) < now + 7 * 24 * 3600e3 : ctDay(start(g)) === today;
+      out[key] = (bd.games || []).filter(g => g.proj && !g.final && start(g) > now - 3 * 3600e3 && keep(g)).map(g => key === "soc"
         ? { h: g.h, a: g.a, k: String(g.id), lg: g.league, t: g.t, win: g.proj.win, hs: g.proj.hs, as: g.proj.as }
         : { h: g.home, a: g.away, k: g.home, t: g.start || (g.ko ? new Date(g.ko * 1000).toISOString() : null), win: g.proj.win, hs: g.proj.hs, as: g.proj.as });
     } catch (e) {}
@@ -654,7 +658,7 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .mb-l.miss{border-left-color:#f87171} .mb-l.miss .mb-r{color:#f87171}
 .mb-l.live{border-left-color:#dc2626}
 .mb-acts{padding:6px 0 12px 14px;font-size:12px}
-/* tonight's best bets */
+/* today's best bets */
 #best{margin:26px 0 8px}
 .bst{border-radius:14px;padding:16px 16px 10px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
 .bst-h{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;list-style:none}
@@ -752,7 +756,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
     <div class="eyebrow">Every sport · Scored 0–100</div>
     <div class="rule"></div>
     <h1>TOTAL<span class="badge">HQ</span></h1>
-    <p class="thesis">Every sport’s board, tonight’s best bets and your parlays in one place. Every player scored <b>0 to 100</b>.</p>
+    <p class="thesis">Every sport’s board, today’s best bets and your parlays in one place. Every player scored <b>0 to 100</b>.</p>
   </header>
 <div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
@@ -1024,7 +1028,7 @@ function renderParlay(mode){
     try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy as text"; }, 1500); }); } catch(e) {}
   };
 }
-// ---------- tonight's best bets across every sport ----------
+// ---------- today's best bets across every sport ----------
 var BEST = [], BESTALL = false, BESTHIDE = false;
 try { BESTHIDE = localStorage.getItem("hq.besthide") === "1"; } catch(e) {}
 function inSlip(i){ return PL.some(function(l){ return l.i === i; }); }
@@ -1034,8 +1038,8 @@ function renderBest(){
   if(!list.length){ el.innerHTML = ""; return; }
   var show = BESTALL ? list : list.slice(0, 5);
   var lead = list[0].leg;
-  el.innerHTML = '<details class="bst"' + (BESTHIDE ? '' : ' open') + '><summary class="bst-h"><div><div class="t">Tonight’s best bets</div><div class="bst-s">'
-    + (BESTHIDE ? list.length + ' edge' + (list.length > 1 ? 's' : '') + ' tonight · top: ' + esc(lead.l) + ' +' + Math.round(100 * list[0].edge) + '%' : 'Biggest edges across every sport · ours vs the books')
+  el.innerHTML = '<details class="bst"' + (BESTHIDE ? '' : ' open') + '><summary class="bst-h"><div><div class="t">Today’s best bets</div><div class="bst-s">'
+    + (BESTHIDE ? list.length + ' edge' + (list.length > 1 ? 's' : '') + ' today · top: ' + esc(lead.l) + ' +' + Math.round(100 * list[0].edge) + '%' : 'Biggest edges across every sport · ours vs the books')
     + '</div></div><span class="mb-ch">' + (BESTHIDE ? 'Show' : 'Hide') + '</span></summary>'
     + show.map(function(b, n){
       var l = b.leg, on = inSlip(l.i);

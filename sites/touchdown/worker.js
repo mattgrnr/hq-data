@@ -1275,7 +1275,7 @@ function gCard(g){
     + (st !== "pre" ? '<div class="gc-closed">Game started · these bets can\\'t be added anymore</div>' : '')
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
     + gWinBar(g)
-    + '<div class="gc-proj">Projected <b>'+esc(g.home)+' '+score+' '+esc(g.away)+'</b></div>';
+    + '<div class="gc-proj">Projected <b>'+(GKIND === "soccer" ? esc(g.home)+' '+score+' '+esc(g.away) : esc(g.away)+' '+p.as.toFixed(1)+' – '+p.hs.toFixed(1)+' '+esc(g.home))+'</b></div>';
   const bets = bestBets(g);
   if(bets.length && !open) h += '<div class="gc-sub">Best bet</div>' + betHTML(bets[0], true);
   if(bets.length && open) h += '<div class="gc-sub">Best bets in this game</div>' + bets.map((b,i)=>betHTML(b, i===0)).join("");
