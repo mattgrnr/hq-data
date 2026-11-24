@@ -418,7 +418,7 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl.lost{box-shadow:inset 0 0 0 1px rgba(248,113,113,.5);background:linear-gradient(180deg,rgba(248,113,113,.06),rgba(248,113,113,.01))}
 .pl.lost .px{color:#f87171}
 /* tonight's best bets */
-#best{margin-bottom:18px}
+#best{margin:26px 0 8px}
 .bst{border-radius:14px;padding:16px 16px 10px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
 .bst-h .t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:24px;letter-spacing:.02em}
 .bst-s{font-size:12px;color:var(--mute);margin:2px 0 6px}
@@ -512,11 +512,11 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   </header>
 
   <div id="shared"></div>
-  <div id="best"></div>
   <div id="parlay"></div>
 
   <div class="boardhead"><span class="hl">League</span><span class="hb">Board</span><span class="hs">Status</span></div>
   <div id="board"></div>
+  <div id="best"></div>
 
   <div class="soon"><div class="t">More sports coming soon</div></div>
 
