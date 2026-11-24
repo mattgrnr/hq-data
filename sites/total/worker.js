@@ -182,7 +182,7 @@ async function showSlip(id, env, url) {
 }
 
 // ---------- tonight's best bets across every sport (each board's build saves its own) ----------
-const BEST_RAW = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/best/preview-data/";
+const BEST_RAW = RAW;
 const BEST_OF = { nhl: ["nhl", "Slapshot"], nba: ["nba", "Slam"], nfl: ["nfl", "Touchdown"], soc: ["soccer", "Futbol"] };
 async function best() {
   const now = Date.now(), all = [];
