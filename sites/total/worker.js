@@ -61,7 +61,7 @@ export default {
     const asset = serveAsset(path);
     if (asset) return asset;
 
-    if (path === "/slate") return slate();
+    if (path === "/slate") return slate(env);
     if (path === "/betlink") return betLink(url, request, env);
     if (path === "/p") return saveSlip(request, env, url);
     if (path === "/best") return best();
@@ -494,10 +494,31 @@ async function track(request) {
 // the calendar day in Central time, so "today" matches what the boards show
 function ctDay(ms) { return new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Chicago" }); }
 
+// our competitions under PropLine's names, for live soccer scores
+const SOC_FEED = { "Premier League": "soccer_epl", "LaLiga": "soccer_la_liga", "Serie A": "soccer_serie_a", "Bundesliga": "soccer_bundesliga",
+  "Ligue 1": "soccer_ligue_1", "Champions League": "soccer_uefa_champions_league", "Europa League": "soccer_uefa_europa_league",
+  "Conference League": "soccer_uefa_conference_league" };
+// the same club under two spellings ("Man.City" / "Man City", "Betis" / "Real Betis", "Bodo Glimt" / "Bodø/Glimt")
+function clubWords(n) {
+  return String(n || "").toLowerCase().replace(/ø/g, "o").replace(/æ/g, "ae").normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ").split(" ").filter(w => w && !["fc", "cf", "afc", "sc", "ac", "the", "de", "1907"].includes(w))
+    .map(w => ({ manchester: "man", utd: "united", lisbon: "cp", munich: "munchen" })[w] || w);
+}
+function sameSide(a, b) {
+  const x = clubWords(a), y = clubWords(b);
+  if (x.join(" ") === y.join(" ")) return true;
+  if ((x.includes("city") !== y.includes("city")) || (x.includes("united") !== y.includes("united") && (x.includes("man") || y.includes("man")))) return false;
+  const common = ["real", "atletico", "sporting", "athletic", "borussia", "olympique", "racing", "deportivo", "union", "stade", "club", "city", "united", "man"];
+  const pre = w => ["real", "atletico", "athletic", "racing", "deportivo", "sporting"].includes(w);
+  const px = x.find(pre), py = y.find(pre);
+  if (px && py && px !== py) return false;      // Real Madrid is not Atletico Madrid
+  return x.some(w => w.length >= 4 && !common.includes(w) && y.includes(w)) || (x.join(" ").includes(y.join(" ")) || y.join(" ").includes(x.join(" ")));
+}
+
 // ESPN's NFL abbreviations where they differ from the board's
 const NFL_ESPN = { LA: "LAR", WAS: "WSH" };
 
-async function slate() {
+async function slate(env) {
   const out = {};
   await Promise.all(Object.entries(SPORT_DIR).map(async ([key, dir]) => {
     try {
@@ -511,7 +532,7 @@ async function slate() {
       const list = (bd.games || []).filter(g => g.proj && keep(g)).map(g => key === "soc"
         ? { h: g.h, a: g.a, k: String(g.id), id: g.id, lg: g.league, t: g.t, win: g.proj.win, hs: g.proj.hs, as: g.proj.as, st: g.fin ? "final" : null, sc: g.sc || null }
         : { h: g.home, a: g.away, k: g.home, id: g.id, t: g.start || (g.ko ? new Date(g.ko * 1000).toISOString() : null), win: g.proj.win, hs: g.proj.hs, as: g.proj.as, st: g.final ? "final" : null, sc: null });
-      await scores(key, list, now);
+      await scores(key, list, now, env);
       const rank = g => g.st === "final" ? 0 : g.st === "live" ? 1 : 2;      // the day in order: finished, live, still to come
       out[key] = list.sort((x, y) => rank(x) - rank(y) || Date.parse(x.t) - Date.parse(y.t)).map(g => { delete g.id; return g; });
     } catch (e) {}
@@ -521,7 +542,7 @@ async function slate() {
 
 // live and final scores for games under way, from the same sources bet tracking uses;
 // sc is in the order the lane shows the teams (soccer home first, everything else away first)
-async function scores(key, list, now) {
+async function scores(key, list, now, env) {
   const started = list.filter(g => g.t && Date.parse(g.t) <= now);
   if (!started.length) return;
   if (key === "nba" || key === "nhl") {
@@ -541,6 +562,23 @@ async function scores(key, list, now) {
         if (g && state && state !== "pre") { g.st = state === "post" ? "final" : "live"; g.sc = [+team("away").score || 0, +team("home").score || 0]; }
       }
     } catch (e) {}
+  }
+  if (key === "soc" && env && env.PROPLINE_KEY) {
+    // PropLine's scores feed, one call per competition on today's slate, shared by everyone for a minute
+    const leagues = [...new Set(started.map(g => SOC_FEED[g.lg]).filter(Boolean))];
+    const feed = (await Promise.all(leagues.map(async sk => {
+      try {
+        const r = await fetch("https://api.prop-line.com/v1/sports/" + sk + "/scores?daysFrom=1&apiKey=" + encodeURIComponent(env.PROPLINE_KEY), { cf: { cacheTtl: 60, cacheEverything: true } });
+        return r.ok ? await r.json() : [];
+      } catch (e) { return []; }
+    }))).flat();
+    for (const g of started) {
+      const x = feed.find(x => Math.abs(Date.parse(x.commence_time) - Date.parse(g.t)) < 15 * 60e3 && sameSide(x.home_team, g.h) && sameSide(x.away_team, g.a));
+      if (!x || x.status === "upcoming") continue;
+      g.st = x.status === "final" ? "final" : "live";
+      if (x.home_score != null) g.sc = [+x.home_score, +x.away_score];
+      if (g.st === "live" && x.period) g.clk = String(x.period).slice(0, 8);
+    }
   }
   // the board's own word, or kickoff long enough ago that it must be over
   for (const g of started) if (!g.st) g.st = now - Date.parse(g.t) > (key === "soc" ? 2.5 : 4) * 3600e3 ? "final" : "live";
@@ -912,7 +950,7 @@ function gameHTML(key, url, g){
   var sc = g.sc ? ' · ' + g.sc[0] + '–' + g.sc[1] : '';
   return '<a class="gm' + (fin ? ' fin' : live ? ' live' : '') + '" href="' + esc(url) + '/?game=' + encodeURIComponent(g.k) + '">'
     + '<div class="tm">' + esc(first) + '<span>' + (soc ? 'v' : '@') + '</span>' + esc(second)
-    + (fin ? ' <i class="lv fn">Final' + sc + '</i>' : live ? ' <i class="lv">Live' + sc + '</i>' : '') + '</div>'
+    + (fin ? ' <i class="lv fn">Final' + sc + '</i>' : live ? ' <i class="lv">Live' + sc + (g.clk ? ' · ' + esc(g.clk) : '') + '</i>' : '') + '</div>'
     + '<div class="wn">' + esc(first) + ' <b>' + pct(wf) + '</b>' + (soc ? ' · draw <b>' + pct(w[1]) + '</b>' : '') + ' · ' + esc(second) + ' <b>' + pct(ws) + '</b></div>'
     + '<div class="pr">' + bar + '</div></a>';
 }
