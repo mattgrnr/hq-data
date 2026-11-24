@@ -418,6 +418,10 @@ body{background:
 #app button:focus-visible,#app select:focus-visible,#app input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){#app *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 /* ===== games view (shared) ===== */
+#app .g-days{display:inline-flex;gap:2px;padding:3px;margin:2px 2px 10px;border-radius:99px;background:rgba(255,255,255,.05)}
+#app .g-days button{border:0;background:none;color:var(--faint);font:inherit;font-size:13px;font-weight:600;padding:7px 16px;border-radius:99px;cursor:pointer}
+#app .g-days button.on{background:rgba(255,255,255,.12);color:var(--ink)}
+#app .g-days button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 #app .g-intro{color:var(--faint);font-size:13px;margin:4px 2px 12px;line-height:1.45}
 #app .gcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer}
 #app .gcard.open{border-color:rgba(255,255,255,.22)}
@@ -733,6 +737,13 @@ const SPORTS = [
   { icon:"\\ud83c\\udfc0", name:"Slam HQ", tag:"NBA", url:"https://slam-hq.com" },
   { icon:"\\u26bd", name:"Futbol HQ", tag:"SOC", url:"https://futbol-hq.com" }
 ];
+// out-of-season boards drop to the bottom of the menu (same dates as Total HQ)
+(function(){
+  var S = { MLB:[320, 1105], NFL:[901, 215], NHL:[1001, 625], NBA:[1015, 625], SOC:[808, 531] };
+  var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
+  function off(t){ var s = S[t]; if(!s) return 0; return (s[0] <= s[1] ? (md >= s[0] && md <= s[1]) : (md >= s[0] || md <= s[1])) ? 0 : 1; }
+  SPORTS.sort(function(a, b){ return off(a.tag) - off(b.tag); });
+})();
 function sportsMenuHTML(){
   return '<div class="sportwrap">'
     + '<button class="navbtn" id="btn-sports">HQ \\u25be</button>'
@@ -1261,15 +1272,24 @@ function gCard(g){
   return h + '</div>';
 }
 
+// Today / Tomorrow on the Games tab, on sites with a daily slate; shares the day with the player props tab
+function gDayBar(){
+  if(typeof gDay !== "function") return "";
+  const d = gDay();
+  return '<div class="g-days">'+[0,1].map(i=>'<button data-day="'+i+'"'+(d === i ? ' class="on"' : '')+'>'+(i ? "Tomorrow" : "Today")+'</button>').join("")+'</div>';
+}
 function gamesHTML(){
   const list = gList().filter(g=>g.proj);
   if(GQ){ const hit = list.find(g=>g.home===GQ || String(g.id)===GQ); if(hit){ GOPEN[hit.id] = true; GJUMP = hit.id; } GQ = null; }
-  if(!list.length) return '<div class="status"><h2>No game projections yet</h2><p>They appear once today\\'s teams have played enough to rate.</p></div>';
-  return '<p class="g-intro">Every game, projected by the same model as the board. Each game shows its best bet: where our chance beats the sportsbooks\\' by the most at the best price out there. Tap a game for its top three, every market and the top player picks.</p>'
+  if(!list.length) return gDayBar() + (typeof gDay === "function" && gDay()
+    ? '<div class="status"><h2>No games tomorrow yet</h2><p>They show up once tomorrow\\'s slate is set. Check back later.</p></div>'
+    : '<div class="status"><h2>No game projections yet</h2><p>They appear once today\\'s teams have played enough to rate.</p></div>');
+  return gDayBar() + '<p class="g-intro">Every game, projected by the same model as the board. Each game shows its best bet: where our chance beats the sportsbooks\\' by the most at the best price out there. Tap a game for its top three, every market and the top player picks.</p>'
     + list.slice().sort((a,c)=>(gState(a.t, a.fin) !== "pre") - (gState(c.t, c.fin) !== "pre")).map(gCard).join("");     // started games sink below upcoming ones
 }
 
 function wireGames(){
+  document.querySelectorAll(".g-days button").forEach(b=> b.onclick = ()=>{ const d = +b.dataset.day; if(d !== gDay()) gSetDay(d); });
   document.querySelectorAll(".gcard").forEach(el=> el.onclick = (e)=>{
     if(e.target.closest(".row, .gc-all, .tp")) return;
     GOPEN[el.dataset.gid] = !GOPEN[el.dataset.gid]; render();

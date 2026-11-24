@@ -555,6 +555,13 @@ var SPORTS = [
   { icon:"🏀", name:"Slam HQ", tag:"NBA", url:"https://slam-hq.com" },
   { icon:"⚽", name:"Futbol HQ", tag:"SOC", url:"https://futbol-hq.com" }
 ];
+// out-of-season boards drop to the bottom of the menu (same dates as Total HQ)
+(function(){
+  var S = { MLB:[320, 1105], NFL:[901, 215], NHL:[1001, 625], NBA:[1015, 625], SOC:[808, 531] };
+  var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
+  function off(t){ var s = S[t]; if(!s) return 0; return (s[0] <= s[1] ? (md >= s[0] && md <= s[1]) : (md >= s[0] || md <= s[1])) ? 0 : 1; }
+  SPORTS.sort(function(a, b){ return off(a.tag) - off(b.tag); });
+})();
 function sportsMenuHTML(){
   return '<div class="sportwrap">'
     + '<button class="navbtn" id="btn-sports">HQ ▾</button>'
