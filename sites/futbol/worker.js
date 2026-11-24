@@ -363,9 +363,9 @@ body{background:
 #app .gc-lg{color:var(--faint);font-size:11.5px;margin-top:2px}
 #app .gw-bar{display:flex;gap:2px;height:8px;margin:12px 0 6px;border-radius:4px;overflow:hidden}
 #app .gw-bar i{display:block;min-width:2px}
-#app .gw-a{background:#6b7480}
+#app .gw-a,#app .gw-h{background:#555d68}
 #app .gw-d{background:#3b424c}
-#app .gw-h{background:var(--red)}
+#app .gw-bar .fav{background:var(--red)}
 #app .gw-lbl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--faint)}
 #app .gw-lbl b{color:var(--ink);font-variant-numeric:tabular-nums}
 #app .gc-proj{margin-top:8px;font-size:12.5px;color:var(--faint)}
@@ -901,11 +901,11 @@ function gLine(x){ return x > 0 ? "+"+x : x === 0 ? "PK" : String(x); }
 function gSide(g, home){ return home ? g.home : g.away; }
 
 function gWinBar(g){
-  const w = g.proj.win;
+  const w = g.proj.win, top = Math.max(...w), f = x => x === top ? ' fav' : '';     // accent marks our favourite
   if(w.length === 3)   // soccer reads home first: home, draw, away
-    return '<div class="gw-bar"><i class="gw-h" style="flex:'+w[0]+'"></i><i class="gw-d" style="flex:'+w[1]+'"></i><i class="gw-a" style="flex:'+w[2]+'"></i></div>'
+    return '<div class="gw-bar"><i class="gw-h'+f(w[0])+'" style="flex:'+w[0]+'"></i><i class="gw-d" style="flex:'+w[1]+'"></i><i class="gw-a'+f(w[2])+'" style="flex:'+w[2]+'"></i></div>'
       + '<div class="gw-lbl"><span>'+esc(g.home)+' <b>'+gPct(w[0])+'</b></span><span>Draw <b>'+gPct(w[1])+'</b></span><span><b>'+gPct(w[2])+'</b> '+esc(g.away)+'</span></div>';
-  return '<div class="gw-bar"><i class="gw-a" style="flex:'+w[1]+'"></i><i class="gw-h" style="flex:'+w[0]+'"></i></div>'
+  return '<div class="gw-bar"><i class="gw-a'+f(w[1])+'" style="flex:'+w[1]+'"></i><i class="gw-h'+f(w[0])+'" style="flex:'+w[0]+'"></i></div>'
     + '<div class="gw-lbl"><span>'+esc(g.away)+' <b>'+gPct(w[1])+'</b></span><span><b>'+gPct(w[0])+'</b> '+esc(g.home)+'</span></div>';
 }
 

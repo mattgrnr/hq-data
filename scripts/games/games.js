@@ -10,11 +10,11 @@ function gLine(x){ return x > 0 ? "+"+x : x === 0 ? "PK" : String(x); }
 function gSide(g, home){ return home ? g.home : g.away; }
 
 function gWinBar(g){
-  const w = g.proj.win;
+  const w = g.proj.win, top = Math.max(...w), f = x => x === top ? ' fav' : '';     // accent marks our favourite
   if(w.length === 3)   // soccer reads home first: home, draw, away
-    return '<div class="gw-bar"><i class="gw-h" style="flex:'+w[0]+'"></i><i class="gw-d" style="flex:'+w[1]+'"></i><i class="gw-a" style="flex:'+w[2]+'"></i></div>'
+    return '<div class="gw-bar"><i class="gw-h'+f(w[0])+'" style="flex:'+w[0]+'"></i><i class="gw-d" style="flex:'+w[1]+'"></i><i class="gw-a'+f(w[2])+'" style="flex:'+w[2]+'"></i></div>'
       + '<div class="gw-lbl"><span>'+esc(g.home)+' <b>'+gPct(w[0])+'</b></span><span>Draw <b>'+gPct(w[1])+'</b></span><span><b>'+gPct(w[2])+'</b> '+esc(g.away)+'</span></div>';
-  return '<div class="gw-bar"><i class="gw-a" style="flex:'+w[1]+'"></i><i class="gw-h" style="flex:'+w[0]+'"></i></div>'
+  return '<div class="gw-bar"><i class="gw-a'+f(w[1])+'" style="flex:'+w[1]+'"></i><i class="gw-h'+f(w[0])+'" style="flex:'+w[0]+'"></i></div>'
     + '<div class="gw-lbl"><span>'+esc(g.away)+' <b>'+gPct(w[1])+'</b></span><span><b>'+gPct(w[0])+'</b> '+esc(g.home)+'</span></div>';
 }
 

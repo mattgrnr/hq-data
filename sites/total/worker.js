@@ -694,7 +694,7 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .gm .wn b{color:var(--paper);font-weight:500}
 .gm .pr{flex:0 0 100%;display:flex;height:4px;gap:2px;border-radius:2px;overflow:hidden}
 .gm .pr i{display:block}
-.gm .pr .a{background:#3a3f48}.gm .pr .d{background:#262a31}.gm .pr .h{background:var(--open)}
+.gm .pr .a,.gm .pr .h{background:#3a3f48}.gm .pr .d{background:#262a31}.gm .pr .fav{background:var(--open)}
 .games .all{display:inline-block;margin-top:12px;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--open);text-decoration:none}
 .games .none{color:var(--dim);font-size:12.5px;padding:10px 0}
 @media (max-width:520px){ .games{padding-left:59px} }
@@ -831,8 +831,10 @@ function gameHTML(key, url, g){
   var soc = g.win.length === 3, w = g.win;
   var first = soc ? g.h : g.a, second = soc ? g.a : g.h;
   var wf = soc ? w[0] : w[1], ws = soc ? w[2] : w[0];
-  var bar = soc ? '<i class="h" style="flex:' + w[0] + '"></i><i class="d" style="flex:' + w[1] + '"></i><i class="a" style="flex:' + w[2] + '"></i>'
-                : '<i class="a" style="flex:' + w[1] + '"></i><i class="h" style="flex:' + w[0] + '"></i>';
+  // green marks our favourite, whichever side it's on; a draw-first soccer match has none
+  var top = Math.max.apply(null, w), f = function(x){ return x === top ? ' fav' : ''; };
+  var bar = soc ? '<i class="h' + f(w[0]) + '" style="flex:' + w[0] + '"></i><i class="d" style="flex:' + w[1] + '"></i><i class="a' + f(w[2]) + '" style="flex:' + w[2] + '"></i>'
+                : '<i class="a' + f(w[1]) + '" style="flex:' + w[1] + '"></i><i class="h' + f(w[0]) + '" style="flex:' + w[0] + '"></i>';
   var live = g.t && Date.now() >= Date.parse(g.t);
   return '<a class="gm' + (live ? ' live' : '') + '" href="' + esc(url) + '/?game=' + encodeURIComponent(g.k) + '">'
     + '<div class="tm">' + esc(first) + '<span>' + (soc ? 'v' : '@') + '</span>' + esc(second) + (live ? ' <i class="lv">Live</i>' : '') + '</div>'
