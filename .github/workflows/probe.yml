@@ -1,0 +1,37 @@
+name: probe
+on: { push: { branches: [preview/slipttl], paths: [".github/workflows/probe.yml"] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - env: { PROPLINE_KEY: "${{ secrets.PROPLINE_KEY }}" }
+        run: |
+          python3 - <<'PY'
+          import sys; sys.path.insert(0, "scripts")
+          import odds
+          C = {
+            "basketball_nba": ["player_points","player_rebounds","player_assists","player_threes","player_blocks","player_steals","player_points_rebounds_assists","player_points_rebounds","player_points_assists","player_rebounds_assists",
+                               "player_points_alternate","player_rebounds_alternate","player_assists_alternate","player_threes_alternate","player_blocks_alternate","player_steals_alternate","player_points_rebounds_assists_alternate","player_points_rebounds_alternate","player_points_assists_alternate","player_rebounds_assists_alternate"],
+            "americanfootball_nfl": ["player_anytime_td","player_pass_yds","player_pass_tds","player_rush_yds","player_reception_yds","player_receptions",
+                               "player_pass_yds_alternate","player_rush_yds_alternate","player_reception_yds_alternate","player_receptions_alternate","player_pass_tds_alternate","player_tds_over","player_rush_reception_yds"],
+            "football_nfl": ["player_anytime_td","player_pass_yds","player_receptions","player_reception_yds_alternate","player_receptions_alternate","player_rush_yds_alternate","player_pass_yds_alternate"],
+            "hockey_nhl": ["player_goals","player_points","player_shots_on_goal","player_shots_on_goal_alternate","player_goal_scorer_anytime","player_goals_alternate","player_assists"],
+            "soccer_uefa_champions_league": ["anytime_goal_scorer","player_assists","goal_or_assist","player_shots_on_target","player_shots","player_goal_scorer_anytime","player_to_score","player_goals","player_shots_on_target_alternate","player_to_score_or_assist"],
+          }
+          for sp, mks in C.items():
+              evs = odds.get(f"sports/{sp}/events") or []
+              evs = evs if isinstance(evs, list) else (evs.get("events") or evs.get("data") or [])
+              if not evs: print("SP", sp, "no events"); continue
+              ev = evs[0]["id"]; print("SP", sp, evs[0].get("home_team"), "v", evs[0].get("away_team"))
+              for mk in mks:
+                  d = odds.get(f"sports/{sp}/events/{ev}/odds", markets=mk) or {}
+                  bks, ex = set(), None
+                  for b in d.get("bookmakers") or []:
+                      if b.get("key") not in odds.BOOKS: continue
+                      for m in b.get("markets") or []:
+                          if m.get("outcomes"):
+                              bks.add(odds.BOOKS[b["key"]])
+                              if ex is None: ex = [(o.get("name"), o.get("point")) for o in m["outcomes"][:3]]
+                  print("  MK %-42s %-32s %s" % (mk, ",".join(sorted(bks)) or "-", ex or ""))
+          PY
