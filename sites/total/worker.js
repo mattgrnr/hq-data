@@ -554,7 +554,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 
 
   <footer>
-    <div class="ft-sites"><a href="https://moonshot-hq.com">Moonshot</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a></div>
+    <div class="ft-sites"><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
     <p>Each board reads the same way: one score, five tiers, every input shown. Projections are estimates, not guarantees, and book prices move.</p>
     <p class="ft-rg">21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
   </footer>

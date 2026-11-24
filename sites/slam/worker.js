@@ -143,6 +143,11 @@ header.hero{padding:calc(env(safe-area-inset-top,0px) + 12px) 0 14px;border-bott
 .method{margin-top:18px}
 .method summary{color:var(--faint);font-size:13px;cursor:pointer}
 .method p{color:var(--faint);font-size:12.5px;line-height:1.55;margin-top:8px}
+/* site footer */
+footer.hqft{display:block;color:#6e7681;font-size:11.5px;line-height:1.6;margin:28px 0 8px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)}
+footer.hqft p{margin:0 0 8px}
+footer.hqft .ft-sites{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px;font-size:12px;letter-spacing:.06em}
+footer.hqft a{color:#9aa4b2;text-decoration:none}
 footer{display:block;color:#6e7681;font-size:11.5px;line-height:1.5;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
 .gametag{display:inline-block;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:1px 5px;margin-left:6px}
 .dtag{display:inline-block;font-size:10px;font-family:'IBM Plex Mono',monospace;border-radius:5px;padding:1px 5px;margin-left:6px;border:1px solid}
@@ -617,6 +622,7 @@ body{padding-bottom:84px}
   <div id="app">
     <div class="status"><div class="spinner"></div><h2>Loading SLAM HQ</h2><p>Fetching tonight\\'s slate…</p></div>
   </div>
+  <footer class="hqft"><div class="ft-sites"><a href="https://total-hq.com">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div><p>Scores and projections are estimates, not guarantees, and book prices move.</p><p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p></footer>
 </div>
 <script>
 "use strict";
