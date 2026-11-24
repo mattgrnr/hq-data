@@ -927,6 +927,15 @@ function price(a){ return a > 0 ? "+" + a : String(a); }
 var BKNAME = { DK:"DraftKings", FD:"FanDuel", MGM:"BetMGM", CZR:"Caesars", FAN:"Fanatics", ESPN:"ESPN Bet", BR:"BetRivers", HR:"Hard Rock", BOV:"Bovada", PIN:"Pinnacle" };
 function legPrices(l){ if(l.a) return l.a; var o = {}; o[l.b] = l.p; return o; }
 // a parlay is placed at one book, so it is priced book by book from that book's own prices
+// when My books can't take every leg: name the leg, and the books of ours that do have it
+function plMissing(L, pick){
+  if(!PLMY.length || !pick) return 'No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.';
+  var miss = L.filter(function(l){ return legPrices(l)[pick.bk] == null; }), one = miss.length === 1, bk = BKNAME[pick.bk] || pick.bk;
+  var alt = ["FD", "DK", "FAN", "HR", "MGM", "BR"].filter(function(b){ return b !== pick.bk && miss.every(function(l){ return legPrices(l)[b] != null; }); }).map(function(b){ return BKNAME[b]; });
+  return '<b>' + (one ? esc(miss[0].l) + ' isn\u2019t' : miss.length + ' legs aren\u2019t') + ' at ' + esc(bk) + '.</b> '
+    + (alt.length ? alt.slice(0, 3).join(alt.length === 2 ? ' and ' : ', ') + (alt.length === 1 ? ' has ' : ' have ') + (one ? 'it' : 'them') + ': add one under My books, or remove ' + (one ? 'the leg.' : 'those legs.')
+                  : 'None of the books we cover ' + (one ? 'has it' : 'have them all') + '. Remove ' + (one ? 'it' : 'them') + ' or swap for a leg ' + esc(bk) + ' has.');
+}
 function byBook(legs){
   var seen = {}, out = [];
   legs.forEach(function(l){ Object.keys(legPrices(l)).forEach(function(bk){ if(!PLMY.length || PLMY.indexOf(bk) >= 0) seen[bk] = 1; }); });
@@ -1015,7 +1024,7 @@ function renderParlay(mode){
   }).join("");
   h += '<div class="pl-sport">My books' + (PLMY.length ? ' · only these are priced' : ' · tap the ones you use') + '</div><div class="pl-chips">'
     + ["FD", "DK", "FAN", "HR", "MGM", "BR"].map(function(bk){ return '<button class="pl-chip' + (PLMY.indexOf(bk) >= 0 ? ' on' : '') + '" data-my="' + bk + '">' + esc(nm(bk)) + '</button>'; }).join("") + '</div>';
-  if(!hasFull) h += '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>';
+  if(!hasFull) h += '<p class="pl-note pl-warn">' + plMissing(L, pick) + '</p>';
   var gs = Object.keys(games), one = pick && gs.length === 1 ? (L.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
   var started = L.filter(function(l){ return l.t && Date.now() >= l.t; });
   var slip = full && !started.length ? slipUrl(pick.bk, L) : null;

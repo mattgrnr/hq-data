@@ -1368,6 +1368,16 @@ function plMath(legs){
   return { best: full[0] || null, full, partial: books.filter(b=>b.n < legs.length), ours, book,
            sameGame: new Set(legs.map(l=>l.g)).size < legs.length, at: bk => l => prices(l)[bk] };
 }
+// when My books can't take every leg: name the leg, and the books of ours that do have it
+function plMissing(pick){
+  const px = l => l.a || { [l.b]: l.p };
+  if(!PLMY.length || !pick) return 'No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.';
+  const miss = PL.filter(l=>px(l)[pick.bk] == null), one = miss.length === 1, bk = BKNAME[pick.bk] || pick.bk;
+  const alt = MYBOOKS.filter(b=>b !== pick.bk && miss.every(l=>px(l)[b] != null)).map(b=>BKNAME[b]);
+  return '<b>'+(one ? esc(miss[0].l)+' isn’t' : miss.length+' legs aren’t')+' at '+esc(bk)+'.</b> '
+    + (alt.length ? alt.slice(0, 3).join(alt.length === 2 ? ' and ' : ', ')+(alt.length === 1 ? ' has ' : ' have ')+(one ? 'it' : 'them')+': add one under My books, or remove '+(one ? 'the leg.' : 'those legs.')
+                  : 'None of the books we cover '+(one ? 'has it' : 'have them all')+'. Remove '+(one ? 'it' : 'them')+' or swap for a leg '+esc(bk)+' has.');
+}
 function plBar(){
   let el = document.getElementById("plbar");
   if(!el){ el = document.createElement("div"); el.id = "plbar"; document.body.appendChild(el); }
@@ -1410,7 +1420,7 @@ function plBar(){
       + '<div class="pl-my"><div class="pl-wt">My books <span>'+(PLMY.length ? 'only these are priced' : 'tap the ones you use')+'</span></div>'
       + MYBOOKS.map(bk=>'<button class="pl-chip'+(PLMY.includes(bk)?" on":"")+'" data-my="'+bk+'">'+esc(BKNAME[bk])+'</button>').join("")+'</div>'
       + (gone.length ? '<p class="pl-note pl-warn">'+gone.length+' leg'+(gone.length>1?"s have":" has")+' started and can\\'t be bet anymore. <button class="pl-link" id="pl-drop">Remove started legs</button></p>' : '')
-      + (m.full.length ? '' : '<p class="pl-note pl-warn">No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.</p>')
+      + (m.full.length ? '' : '<p class="pl-note pl-warn">'+plMissing(pick)+'</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
