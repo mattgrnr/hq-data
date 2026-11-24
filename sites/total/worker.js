@@ -1083,6 +1083,9 @@ function renderBest(){
   var mo = el.querySelector(".bst-more"); if(mo) mo.onclick = function(){ BESTALL = !BESTALL; renderBest(); };
 }
 fetch("/best").then(function(r){ return r.json(); }).then(function(d){ BEST = d.bets || []; renderBest(); }).catch(function(){});
+// whenever the slip changes (cleared, a leg removed), the + buttons on today's best bets follow it
+var renderSlip = renderParlay;
+renderParlay = function(mode){ renderSlip(mode); if(BEST && BEST.length) renderBest(); };
 
 // ---------- following started legs live ----------
 var TRACK = {}, TRACK_T = null;
