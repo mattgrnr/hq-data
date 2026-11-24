@@ -216,7 +216,10 @@ def implied(price):
 
 def norm(name):
     import unicodedata
-    n = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    n = (name or "").lower()
+    for x, y in (("ø", "o"), ("æ", "ae"), ("ß", "ss"), ("đ", "d"), ("ł", "l"), ("ı", "i"), ("/", " ")):   # letters NFKD can't split
+        n = n.replace(x, y)
+    n = unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode()
     for w in (" fc", "fc ", " cf", " afc", " city", " united", " club", "1. ", "ac ", " calcio", "as ", "ssc ", "rc "):
         n = n.replace(w, " ")
     return " ".join(n.replace(".", " ").replace("-", " ").split())
