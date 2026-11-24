@@ -642,6 +642,7 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-leg a{color:var(--open);text-decoration:none}
 .pl-leg .no{font-style:normal;font-size:11px;color:#fbbf24}
 .pl-place{display:flex;gap:10px;margin-top:14px}
+.pl-two button{flex:1}
 .pl-chips{margin-top:8px}
 .lv{font-style:normal;display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#dc2626;vertical-align:2px}
 .gm.live{opacity:.6}
@@ -985,7 +986,7 @@ function renderParlay(mode){
   if(tl && !tl.todo){
     // every leg is under way: nothing left to place, so the panel just follows the bets
     h += '<p class="pl-note">Following live · updates every 30 seconds while this page is open.</p>'
-      + '<div class="pl-acts">' + (share ? '' : '<button class="pl-clear">Clear parlay</button>') + '</div></div>';
+      + (share ? '' : '<div class="pl-place pl-two"><button class="pl-cp pl-clear">Clear parlay</button></div>') + '</div>';
     el.innerHTML = h;
     el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ L.splice(+b.dataset.i, 1); if(share) renderParlay("share"); else { plSave(PL); renderParlay(); } }; });
     var cl0 = el.querySelector(".pl-clear"); if(cl0) cl0.onclick = function(){ PL = []; plSave(PL); renderParlay(); };
@@ -1010,8 +1011,8 @@ function renderParlay(mode){
       + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip.') + '</p>'
     + (same ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
     + (share ? '<p class="pl-note">Prices as of when this was shared'+(SHARED.at ? ', '+ago(SHARED.at) : '')+'. Books move, so check the price in your slip.</p>' : '<p class="pl-note">Add legs from any sport’s board with +. Your parlay follows you between the HQ sites.</p>')
-    + '<p class="pl-note"><button class="pl-link pl-copy">Copy as text</button></p>'
-    + '<div class="pl-acts">'+(share ? '<button class="pl-mine">Add these legs to my parlay</button>' : '<button class="pl-clear">Clear parlay</button>')+'</div></div>';
+    + '<div class="pl-place pl-two"><button class="pl-cp pl-copy">Copy as plain text</button>'
+    + (share ? '<button class="pl-cp pl-mine">Add these legs to my parlay</button>' : '<button class="pl-cp pl-clear">Clear parlay</button>') + '</div></div>';
   el.innerHTML = h;
   var again = function(){ if(share) renderParlay("share"); else { plSave(PL); renderParlay(); } };
   el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ L.splice(+b.dataset.i, 1); again(); }; });
@@ -1048,7 +1049,7 @@ function renderParlay(mode){
   cp.onclick = function(){
     var txt = L.map(function(l){ var p = pick ? legPrices(l)[pick.bk] : l.p; return l.l + " (" + (l.g || "") + ")" + (p != null ? " " + price(p) : ""); }).join("\\n")
       + (full ? "\\nParlay " + amer(pick.d) + " at " + nm(pick.bk) : "");
-    try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy as text"; }, 1500); }); } catch(e) {}
+    try { navigator.clipboard.writeText(txt).then(function(){ cp.textContent = "Copied"; setTimeout(function(){ cp.textContent = "Copy as plain text"; }, 1500); }); } catch(e) {}
   };
 }
 // ---------- today's best bets across every sport ----------

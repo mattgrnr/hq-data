@@ -458,7 +458,7 @@ function plBar(){
       + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
       + (pick ? '<p class="pl-note">'+(PLWENT ? '<b>Placed it?</b> ' : '')+'<button class="pl-link" id="pl-placed">Track this bet</button> to follow it live in My bets on Total HQ.</p>' : '')
-      + '<p class="pl-note">Share betslip sends a link that opens this parlay, priced at every book and ready to place. <button class="pl-link" id="pl-copy">Copy as text</button></p>'
+      + '<p class="pl-note">Share betslip sends a link that opens this parlay, priced at every book and ready to place. <button class="pl-link" id="pl-copy">Copy as plain text</button></p>'
       + '<p class="pl-note">'+(slip ? 'Loads every leg into your '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip. ' : (oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'. ' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk||"the book")+'; add each leg there, or tap "open game" on a leg. ')
         + 'FanDuel, DraftKings, Fanatics, Hard Rock and BetMGM can load the whole slip. ')+'Your parlay follows you to every HQ site.</p>'
       + '<div class="pl-acts"><button class="navbtn" id="pl-clear">Clear</button><a class="navbtn" href="https://total-hq.com/" style="text-align:center;text-decoration:none">See it on Total HQ</a></div></div>' : '')
@@ -488,7 +488,7 @@ function plBar(){
   const cp = document.getElementById("pl-copy");
   if(cp) cp.onclick = ()=>{
     const txt = PL.map(l=>l.l+" ("+(l.g||"")+")"+(at(l)!=null ? " "+gPrice(at(l)) : "")).join("\n") + (full ? "\nParlay "+gPrice(pick.price)+" at "+(BKNAME[pick.bk]||pick.bk) : "");
-    try { navigator.clipboard.writeText(txt).then(()=>{ cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy as text"; }, 1500); }); } catch(e) {}
+    try { navigator.clipboard.writeText(txt).then(()=>{ cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy as plain text"; }, 1500); }); } catch(e) {}
   };
   const sh = document.getElementById("pl-share");
   if(sh){ sharePrep(PL, pick && pick.bk); sh.onclick = ()=> shareGo(PL, pick && pick.bk, sh, "Share betslip"); }   // the link is made while the slip is open, so a tap shares at once
