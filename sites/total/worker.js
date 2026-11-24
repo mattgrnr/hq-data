@@ -65,6 +65,7 @@ export default {
     if (path === "/betlink") return betLink(url, request, env);
     if (path === "/p") return saveSlip(request, env, url);
     if (path === "/best") return best();
+    if (path === "/guide") return new Response(GUIDE, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" } });
     if (path === "/track") return track(request);
     const sm = /^\/p\/([A-Za-z0-9]{7})$/.exec(path);
     if (sm) return showSlip(sm[1], env, url);
@@ -86,6 +87,196 @@ export default {
 };
 
 const RAW = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/";
+
+// /guide: everything a visitor can do across the HQ sites, on one page
+const GUIDE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How HQ works</title>
+<meta name="description" content="Everything you can do across the HQ boards: read the numbers, build and share a parlay, track your bets and see how we've done.">
+<meta name="theme-color" content="#08090C">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--void:#08090C;--hq:#FF4D3D;--paper:#EDEAE3;--mute:#8A909A;--dim:#454B55;--rule:rgba(255,255,255,.075);--lift:rgba(255,255,255,.035);--open:#4ADE80}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--void);scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:radial-gradient(1300px 680px at 50% -18%,rgba(237,234,227,.075),transparent 64%),var(--void);background-attachment:fixed;
+  color:var(--paper);font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+.wrap{max-width:680px;margin:0 auto;padding:0 20px 44px}
+a{color:inherit}
+header{padding:30px 0 0}
+.back{font-size:13px;color:var(--mute);text-decoration:none}
+.back:hover{color:var(--paper)}
+.rule{height:1px;background:var(--rule);margin:12px 0 20px}
+h1{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:clamp(46px,13vw,74px);line-height:.9;letter-spacing:.005em}
+h1 span{color:var(--hq)}
+.lede{margin-top:12px;color:var(--mute);font-size:15px;line-height:1.55;max-width:48ch}
+.lede b{color:var(--paper);font-weight:500}
+nav.toc{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:22px -20px 0;padding:10px 20px;position:sticky;top:0;z-index:2;
+  background:linear-gradient(var(--void) 78%,transparent)}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{flex:none;font-size:13px;font-weight:500;text-decoration:none;color:var(--mute);padding:7px 13px;border-radius:99px;background:var(--lift);border:1px solid var(--rule)}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--paper);outline:none;border-color:rgba(255,255,255,.2)}
+section{padding:26px 0 6px;border-bottom:1px solid var(--rule);scroll-margin-top:56px}
+section:last-of-type{border-bottom:0}
+h2{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:28px;letter-spacing:.02em;line-height:1.05;margin-bottom:12px}
+.item{display:grid;grid-template-columns:1fr;gap:4px;margin:0 0 16px}
+.item h3{font-size:15px;font-weight:700}
+.item p{color:var(--mute);font-size:14.5px;line-height:1.55;max-width:58ch}
+.item p b{color:var(--paper);font-weight:500}
+/* little pieces of the real UI, so people know what to look for */
+.demo{margin:8px 0 4px;padding:12px 14px;border-radius:12px;background:var(--lift);border:1px solid var(--rule);font-size:13px}
+.d-pick{display:flex;align-items:center;gap:12px}
+.d-plus{flex:none;width:34px;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;font-size:18px}
+.d-pick .n{font-weight:700;font-size:15px}
+.d-pick .m{color:var(--mute);font-size:12.5px;margin-top:2px}
+.d-pick .r{margin-left:auto;text-align:right}
+.d-pick .px{font-weight:700;font-size:15px}
+.d-pick .bk{display:block;color:var(--mute);font-size:11px;margin:1px 0 3px}
+.chip{display:inline-block;background:var(--open);color:#06240f;font-weight:700;font-size:12px;padding:2px 7px;border-radius:6px}
+.d-bar .l{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px}
+.d-bar .l b{font-weight:700}
+.d-bar .l small{color:var(--mute);font-weight:500;margin-left:6px}
+.d-bar .t{height:6px;border-radius:99px;background:rgba(255,255,255,.07);position:relative;overflow:hidden}
+.d-bar .t i{position:absolute;inset:0 auto 0 0;width:90%;background:var(--paper);border-radius:99px}
+.d-bar .t::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(8,9,12,.7)}
+.d-days{display:inline-flex;gap:2px;padding:3px;border-radius:99px;background:rgba(255,255,255,.05)}
+.d-days span{font-weight:600;padding:6px 14px;border-radius:99px;color:var(--mute)}
+.d-days span.on{background:rgba(255,255,255,.12);color:var(--paper)}
+.d-btns{display:flex;flex-wrap:wrap;gap:8px}
+.d-btns span{font-weight:600;font-size:12.5px;padding:7px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.14)}
+.d-btns span.go{background:var(--paper);color:var(--void);border-color:var(--paper)}
+.tiers{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--mute)}
+.tiers b{color:var(--paper);font-weight:700;letter-spacing:.06em}
+footer{color:var(--dim);font-size:12px;line-height:1.6;margin-top:30px;padding-top:16px;border-top:1px solid var(--rule)}
+footer p{margin:0 0 8px}
+footer .sites{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px;letter-spacing:.06em}
+footer a{color:var(--mute);text-decoration:none}
+footer a:hover{color:var(--paper)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="back" href="/">‹ Total HQ</a>
+  <div class="rule"></div>
+  <h1>How HQ <span>works</span></h1>
+  <p class="lede">Every HQ board rates tonight’s players and games, puts <b>our chance next to the sportsbooks’</b>, and lets you build, share and track a bet. Here’s everything you can do.</p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#numbers">The numbers</a><a href="#players">Players</a><a href="#games">Games</a><a href="#parlay">Parlays</a><a href="#tracking">Tracking</a><a href="#best">Best bets</a><a href="#results">Results</a>
+</nav>
+
+<section id="numbers">
+  <h2>Reading the numbers</h2>
+  <div class="item">
+    <h3>The score</h3>
+    <p>Every player gets a score from <b>0 to 100</b> for the stat you’re viewing. Higher means a better spot tonight. The tier sums it up:</p>
+    <div class="demo tiers"><span><b>ELITE</b> 80+</span><span><b>STRONG</b> 68+</span><span><b>SOLID</b> 56+</span><span><b>FRINGE</b> 44+</span><span><b>LONGSHOT</b> below</span></div>
+  </div>
+  <div class="item">
+    <h3>Ours vs the books</h3>
+    <p><b>Ours</b> is our chance it hits. The second number is the chance the sportsbooks’ price implies, with their cut taken out. The green chip is the gap between them: the <b>edge</b>.</p>
+    <div class="demo d-pick"><span class="d-plus">+</span><div><div class="n">D. Malen to score</div><div class="m">Futbol · ours 49% vs 35%</div></div><div class="r"><span class="px">+175</span><span class="bk">DK</span><span class="chip">+14%</span></div></div>
+  </div>
+  <div class="item">
+    <h3>The price</h3>
+    <p>We show the best price across the books, with the book’s initials under it (DK DraftKings, FD FanDuel, and so on). Prices move, so check it before you bet.</p>
+  </div>
+</section>
+
+<section id="players">
+  <h2>Player cards</h2>
+  <div class="item">
+    <h3>Tap a player for the why</h3>
+    <p>Each bar ranks him against <b>everyone on today’s board</b> for that stat. 90th means he’s ahead of 90% of them; the tick in the middle is the 50th. Tap any bar to see what it measures.</p>
+    <div class="demo d-bar"><div class="l"><span>Shot volume</span><span><b>90th</b><small>4.1 / game</small></span></div><div class="t"><i></i></div></div>
+  </div>
+  <div class="item">
+    <h3>Game logs</h3>
+    <p><b>Last 5 Games</b> shows his recent form. <b>Games vs Team</b> shows every meeting with tonight’s opponent; tap Show all for the full list.</p>
+  </div>
+  <div class="item">
+    <h3>Today or tomorrow</h3>
+    <p>On Slam, Slapshot and Futbol, switch to tomorrow’s slate any time. Touchdown covers the whole week.</p>
+    <div class="demo"><span class="d-days"><span class="on">Today</span><span>Tomorrow</span></span></div>
+  </div>
+</section>
+
+<section id="games">
+  <h2>The Games tab</h2>
+  <div class="item">
+    <h3>Every game at a glance</h3>
+    <p>Each card shows both sides’ win chances, our projected score and the game’s <b>best bet</b>. Tap a card to open it.</p>
+  </div>
+  <div class="item">
+    <h3>Inside a game</h3>
+    <p>The top three bets, then <b>every market</b> with ours next to the books’: moneyline, spread and total, plus double chance, draw no bet, handicap and both teams to score in soccer. Below that, the <b>top three player picks</b> in the game.</p>
+  </div>
+  <div class="item">
+    <h3>Live</h3>
+    <p>Once a game starts, player cards show their live stat line, updated every 30 seconds.</p>
+  </div>
+</section>
+
+<section id="parlay">
+  <h2>Building a parlay</h2>
+  <div class="item">
+    <h3>Tap + to add a leg</h3>
+    <p>Any player prop or game line can go in. Your slip <b>follows you across every HQ site</b>, so you can mix an NBA prop with a soccer scorer.</p>
+  </div>
+  <div class="item">
+    <h3>Send it to a book or a friend</h3>
+    <p>Tap a sportsbook to price the whole parlay there; set <b>My books</b> to the ones you use. Where the book supports it, <b>Open bet slip</b> loads every leg for you. <b>Share betslip</b> makes a short link anyone can open; it lasts two weeks.</p>
+    <div class="demo d-btns"><span class="go">Open DraftKings bet slip</span><span>Share betslip</span><span>Track this bet</span></div>
+  </div>
+</section>
+
+<section id="tracking">
+  <h2>Tracking your bets</h2>
+  <div class="item">
+    <h3>Track this bet</h3>
+    <p>Once you’ve placed it, tap <b>Track this bet</b>. It moves to <b>My bets</b> on Total HQ, where every leg updates live as the games play.</p>
+  </div>
+  <div class="item">
+    <h3>Keeping it tidy</h3>
+    <p>Stop tracking a bet whenever you like, or clear the settled ones. Settled bets clear themselves after two days.</p>
+  </div>
+</section>
+
+<section id="best">
+  <h2>Tonight’s best bets</h2>
+  <div class="item">
+    <h3>The biggest believable edges</h3>
+    <p>On Total HQ, under the boards: the best edges across every sport, up to four per sport. Nothing shorter than −150, and no long shot makes it on price alone. Tap Hide to tuck it away; we remember.</p>
+  </div>
+</section>
+
+<section id="results">
+  <h2>Results Dashboard</h2>
+  <div class="item">
+    <h3>How we’ve done</h3>
+    <p>Every board has one. Each pick is graded after the games, so you can see how often our top picks hit and <b>how our chances held up</b> against what actually happened.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="sites"><a href="/">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
+  <p>Scores and projections are estimates, not guarantees, and book prices move.</p>
+  <p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
+</footer>
+</div>
+</body>
+</html>
+`;
 const SPORT_DIR = { nhl: "nhl", nba: "nba", nfl: "nfl", soc: "soccer" };
 
 // One tap from a parlay to a sportsbook's bet slip with every leg loaded. PropLine builds the link
@@ -341,6 +532,15 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .thesis{margin-top:12px;color:var(--mute);font-size:15px;line-height:1.55;max-width:46ch}
 .thesis b{color:var(--paper);font-weight:500}
 
+.hqnew{transition:opacity .4s}
+.hqnew.bye{opacity:0}
+@media (prefers-reduced-motion:reduce){.hqnew{transition:none}}
+.hqnew{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);padding:8px 8px 8px 12px;margin:12px 0 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
+.hqnew[hidden]{display:none}
+.hqnew a{color:inherit;font-weight:600;text-underline-offset:3px}
+.hqnew a:hover{color:var(--paper)}
+.hqnew button{margin-left:auto;background:none;border:0;color:inherit;font-size:18px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:6px}
+.hqnew button:hover{color:var(--paper)}
 /* ---------- the board ---------- */
 .boardhead{display:grid;grid-template-columns:3px 52px 1fr auto;align-items:center;gap:0 16px;
   margin:30px 0 0;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
@@ -547,6 +747,10 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
     <h1>TOTAL<span class="badge">HQ</span></h1>
     <p class="thesis">Every sport’s board, tonight’s best bets and your parlays in one place. Every player scored <b>0 to 100</b>.</p>
   </header>
+<div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
+<script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
+  try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
+  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime at the bottom of the page.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
 
   <div id="shared"></div>
   <div id="bets"></div>
@@ -559,6 +763,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 
   <footer>
     <div class="ft-sites"><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
+    <p class="ft-guide"><a href="/guide">How HQ works</a></p>
     <p>Each board reads the same way: one score, five tiers, every input shown. Projections are estimates, not guarantees, and book prices move.</p>
     <p class="ft-rg">21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
   </footer>
