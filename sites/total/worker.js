@@ -268,6 +268,13 @@ footer a:hover{color:var(--paper)}
   </div>
 </section>
 
+<script>
+// back to whichever HQ site sent them here (only our own sites)
+(function(){ var to = { slam:["Slam HQ","https://slam-hq.com"], slapshot:["Slapshot HQ","https://slapshot-hq.com"], futbol:["Futbol HQ","https://futbol-hq.com"],
+  touchdown:["Touchdown HQ","https://touchdown-hq.com"], moonshot:["Moonshot HQ","https://moonshot-hq.com"] };
+  var k = new URLSearchParams(location.search).get("from"), b = document.querySelector(".back");
+  if(b && to[k]){ b.textContent = "‹ " + to[k][0]; b.href = to[k][1]; } })();
+</script>
 <footer>
   <div class="sites"><a href="/">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
   <p>Scores and projections are estimates, not guarantees, and book prices move.</p>

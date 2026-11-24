@@ -537,14 +537,14 @@ font-family:'Space Grotesk',system-ui,sans-serif;
 .hero .navbar{margin-left:auto;gap:8px}
 </style></head><body>
 <div id="xfade"></div>
-<div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="https://total-hq.com/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
+<div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="https://xonly-total-hq.wehttam30.workers.dev/guide?from=moonshot">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
   try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
   e.hidden = false; e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime in the HQ drop down.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
 <div id="app">
   <div class="status"><div class="spinner"></div><h2>Loading Moonshot HQ</h2><p id="status-line">Fetching today's slate…</p><div class="bar-progress"><i id="status-bar"></i></div></div>
 </div>
-<footer class="hqft"><p class="ft-guide"><a href="https://total-hq.com/guide">How HQ works</a></p><div class="ft-sites"><a href="https://total-hq.com">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a></div><p>Scores and projections are estimates, not guarantees, and book prices move.</p><p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p></footer>
+<footer class="hqft"><p class="ft-guide"><a href="https://xonly-total-hq.wehttam30.workers.dev/guide?from=moonshot">How HQ works</a></p><div class="ft-sites"><a href="https://total-hq.com">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a></div><p>Scores and projections are estimates, not guarantees, and book prices move.</p><p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p></footer>
 <script>
 "use strict";
 (function(){
@@ -588,7 +588,7 @@ function sportsMenuHTML(){
           : '<a href="'+s.url+'"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>';
       }).join("")
     + '<div class="mdiv"></div>'
-    + '<a href="https://total-hq.com/guide"><span class="lg"><span class="qm">?</span></span>How it works</a>'
+    + '<a href="https://xonly-total-hq.wehttam30.workers.dev/guide?from=moonshot"><span class="lg"><span class="qm">?</span></span>How it works</a>'
     + '</div></div>';
 }
 function wireSports(){
