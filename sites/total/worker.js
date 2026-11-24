@@ -687,6 +687,15 @@ function renderParlay(mode){
         + '<button data-i="' + i + '" aria-label="Remove">✕</button></div>';
     });
   });
+  if(tl && !tl.todo){
+    // every leg is under way: nothing left to place, so the panel just follows the bets
+    h += '<p class="pl-note">Following live · updates every 30 seconds while this page is open.</p>'
+      + '<div class="pl-acts">' + (share ? '' : '<button class="pl-clear">Clear parlay</button>') + '</div></div>';
+    el.innerHTML = h;
+    el.querySelectorAll(".pl-leg button").forEach(function(b){ b.onclick = function(){ L.splice(+b.dataset.i, 1); if(share) renderParlay("share"); else { plSave(PL); renderParlay(); } }; });
+    var cl0 = el.querySelector(".pl-clear"); if(cl0) cl0.onclick = function(){ PL = []; plSave(PL); renderParlay(); };
+    return;
+  }
   h += '<div class="pl-sport">Tap a sportsbook to price your parlay there</div>' + books.slice(0, 8).map(function(b){
     return '<button class="pl-bk' + (pick && b.bk === pick.bk ? ' on' : '') + (b.n < L.length ? ' part' : '') + '" data-bk="' + b.bk + '"><span>' + esc(nm(b.bk)) + '</span>'
       + (b.n === L.length ? '<b>' + amer(b.d) + '</b>' : '<i>' + b.n + ' of ' + L.length + ' legs</i>') + '</button>';
@@ -697,7 +706,7 @@ function renderParlay(mode){
   var gs = Object.keys(games), one = pick && gs.length === 1 ? (L.filter(function(l){ return l.u && l.u[pick.bk]; })[0] || { u:{} }).u[pick.bk] : null;
   var started = L.filter(function(l){ return l.t && Date.now() >= l.t; });
   var slip = full && !started.length ? slipUrl(pick.bk, L) : null;
-  if(started.length) h += '<p class="pl-note pl-warn">' + started.length + ' leg' + (started.length > 1 ? 's have' : ' has') + ' started and can\u2019t be bet anymore. <button class="pl-link" id="pl-drop">Remove started legs</button></p>';
+  if(started.length) h += '<p class="pl-note pl-warn">' + started.length + ' leg' + (started.length > 1 ? 's have' : ' has') + ' started, so it\u2019s being followed live above and can\u2019t be bet anymore. To bet the rest, <button class="pl-link" id="pl-drop">remove started legs</button>.</p>';
   var place = pick ? (slip || one || BKHOME[pick.bk]) : null;
   h += '<div class="pl-place">' + (place ? '<a class="pl-go" id="pl-go" href="' + esc(SLIPLINK[place] || place) + '"' + (slip ? '' : ' target="_blank" rel="noopener"') + '>' + (slip ? 'Add to ' + esc(nm(pick.bk)) + ' bet slip' : 'Open ' + esc(nm(pick.bk))) + '</a>' : '')
     + '<button class="pl-cp pl-share">Share betslip</button></div>'
