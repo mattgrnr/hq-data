@@ -51,6 +51,34 @@ def fetch(path, tries=3):
     raise last
 
 
+ESPN_INJ = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/injuries"
+SURE_OUT = ("out", "injured reserve", "long term injured reserve", "suspension", "suspended")
+
+
+def nm(n):
+    import unicodedata
+    n = unicodedata.normalize("NFKD", str(n or "")).encode("ascii", "ignore").decode().lower()
+    return " ".join(w for w in n.replace(".", " ").replace("-", " ").split() if w not in ("jr", "sr", "ii", "iii"))
+
+
+def ruled_out():
+    """Players ESPN lists as out, on IR or suspended; day-to-day players stay on the board."""
+    try:
+        req = urllib.request.Request(ESPN_INJ, headers={"User-Agent": "hq-data"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            d = json.loads(r.read())
+    except Exception as e:
+        print("injuries unavailable:", e)
+        return set()
+    out = set()
+    for t in d.get("injuries") or []:
+        for x in t.get("injuries") or []:
+            if str(x.get("status", "")).lower() in SURE_OUT:
+                out.add(nm((x.get("athlete") or {}).get("displayName")))
+    print(f"injuries: {len(out)} ruled out")
+    return out
+
+
 def parquet(path, columns=None):
     data = fetch(path)
     if not data:
@@ -310,10 +338,13 @@ def main():
 
     playing = {g["home_team_abbr"] for g in slate} | {g["away_team_abbr"] for g in slate}
 
+    hurt = set() if LOCAL else ruled_out()
     players = []
     for tm in sorted(playing):
         for pid in dressed.get(tm, ()):
             c, i = sk[pid], info[pid]
+            if nm(i["name"]) in hurt:
+                continue
             gc = c["gp"]
             p = {"id": pid, "name": i["name"], "pos": i["pos"], "team": tm}
             k = K_ROOKIE * 5 / (5 + gc)   # the pull fades as his own games pile up

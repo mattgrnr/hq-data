@@ -383,7 +383,7 @@ def exp_minutes(p, team, lu_side, kind):
     subs = [x[3] for x in log if not x[4]]
     avg_sub = sum(subs) / len(subs) if subs else 18.0
     pid = p["id"]
-    if lu_side and pid in lu_side["out"]:
+    if lu_side and (pid in lu_side["out"] or str(pid) in lu_side["out"]):     # saved lineups come back with text ids
         return 0.0, "out"
     if kind == "standard" and lu_side and lu_side["start"]:
         if pid in lu_side["start"]:
