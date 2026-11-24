@@ -82,11 +82,24 @@ def season_param(label):
     return urllib.parse.quote(label.replace("/", "-"))
 
 
+FULL_TIME = timedelta(hours=2, minutes=15)   # kickoff to a match surely being over, stoppage time included
+
+
+def awaiting(fx):
+    """A match that should be over by now but isn't marked finished in our fixture list yet."""
+    now = datetime.now(timezone.utc)
+    for ms in fx.get("matches", {}).values():
+        for m in ms:
+            if not m["fin"] and m["t"] and now - timedelta(hours=24) < datetime.fromisoformat(m["t"].replace("Z", "+00:00")) < now - FULL_TIME:
+                return True
+    return False
+
+
 def refresh_fixtures(lid, state):
-    """Current season every 3 hours, previous season once."""
+    """Current season every 3 hours, or sooner once a match should be over; previous season once."""
     f = FIX / f"{lid}.json"
     fx = load_json(f, {"seasons": [], "matches": {}, "at": 0})
-    fresh = time.time() - fx.get("at", 0) < 3 * 3600
+    fresh = time.time() - fx.get("at", 0) < 3 * 3600 and not awaiting(fx)
     want = []
     if not fresh or not fx["seasons"]:
         want.append(None)
@@ -209,7 +222,7 @@ def backfill(state):
             rows = read_hist(p)
             have = {int(r["mid"]) for r in rows} | skip
             todo = [m for m in todo if m["id"] not in have
-                    and m["t"] and datetime.fromisoformat(m["t"].replace("Z", "+00:00")) < now - timedelta(hours=3)]
+                    and m["t"] and datetime.fromisoformat(m["t"].replace("Z", "+00:00")) < now - FULL_TIME]
             if not todo:
                 continue
             added = 0

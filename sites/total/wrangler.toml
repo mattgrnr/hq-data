@@ -10,3 +10,7 @@ keep_vars = true
 [[kv_namespaces]]
 binding = "SLIPS"
 id = "8c34921c4f624543815f310ecf29dd12"
+
+# every 10 minutes: start any board build that's due (GitHub's own scheduler skips runs)
+[triggers]
+crons = ["*/10 * * * *"]

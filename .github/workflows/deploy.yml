@@ -96,3 +96,11 @@ jobs:
           if [ -z "$PROPLINE_KEY" ]; then echo "no PROPLINE_KEY secret; skipped"; exit 0; fi
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then unset CLOUDFLARE_ACCOUNT_ID; fi
           printf '%s' "$PROPLINE_KEY" | npx --yes wrangler@4 secret put PROPLINE_KEY --name total-hq
+      - name: Give Total HQ the token that starts the board builds on schedule
+        if: github.ref_name == 'main' && contains(steps.sites.outputs.list, 'total')
+        env:
+          GH_DISPATCH: ${{ secrets.GH_DISPATCH }}
+        run: |
+          if [ -z "$GH_DISPATCH" ]; then echo "no GH_DISPATCH secret; skipped"; exit 0; fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then unset CLOUDFLARE_ACCOUNT_ID; fi
+          printf '%s' "$GH_DISPATCH" | npx --yes wrangler@4 secret put GH_DISPATCH --name total-hq

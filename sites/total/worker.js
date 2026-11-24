@@ -30,7 +30,30 @@ function serveAsset(path) {
   return null;
 }
 
+// ---------- board builds on schedule ----------
+// GitHub's scheduler often runs late or not at all, so this Worker's cron starts the builds instead.
+// Times are UTC, matching each workflow's own schedule; the cron fires every 10 minutes, so each
+// time is caught by the tick in its 10-minute window. The token (Actions: write on hq-data only) is a secret.
+const BUILDS = [
+  { wf: "soccer.yml", at: m => m.mi === 20 },                                  // hourly
+  { wf: "nhl.yml", at: m => [[12, 10], [16, 10], [14, 30], [19, 30], [22, 30]].some(([h, mi]) => m.h === h && m.mi === mi) },
+  { wf: "nba.yml", at: m => [[13, 10], [21, 40], [15, 30], [18, 30], [23, 30]].some(([h, mi]) => m.h === h && m.mi === mi) },
+  { wf: "nfl.yml", at: m => [[11, 10], [21, 10], [14, 30], [19, 30]].some(([h, mi]) => m.h === h && m.mi === mi) || (m.dow === 0 && m.h === 16 && m.mi === 0) },
+];
+async function startBuilds(when, env) {
+  if (!env || !env.GH_DISPATCH) return;
+  const d = new Date(when), m = { h: d.getUTCHours(), mi: Math.floor(d.getUTCMinutes() / 10) * 10, dow: d.getUTCDay() };
+  await Promise.all(BUILDS.filter(b => b.at(m)).map(b => fetch("https://api.github.com/repos/mattgrnr/hq-data/actions/workflows/" + b.wf + "/dispatches", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + env.GH_DISPATCH, Accept: "application/vnd.github+json", "User-Agent": "total-hq", "Content-Type": "application/json" },
+    body: JSON.stringify({ ref: "main" }),
+  }).catch(() => {})));
+}
+
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(startBuilds(event.scheduledTime, env));
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
