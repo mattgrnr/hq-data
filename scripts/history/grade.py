@@ -277,7 +277,7 @@ def label_of(key):
     return "Week " + str(int(key.split("-w")[1])) if "-w" in key else key
 
 
-BIG_FIVE = {"Premier League", "LaLiga", "Serie A", "Bundesliga", "Ligue 1"}
+BIG_FIVE = {"Premier League", "LaLiga", "Serie A", "Bundesliga", "Ligue 1", "Champions League", "Europa League", "Conference League"}
 
 
 def home_teams(days):
