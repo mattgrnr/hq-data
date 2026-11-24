@@ -934,7 +934,7 @@ function plMissing(L, pick, slip){
   var alt = ["FD", "DK", "FAN", "HR", "MGM", "BR"].filter(function(b){ return b !== pick.bk && miss.every(function(l){ return legPrices(l)[b] != null; }); }).map(function(b){ return BKNAME[b]; });
   return '<b>' + (one ? esc(miss[0].l) + ' isn\u2019t' : miss.length + ' legs aren\u2019t') + ' at ' + bk + '.</b> '
     + (slip ? 'The button adds the other ' + left + (left === 1 ? ' leg' : '') + '.' : 'Remove ' + (one ? 'it' : 'them') + ' to bet the rest there.')
-    + (alt.length ? ' ' + alt.slice(0, 3).join(', ').replace(/, ([^,]*)$/, ' and $1') + ' ' + (alt.length === 1 ? 'has' : 'have') + ' ' + (L.length === 2 ? 'both' : 'all ' + L.length) + ', if you use ' + (alt.length === 1 ? 'it' : 'them') + '.' : '');
+    + (alt.length ? ' ' + alt.slice(0, 3).join(', ').replace(/, ([^,]*)$/, ' and $1') + ' ' + (alt.length === 1 ? 'has' : 'have') + ' ' + (L.length === 2 ? 'both' : 'all ' + L.length) + ', if you use ' + (alt.length === 1 ? 'that book' : 'those books') + '.' : '');
 }
 function byBook(legs){
   var seen = {}, out = [];

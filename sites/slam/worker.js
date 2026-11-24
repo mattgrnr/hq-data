@@ -1418,7 +1418,7 @@ function plMissing(pick, slip){
   const alt = MYBOOKS.filter(b=>b !== pick.bk && miss.every(l=>px(l)[b] != null)).map(b=>BKNAME[b]);
   return '<b>'+(one ? esc(miss[0].l)+' isn’t' : miss.length+' legs aren’t')+' at '+bk+'.</b> '
     + (slip ? 'The button adds the other '+left+(left === 1 ? ' leg' : '')+'.' : 'Remove '+(one ? 'it' : 'them')+' to bet the rest there.')
-    + (alt.length ? ' '+alt.slice(0, 3).join(', ').replace(/, ([^,]*)$/, ' and $1')+' '+(alt.length === 1 ? 'has' : 'have')+' '+(PL.length === 2 ? 'both' : 'all '+PL.length)+', if you use '+(alt.length === 1 ? 'it' : 'them')+'.' : '');
+    + (alt.length ? ' '+alt.slice(0, 3).join(', ').replace(/, ([^,]*)$/, ' and $1')+' '+(alt.length === 1 ? 'has' : 'have')+' '+(PL.length === 2 ? 'both' : 'all '+PL.length)+', if you use '+(alt.length === 1 ? 'that book' : 'those books')+'.' : '');
 }
 function plBar(){
   let el = document.getElementById("plbar");
