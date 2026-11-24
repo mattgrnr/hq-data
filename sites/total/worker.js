@@ -253,12 +253,12 @@ footer a:hover{color:var(--paper)}
   </div>
   <div class="item">
     <h3>My books</h3>
-    <p>Tap the sportsbooks you use. From then on, <b>every price on every board</b> and in your slip comes from those books only, on every HQ site.</p>
+    <p>Tap the sportsbooks you use. From then on, <b>every price on every board</b> and in your slip comes from those books only, on every HQ site. If your book doesn’t have a leg, the slip names it and which books have every leg.</p>
     <div class="demo"><span class="d-chips"><span class="on">FanDuel</span><span class="on">DraftKings</span><span>Fanatics</span><span>Hard Rock</span><span>BetMGM</span><span>BetRivers</span></span></div>
   </div>
   <div class="item">
     <h3>Place it or share it</h3>
-    <p>Where the book supports it, the green button loads every leg into that book’s bet slip. <b>Share betslip</b> opens your phone’s share menu with a short link that opens the same parlay, priced at every book; it works until two days after the last game.</p>
+    <p>Where the book supports it, the green button loads your legs straight into that book’s bet slip, every one it has. <b>Share betslip</b> opens your phone’s share menu with a short link that opens the same parlay, priced at every book; it works until two days after the last game.</p>
     <div class="demo d-grid"><span class="go">Add to FanDuel bet slip</span><span>Share betslip</span><span>Track this bet</span><span class="quiet">Clear betslip</span></div>
   </div>
 </section>
