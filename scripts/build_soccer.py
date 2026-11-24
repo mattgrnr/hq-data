@@ -413,6 +413,12 @@ def attach_logs(players, games, pl, team_games, state):
         o["last5"] = [[day(x[0]), tname.get(op, ""), round(x[3]), int(x[5]), int(x[8]), int(x[6]), int(x[7])] for x, op in rows[:5]]
         vs = [[day(x[0]), round(x[3]), int(x[5]), int(x[8]), int(x[6]), int(x[7])] for x, op in rows if op == opp]
         o["vs"] = {"opp": g["a"] if o["home"] else g["h"], "gp": len(vs), "g": vs}
+        # tonight's match is in the history once it has finished: mark it final and keep his line from it
+        done = next((x for x, op in rows if str(x[1]) == str(g["id"])), None)
+        if done:
+            g["fin"] = True
+            gg, aa = int(done[5]), int(done[8])
+            o["lv"] = {"G": gg, "A": aa, "GA": gg + aa, "T": int(done[6]), "S": int(done[7])}
 
 
 def build_board(state, rows):

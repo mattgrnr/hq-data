@@ -440,6 +440,10 @@ body{padding-bottom:84px}
 #app .tp-bk b{color:var(--ink);font-weight:600}
 #app .tp-bk em{font-style:normal;font-size:11px}
 #app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
+/* live line */
+#app .bk.lv .lv-v b{color:var(--ink);font-weight:700}
+#app .bk.lv .lv-v.hit,#app .bk.lv .lv-v.hit b{color:#4ade80}
+#app .bk.lv .lv-v.miss{opacity:.7}
 /* game logs */
 #app .glog{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -1115,9 +1119,31 @@ function lineName(st, x, kk){
   if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
   return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
 }
+// ---------- live: once a game starts, each card shows the stat so far against the line ----------
+// each site keeps LIVEP (player -> stats so far) and gives liveVal(r, stat)
+let LVROW = {};
+function liveLine(r){
+  const st = F.stat; let v = null;
+  try { v = liveVal(r, st); } catch(e){}
+  if(v == null) return "";
+  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = gState(gi.t, gi.f) === "final";
+  const hit = line ? v >= line.k : false;
+  const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
+  return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
+}
+function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\\'t be added'); }
+function liveRepaint(){
+  document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
+    const r = LVROW[el.dataset.lv]; if(!r) return;
+    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+  });
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
-  if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\\'t be added</div>';
+  if(st !== "pre"){
+    const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
+    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+  }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
     const x = bookPick(o, kk); if(!x) return "";
@@ -1429,6 +1455,7 @@ function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
   document.querySelectorAll(".glog").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
+let LIVEP = {}; function liveVal(r, st){ const x = LIVEP[r.p.id]; return x ? x[st] : null; }
 const PTABS = [["G","Goals"],["A","Assists"],["P","Points"],["S","SOG"]];
 function logCols(r){ return [["TOI",s=>s.toi],["G",s=>s.g,"G"],["A",s=>s.a,"A"],["PTS",s=>s.g+s.a,"P"],["SOG",s=>s.sog,"S"]]; }
 const GKIND = "hockey", PSITE = "Slapshot";
@@ -1915,6 +1942,7 @@ function liveApply(data){
     const n = goals[r.p.id] || 0;
     if(n !== (r.p.gl || 0)){ r.p.gl = n; paintGoal(r.p); }
   }
+  if(data && data.players){ LIVEP = data.players; liveRepaint(); }
 }
 function liveTick(){
   if(document.hidden || !BOARD) return;
@@ -2015,7 +2043,18 @@ export default {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return new Response("Bad request", { status: 400 });
       const res = await fetch(LIVE_URL + d, { cf: { cacheTtl: 30, cacheEverything: true } });
       if (!res.ok) return json({ error: "live upstream " + res.status }, 502);
-      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" } });
+      const data = await res.json();
+      // every skater's line so far in games that have started: goals, assists, points, shots on goal
+      const players = {};
+      await Promise.all((data.games || []).filter(g => ["LIVE", "CRIT", "FINAL", "OFF"].includes(g.gameState)).map(async g => {
+        try {
+          const b = await (await fetch("https://api-web.nhle.com/v1/gamecenter/" + g.id + "/boxscore", { cf: { cacheTtl: 30, cacheEverything: true } })).json();
+          const side = b.playerByGameStats || {};
+          for (const t of [side.awayTeam, side.homeTeam]) for (const x of [...((t || {}).forwards || []), ...((t || {}).defense || [])])
+            players[x.playerId] = { G: x.goals || 0, A: x.assists || 0, P: x.points != null ? x.points : (x.goals || 0) + (x.assists || 0), S: x.sog != null ? x.sog : (x.shots || 0) };
+        } catch (e) {}
+      }));
+      return new Response(JSON.stringify({ games: data.games || [], players }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" } });
     }
 
     const og = url.origin + "/og.png" + (/^\d{4}$/.test(day) ? "?d=" + day : "");

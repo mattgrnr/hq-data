@@ -116,6 +116,10 @@ body{padding-bottom:84px}
 #app .tp-bk b{color:var(--ink);font-weight:600}
 #app .tp-bk em{font-style:normal;font-size:11px}
 #app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
+/* live line */
+#app .bk.lv .lv-v b{color:var(--ink);font-weight:700}
+#app .bk.lv .lv-v.hit,#app .bk.lv .lv-v.hit b{color:#4ade80}
+#app .bk.lv .lv-v.miss{opacity:.7}
 /* game logs */
 #app .glog{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}

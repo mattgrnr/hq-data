@@ -530,6 +530,10 @@ body{padding-bottom:84px}
 #app .tp-bk b{color:var(--ink);font-weight:600}
 #app .tp-bk em{font-style:normal;font-size:11px}
 #app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
+/* live line */
+#app .bk.lv .lv-v b{color:var(--ink);font-weight:700}
+#app .bk.lv .lv-v.hit,#app .bk.lv .lv-v.hit b{color:#4ade80}
+#app .bk.lv .lv-v.miss{opacity:.7}
 /* game logs */
 #app .glog{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -1360,9 +1364,31 @@ function lineName(st, x, kk){
   if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
   return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
 }
+// ---------- live: once a game starts, each card shows the stat so far against the line ----------
+// each site keeps LIVEP (player -> stats so far) and gives liveVal(r, stat)
+let LVROW = {};
+function liveLine(r){
+  const st = F.stat; let v = null;
+  try { v = liveVal(r, st); } catch(e){}
+  if(v == null) return "";
+  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = gState(gi.t, gi.f) === "final";
+  const hit = line ? v >= line.k : false;
+  const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
+  return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
+}
+function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\\'t be added'); }
+function liveRepaint(){
+  document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
+    const r = LVROW[el.dataset.lv]; if(!r) return;
+    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+  });
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
-  if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\\'t be added</div>';
+  if(st !== "pre"){
+    const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
+    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+  }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
     const x = bookPick(o, kk); if(!x) return "";
@@ -1674,6 +1700,7 @@ function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
   document.querySelectorAll(".glog").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
+let LIVEP = {}; function liveVal(r, st){ const x = LIVEP[r.p.sl]; return x ? x[st] : null; }
 const PTABS = TABS;
 function logCols(r){ return r.p.pos === "QB" ? [["PYD",s=>s.pyd,"PYD"],["PTD",s=>s.ptd,"PTD"],["RUSH YDS",s=>s.ryd,"RYD"],["TD",s=>s.rtd+s.ctd,"TD"]]
   : [["TGT",s=>s.tgt],["REC",s=>s.rec,"REC"],["REC YDS",s=>s.cyd,"CYD"],["CAR",s=>s.car],["RUSH YDS",s=>s.ryd,"RYD"],["TD",s=>s.rtd+s.ctd,"TD"]]; }
@@ -2149,7 +2176,9 @@ function liveApply(data){
     if(s !== "live" && s !== "post") continue;
     const n = Math.round((+st.rush_td || 0) + (+st.rec_td || 0));
     if(n !== (p.td || 0)){ p.td = n; paintTD(p); }
+    LIVEP[p.sl] = { TD:n, CYD:Math.round(+st.rec_yd || 0), RYD:Math.round(+st.rush_yd || 0), REC:Math.round(+st.rec || 0), PYD:Math.round(+st.pass_yd || 0), PTD:Math.round(+st.pass_td || 0) };
   }
+  liveRepaint();
 }
 function liveTick(){
   if(document.hidden || !SEASON || WEEKNO > 18) return;

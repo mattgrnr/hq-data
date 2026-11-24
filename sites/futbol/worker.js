@@ -451,6 +451,10 @@ body{padding-bottom:84px}
 #app .tp-bk b{color:var(--ink);font-weight:600}
 #app .tp-bk em{font-style:normal;font-size:11px}
 #app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
+/* live line */
+#app .bk.lv .lv-v b{color:var(--ink);font-weight:700}
+#app .bk.lv .lv-v.hit,#app .bk.lv .lv-v.hit b{color:#4ade80}
+#app .bk.lv .lv-v.miss{opacity:.7}
 /* game logs */
 #app .glog{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -1066,9 +1070,31 @@ function lineName(st, x, kk){
   if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
   return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
 }
+// ---------- live: once a game starts, each card shows the stat so far against the line ----------
+// each site keeps LIVEP (player -> stats so far) and gives liveVal(r, stat)
+let LVROW = {};
+function liveLine(r){
+  const st = F.stat; let v = null;
+  try { v = liveVal(r, st); } catch(e){}
+  if(v == null) return "";
+  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = gState(gi.t, gi.f) === "final";
+  const hit = line ? v >= line.k : false;
+  const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
+  return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
+}
+function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\\'t be added'); }
+function liveRepaint(){
+  document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
+    const r = LVROW[el.dataset.lv]; if(!r) return;
+    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+  });
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
-  if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\\'t be added</div>';
+  if(st !== "pre"){
+    const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
+    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+  }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
     const x = bookPick(o, kk); if(!x) return "";
@@ -1380,12 +1406,13 @@ function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
   document.querySelectorAll(".glog").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
+function liveVal(r, st){ const x = r.p.lv; return x ? x[st] : r.gm.fin ? 0 : null; }
 const PTABS = TABS;
 function logCols(r){ return [["MIN",s=>s.min],["G",s=>s.g,"G"],["A",s=>s.a,"A"],["G+A",s=>s.g+s.a,"GA"],["SOT",s=>s.sot,"T"],["SH",s=>s.sh,"S"]]; }
 const GKIND = "soccer", PSITE = "Futbol";
 function gList(){ return dayGames().filter(g=>F.lg==="all" || String(g.lid)===F.lg).map(g=>({ id:String(g.id), home:g.h, away:g.a, lg:g.league,
-  when:new Date(g.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }), t:Date.parse(g.t), proj:g.proj })); }
-function gInfo(r){ return { n:r.gm.h+" v "+r.gm.a, t:Date.parse(r.gm.t) }; }
+  when:new Date(g.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }), t:Date.parse(g.t), fin:g.fin, proj:g.proj })); }
+function gInfo(r){ return { n:r.gm.h+" v "+r.gm.a, t:Date.parse(r.gm.t), f:r.gm.fin }; }
 function bookOf(r, st){ st = st || F.stat; const p = r.p; return { name:p.n, stat:st, lam:{ G:p.pg, A:p.pa, GA:p.pg+p.pa, T:p.psot, S:p.psh }[st] }; }
 const BSTATS = ["G","A","GA"]; function hurt(r){ return r.p.st === "bench"; }
 function gRows(id){ return sortedRows().filter(r=>String(r.gm.id)===String(id)); }
@@ -1725,11 +1752,12 @@ function shortName(n){
 
 function rowHTML(r, n){
   const p = r.p, sc = r.sc[F.stat], tier = tierOf(sc), lu = LU[p.st] || "";
-  return '<div class="row" data-i="'+n+'">'
+  const lv = p.lv || {}, tag = lv.G ? 'GOAL'+(lv.G > 1 ? ' ×'+lv.G : '') : lv.A ? 'ASSIST'+(lv.A > 1 ? ' ×'+lv.A : '') : '';
+  return '<div class="row'+(tag ? ' scored' : '')+'" data-i="'+n+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
-    + '<div class="who"><div class="pname"><span class="pn">'+esc(shortName(p.n))+'</span>'+(p.pen>=0.5?'<span class="pbadge">PK</span>':'')+'</div>'
-    + '<div class="meta">'+(POSNAME[p.pos] ? POSNAME[p.pos]+' · ' : '')+esc(r.team)+' · '+(p.home?'vs ':'@ ')+esc(r.opp)+'<span class="gametag">'+kickoff(r.gm.t)+'</span><span class="dline">'+(lu?'<b class="lu-'+p.st+'">'+lu+'</b> · ':'')+defTag(r)+'</span></div>'+bookHTML(r)+'</div>'
+    + '<div class="who"><div class="pname"><span class="pn">'+esc(shortName(p.n))+'</span>'+(p.pen>=0.5?'<span class="pbadge">PK</span>':'')+(tag ? '<span class="tdtag">'+tag+'</span>' : '')+'</div>'
+    + '<div class="meta">'+(POSNAME[p.pos] ? POSNAME[p.pos]+' · ' : '')+esc(r.team)+' · '+(p.home?'vs ':'@ ')+esc(r.opp)+'<span class="gametag">'+(r.gm.fin ? 'Final' : kickoff(r.gm.t))+'</span><span class="dline">'+(lu?'<b class="lu-'+p.st+'">'+lu+'</b> · ':'')+defTag(r)+'</span></div>'+bookHTML(r)+'</div>'
     + starHTML(r.p.id, r.p.name || r.p.n)
     + projCell(r)
     + '<div><div class="ball t-'+tier+'">'+ballSVG()+'<span class="num">'+sc+'</span></div><span class="tierlabel">'+tier+'</span></div>'

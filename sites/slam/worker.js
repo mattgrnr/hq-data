@@ -447,6 +447,10 @@ body{padding-bottom:84px}
 #app .tp-bk b{color:var(--ink);font-weight:600}
 #app .tp-bk em{font-style:normal;font-size:11px}
 #app .tp-bk .pl-add{transform:scale(.85);transform-origin:left center;margin:0}
+/* live line */
+#app .bk.lv .lv-v b{color:var(--ink);font-weight:700}
+#app .bk.lv .lv-v.hit,#app .bk.lv .lv-v.hit b{color:#4ade80}
+#app .bk.lv .lv-v.miss{opacity:.7}
 /* game logs */
 #app .glog{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)}
 #app .lg-tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -1157,9 +1161,31 @@ function lineName(st, x, kk){
   if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
   return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
 }
+// ---------- live: once a game starts, each card shows the stat so far against the line ----------
+// each site keeps LIVEP (player -> stats so far) and gives liveVal(r, stat)
+let LVROW = {};
+function liveLine(r){
+  const st = F.stat; let v = null;
+  try { v = liveVal(r, st); } catch(e){}
+  if(v == null) return "";
+  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = gState(gi.t, gi.f) === "final";
+  const hit = line ? v >= line.k : false;
+  const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
+  return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
+}
+function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\\'t be added'); }
+function liveRepaint(){
+  document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
+    const r = LVROW[el.dataset.lv]; if(!r) return;
+    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+  });
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
-  if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\\'t be added</div>';
+  if(st !== "pre"){
+    const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
+    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+  }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
     const x = bookPick(o, kk); if(!x) return "";
@@ -1471,6 +1497,7 @@ function logSwitch(e, el, k){
   e.stopPropagation(); LOGTAB = k;
   document.querySelectorAll(".glog").forEach(b=>{ b.dataset.tab = k; b.querySelectorAll(".lg-tab").forEach((t, i)=>t.classList.toggle("on", (i===0) === (k==="l5"))); });
 }
+let LIVEP = {}; function liveVal(r, st){ const x = LIVEP[r.p.id]; if(!x) return null; const c = { PRA:["PTS","REB","AST"], PR:["PTS","REB"], PA:["PTS","AST"], RA:["REB","AST"] }[st]; return c ? c.reduce((a,k)=>a + (x[k] || 0), 0) : x[st]; }
 const PTABS = STATS.map(x=>[x, x]);
 function logCols(r){ const c = [["MIN",s=>s.min],["PTS",s=>s.pts,"PTS"],["REB",s=>s.reb,"REB"],["AST",s=>s.ast,"AST"],["PRA",s=>s.pts+s.reb+s.ast,"PRA"],["3PM",s=>s.fg3m,"3PM"],["STL",s=>s.stl,"STL"],["BLK",s=>s.blk,"BLK"]];
   const x = { PR:["PR",s=>s.pts+s.reb,"PR"], PA:["PA",s=>s.pts+s.ast,"PA"], RA:["RA",s=>s.reb+s.ast,"RA"] }[F.stat]; if(x) c.splice(5, 0, x); return c; }
@@ -1935,6 +1962,7 @@ function liveApply(data){
       }
     }
   }
+  if(data && data.players){ LIVEP = data.players; liveRepaint(); }
 }
 function liveTick(){
   if(document.hidden || !BOARD) return;
@@ -2036,7 +2064,28 @@ export default {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return new Response("Bad request", { status: 400 });
       const res = await fetch(LIVE_URL + d.replace(/-/g, ""), { cf: { cacheTtl: 30, cacheEverything: true } });
       if (!res.ok) return json({ error: "live upstream " + res.status }, 502);
-      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" } });
+      const data = await res.json();
+      // every player's line so far in games that have started, from each game's box score
+      const players = {};
+      const want = { points: "PTS", rebounds: "REB", assists: "AST", steals: "STL", blocks: "BLK", PTS: "PTS", REB: "REB", AST: "AST", STL: "STL", BLK: "BLK" };
+      await Promise.all((data.events || []).filter(e => e.status && e.status.type && ["in", "post"].includes(e.status.type.state)).map(async e => {
+        try {
+          const b = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=" + e.id, { cf: { cacheTtl: 30, cacheEverything: true } })).json();
+          for (const team of (b.boxscore && b.boxscore.players) || []) for (const grp of team.statistics || []) {
+            const names = grp.keys && grp.keys.length ? grp.keys : (grp.labels || []);
+            for (const a of grp.athletes || []) {
+              if (!a.athlete || !a.stats || !a.stats.length) continue;
+              const o = players[a.athlete.id] = players[a.athlete.id] || {};
+              names.forEach((k, i) => {
+                const v = a.stats[i];
+                if (want[k]) o[want[k]] = +v || 0;
+                else if (/^threePointFieldGoalsMade/.test(k) || k === "3PT") o["3PM"] = parseInt(v, 10) || 0;
+              });
+            }
+          }
+        } catch (err) {}
+      }));
+      return new Response(JSON.stringify({ events: data.events || [], players }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" } });
     }
 
     if (path === "/inj") {

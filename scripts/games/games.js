@@ -212,9 +212,31 @@ function lineName(st, x, kk){
   if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
   return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
 }
+// ---------- live: once a game starts, each card shows the stat so far against the line ----------
+// each site keeps LIVEP (player -> stats so far) and gives liveVal(r, stat)
+let LVROW = {};
+function liveLine(r){
+  const st = F.stat; let v = null;
+  try { v = liveVal(r, st); } catch(e){}
+  if(v == null) return "";
+  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = gState(gi.t, gi.f) === "final";
+  const hit = line ? v >= line.k : false;
+  const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
+  return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
+}
+function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\'t be added'); }
+function liveRepaint(){
+  document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
+    const r = LVROW[el.dataset.lv]; if(!r) return;
+    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+  });
+}
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
-  if(st !== "pre") return '<div class="bk bk-off">'+gTag(st)+' Game started · can\'t be added</div>';
+  if(st !== "pre"){
+    const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
+    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+  }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
     const x = bookPick(o, kk); if(!x) return "";
