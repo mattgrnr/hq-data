@@ -256,7 +256,7 @@ footer a:hover{color:var(--paper)}
   <h2>Today’s best bets</h2>
   <div class="item">
     <h3>The biggest believable edges</h3>
-    <p>On Total HQ, under the boards: the best edges across every sport, up to four per sport. Nothing shorter than −150, and no long shot makes it on price alone. Tap Hide to tuck it away; we remember.</p>
+    <p>On Total HQ, under the boards: the best edges across every sport, up to four per sport. Nothing shorter than −200, and no long shot makes it on price alone. Tap Hide to tuck it away; we remember.</p>
   </div>
 </section>
 

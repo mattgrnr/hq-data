@@ -450,7 +450,7 @@ def soccer_lines():
                 t = mk_tot[mk]
                 t[0] += 1; t[1] += won; t[2] += u; t[3] += ours; t[4] += book
                 adj = book + 0.25 * (ours - book)
-                if price >= -150 and ours - book <= 0.15 and adj - book >= 0.02 and adj >= 0.2 and adj * dec(price) > 1:
+                if price >= -200 and ours - book <= 0.15 and adj - book >= 0.02 and adj >= 0.2 and adj * dec(price) > 1:
                     best[0] += 1; best[1] += won; best[2] += u
     if not games:
         return None

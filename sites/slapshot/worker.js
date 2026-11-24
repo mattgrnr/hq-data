@@ -1245,7 +1245,7 @@ function bestBets(g){
       { n: GKIND === "soccer" ? g.home+" v "+g.away : g.away+" @ "+g.home, t: g.t }, v.all, g.proj.links, v.ids);
     b.q = gameQ(g, (what[0]+" "+what[1]).trim()); out.push(b);
   }
-  return out.filter(b=>b.adj >= 0.2 && b.price >= -150 && b.adj - b.book >= 0.02 && b.ours - b.book <= BMAXGAP[b.kind] && b.ev > 0)
+  return out.filter(b=>b.adj >= 0.2 && b.price >= -200 && b.adj - b.book >= 0.02 && b.ours - b.book <= BMAXGAP[b.kind] && b.ev > 0)
     .sort((a,c)=>c.score - a.score)
     .filter(b=>{ if(b.kind==="prop"){ if(seen[b.name]) return false; seen[b.name] = 1; } return true; })
     .slice(0, 3);
