@@ -258,7 +258,7 @@ footer a:hover{color:var(--paper)}
   </div>
   <div class="item">
     <h3>Place it or share it</h3>
-    <p>Where the book supports it, the green button loads your legs straight into that book’s bet slip, every one it has. <b>Share betslip</b> opens your phone’s share menu with a short link that opens the same parlay, priced at every book; it works until two days after the last game.</p>
+    <p>Where the book supports it, the green button loads your legs straight into that book’s bet slip, every one it has. <b>Share betslip</b> opens your phone’s share menu with a short link. Friends who open it see the same parlay priced at every book, and one tap loads it into their own bet slip or adds the legs to their parlay. The link works until two days after the last game.</p>
     <div class="demo d-grid"><span class="go">Add to FanDuel bet slip</span><span>Share betslip</span><span>Track this bet</span><span class="quiet">Clear betslip</span></div>
   </div>
 </section>
