@@ -258,9 +258,16 @@ def implied(price):
     return 100 / (price + 100) if price > 0 else -price / (-price + 100)
 
 
+SHORT = {"man utd": "manutd", "man united": "manutd", "manchester united": "manutd", "manchester united fc": "manutd",
+         "man city": "mancity", "manchester city": "mancity", "manchester city fc": "mancity",
+         "spurs": "tottenham", "wolves": "wolverhampton", "nottm forest": "nottingham forest", "psg": "paris saint germain",
+         "bayern": "bayern munchen", "bayern munich": "bayern munchen", "atletico": "atletico madrid", "atl madrid": "atletico madrid"}
+
+
 def norm(name):
     import unicodedata
-    n = (name or "").lower()
+    n = (name or "").lower().strip()
+    n = SHORT.get(n, n)
     for x, y in (("ø", "o"), ("æ", "ae"), ("ß", "ss"), ("đ", "d"), ("ł", "l"), ("ı", "i"), ("/", " ")):   # letters NFKD can't split
         n = n.replace(x, y)
     n = unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode()
@@ -307,11 +314,23 @@ def px(b):
     return [b[1], b[0], b[2], b[3] if len(b) > 3 else {}]
 
 
+def merged(rows):
+    """One side can come in several rows (books label it differently); fold their prices into one row."""
+    if not rows:
+        return []
+    prices, ids = {}, {}
+    for r in rows:
+        prices.update(r[3])
+        if len(r) > 4:
+            ids.update(r[4])
+    return [[rows[0][0], rows[0][1], rows[0][2], prices, ids]]
+
+
 def two_way(rows, pick_a, pick_b):
     """Fair chance of side A (vig removed, median across books) and the best price on each side."""
     import statistics
-    pa = [r for r in rows if pick_a(r)]
-    pb = [r for r in rows if pick_b(r)]
+    pa = merged([r for r in rows if pick_a(r)])
+    pb = merged([r for r in rows if pick_b(r)])
     if not pa or not pb:
         return None
     fair = []
@@ -330,17 +349,17 @@ def two_way(rows, pick_a, pick_b):
 def double_chance(rows, hn, an):
     """Fair chances of [home or draw, away or draw, either side wins] (margin removed per book) and the best price on each."""
     import statistics
+    import re
     pick = []
     for want in ((hn, "Draw"), (an, "Draw"), (hn, an)):
-        hit = None
+        hits = []
         for r in rows:
-            parts = [x.strip() for x in str(r[0]).split("/")]
-            if len(parts) == 2 and all(any(w == "Draw" and x == "Draw" or w != "Draw" and same_team(x, w) for x in parts) for w in want):
-                hit = r
-                break
-        if not hit:
+            parts = [x.strip() for x in re.split(r"\s*/\s*|\s+or\s+", str(r[0]))]
+            if len(parts) == 2 and all(any(w == "Draw" and x.lower() == "draw" or w != "Draw" and same_team(x, w) for x in parts) for w in want):
+                hits.append(r)
+        if not hits:
             return None
-        pick.append(hit)
+        pick.append(merged(hits)[0])
     fair = [[], [], []]
     for bk in set.intersection(*(set(r[3]) for r in pick)):
         tot = sum(implied(r[3][bk]) for r in pick)

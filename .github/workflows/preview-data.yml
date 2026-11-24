@@ -27,14 +27,6 @@ jobs:
           PROPLINE_KEY: ${{ secrets.PROPLINE_KEY }}
         run: |
           python scripts/build_soccer.py && python scripts/odds.py soccer && python scripts/build_games.py soccer
-          python3 - <<'PY'
-          import json
-          d = json.load(open("soccer/odds.json"))
-          for ev in d["events"][:2]:
-              print("event:", ev["h"], "v", ev["a"])
-              for mk in ("draw_no_bet", "double_chance"):
-                  for r in ev["m"].get(mk, [])[:4]: print("  ", mk, r[:4])
-          PY
           cp soccer/board.json preview-data/soccer/board.json
           node scripts/best.cjs futbol soccer/board.json preview-data/soccer/best.json || true
           python3 - <<'PY'
