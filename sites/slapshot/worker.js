@@ -142,6 +142,10 @@ header.hero{padding:calc(env(safe-area-inset-top,0px) + 12px) 0 14px;border-bott
 .method summary{color:var(--faint);font-size:13px;cursor:pointer}
 .method p{color:var(--faint);font-size:12.5px;line-height:1.55;margin-top:8px}
 /* site footer */
+.sportmenu .qm{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#e6edf3;color:#0d1117;font-size:12px;font-weight:700;line-height:1}
+.hqnew{transition:opacity .4s}
+.hqnew.bye{opacity:0}
+@media (prefers-reduced-motion:reduce){.hqnew{transition:none}}
 .hqnew{display:flex;align-items:center;gap:8px;font-size:13px;color:#8b949e;padding:8px 8px 8px 12px;margin:12px 0 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
 .hqnew[hidden]{display:none}
 .hqnew a{color:inherit;font-weight:600;text-underline-offset:3px}
@@ -625,7 +629,7 @@ body{padding-bottom:84px}
 <div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="https://guide-total-hq.wehttam30.workers.dev/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
   try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
-  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.hidden = true; }; })();</script>
+  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime in the HQ drop down.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
   <div id="app">
     <div class="status"><div class="spinner"></div><h2>Loading SLAPSHOT HQ</h2><p>Fetching tonight\\'s slate…</p></div>
   </div>
@@ -668,13 +672,14 @@ function sportsMenuHTML(){
     + '<button class="navbtn" id="btn-sports">HQ ▾</button>'
     + '<div class="sportmenu" id="sportmenu">'
     + '<a href="https://total-hq.com"><span class="lg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.86 18.13 A8 8 0 1 1 17.14 18.13" fill="none" stroke="#E3B341" stroke-width="3" stroke-linecap="round"/></svg></span>Total HQ<span class="tag">ALL</span></a>'
-    + '<a href="https://guide-total-hq.wehttam30.workers.dev/guide"><span class="lg" style="color:var(--faint)">?</span>How it works</a>'
     + '<div class="mdiv"></div>'
     + SPORTS.map(function(s){
         return s.cur
           ? '<a class="cur"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>'
           : '<a href="'+s.url+'"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>';
       }).join("")
+    + '<div class="mdiv"></div>'
+    + '<a href="https://guide-total-hq.wehttam30.workers.dev/guide"><span class="lg"><span class="qm">?</span></span>How it works</a>'
     + '</div></div>';
 }
 

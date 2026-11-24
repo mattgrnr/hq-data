@@ -532,6 +532,9 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .thesis{margin-top:12px;color:var(--mute);font-size:15px;line-height:1.55;max-width:46ch}
 .thesis b{color:var(--paper);font-weight:500}
 
+.hqnew{transition:opacity .4s}
+.hqnew.bye{opacity:0}
+@media (prefers-reduced-motion:reduce){.hqnew{transition:none}}
 .hqnew{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);padding:8px 8px 8px 12px;margin:12px 0 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
 .hqnew[hidden]{display:none}
 .hqnew a{color:inherit;font-weight:600;text-underline-offset:3px}
@@ -747,7 +750,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 <div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
   try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
-  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.hidden = true; }; })();</script>
+  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime at the bottom of the page.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
 
   <div id="shared"></div>
   <div id="bets"></div>
