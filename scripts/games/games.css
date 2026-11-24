@@ -95,6 +95,8 @@ body{padding-bottom:84px}
 #app .gc-closed{margin-top:8px;font-size:12px;color:var(--faint)}
 #plbar .pl-gone{opacity:.6}
 #plbar .pl-gone b{text-decoration:line-through}
+#plbar .pl-quiet{color:var(--faint)}
+#plbar .pl-toast{max-width:640px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid rgba(74,222,128,.5);background:#0f1a14;color:var(--ink);font-size:14px}
 #plbar .pl-link{background:none;border:0;padding:0;font:inherit;color:#4ade80;text-decoration:underline;cursor:pointer}
 /* top player picks */
 #app .tp-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
