@@ -216,6 +216,20 @@ function calibHTML(){
     + (HIST.calmap ? '<p class="cal-key">The board now corrects every chance like these using this record before comparing it with the books, so the % you see and the value tags already account for where we run high or low.</p>' : '')
     + '</div>';
 }
+// soccer game lines: every side we rated 5+ points over the books, graded after the match
+function linesHTML(){
+  const ln = HIST && HIST.lines; if(!ln || !ln.markets.length) return "";
+  const u = v => '<span class="'+(v >= 0 ? "cg-good" : "cg-off")+'">'+(v >= 0 ? "+" : "")+v.toFixed(1)+'u</span>';
+  const pc = (w, n) => n ? Math.round(100*w/n)+"%" : "—";
+  const b = ln.best;
+  return '<div class="dash-card calib"><h4>How our game lines held up</h4>'
+    + '<p class="cal-sub">Every side we rated at least 5 points above the books, across '+ln.games+' match'+(ln.games === 1 ? "" : "es")+' since '+ln.first+'. Units = profit staking 1 on each at the best price. Draw no bet draws are left out (stake back).</p>'
+    + (b[0] ? '<p class="cal-verdict">Best-bet picks: <b>'+b[1]+'–'+(b[0]-b[1])+'</b> ('+pc(b[1], b[0])+') · '+u(b[2])+'</p>' : '')
+    + '<table class="cal-tbl"><tr><th style="text-align:left">Market</th><th>Bets</th><th>Won</th><th>We said</th><th>Books said</th><th>Units</th></tr>'
+    + ln.markets.map(m=>'<tr><td style="text-align:left">'+esc(m[0])+'</td><td>'+m[1]+'</td><td>'+pc(m[2], m[1])+'</td><td>'+Math.round(m[4])+'%</td><td>'+Math.round(m[5])+'%</td><td>'+u(m[3])+'</td></tr>').join("")+'</table>'
+    + '<p class="cal-key">If "Won" lands nearer "Books said" than "We said", the books were right more often in that market. A few weeks of matches are needed before any of it means much.</p>'
+    + '</div>';
+}
 function resultsHTML(){
   const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
   if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
@@ -232,6 +246,7 @@ function resultsHTML(){
     + (HV==="trend" ? trendSVG(days) : HV==="tiers" ? tiersHTML(days) : donutSVG(days)) + '</div>';
   h += drillHTML();
   h += calibHTML();
+  h += linesHTML();
   h += favsHTML();
   h += playersHTML();
   h += nightsHTML(days);

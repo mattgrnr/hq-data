@@ -372,6 +372,10 @@ def summarize(sport):
     if cal:
         out["calib"] = cal
         out["calmap"] = calmap(sport, cal)
+    if sport == "soccer":
+        ln = soccer_lines()
+        if ln:
+            out["lines"] = ln
     (hdir / "summary.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
 
     # every graded player, for the starred-players panel: season over count and his last five per stat
@@ -390,6 +394,70 @@ def summarize(sport):
             p["l"][stat] = p["l"][stat][-5:][::-1]
     (hdir / "players.json").write_text(json.dumps(pl, separators=(",", ":"), ensure_ascii=False))
     print(f"summary: {len(days)} slates, {out['first']} to {out['last']}")
+
+
+def dec(price):
+    return 1 + price / 100 if price > 0 else 1 + 100 / -price
+
+
+def line_won(mk, side, h, a, game):
+    """1 won, 0 lost, None stake back; h and a are the final score."""
+    H, A, ah = game["h"], game["a"], game.get("ah")
+    if mk == "Result":
+        return int(h > a) if side == H else int(h == a) if side == "Draw" else int(a > h)
+    if mk == "Draw no bet":
+        return None if h == a else int(h > a) if side == H else int(a > h)
+    if mk == "Double chance":
+        return int(h >= a) if side == f"{H} or draw" else int(a >= h) if side == f"{A} or draw" else int(h != a)
+    if mk == "Handicap":
+        return int(h - a + ah > 0) if side == f"{H} {ah:+g}" else int(a - h - ah > 0)
+    if mk == "Total":
+        k = float(side.split()[1])
+        return int(h + a > k) if side.startswith("Over") else int(h + a < k)
+    if mk == "Both score":
+        return int(h > 0 and a > 0) if side == "Yes" else int(not (h > 0 and a > 0))
+    return None
+
+
+def soccer_lines():
+    """Grade every soccer game line we priced before kickoff: where we leaned (5+ points over the books) and
+    the ones that passed the best-bet rules, per market, with profit at the best price for a 1-unit stake."""
+    ldir = ROOT / "soccer" / "history" / "lines"
+    if not ldir.exists():
+        return None
+    score = {}
+    for f in (ROOT / "soccer" / "fixtures").glob("*.json"):
+        for ms in json.loads(f.read_text()).get("matches", {}).values():
+            for m in ms:
+                if m.get("sc"):
+                    score[str(m["id"])] = m["sc"]
+    mk_tot = defaultdict(lambda: [0, 0, 0.0, 0.0, 0.0])      # bets, won, units, our chance, book chance
+    best = [0, 0, 0.0]
+    games, days = 0, []
+    for f in sorted(ldir.glob("*.json")):
+        for gid, g in json.loads(f.read_text()).items():
+            sc = score.get(gid)
+            if not sc:
+                continue
+            games += 1
+            days.append(f.stem)
+            for mk, side, ours, book, price, bk in g["rows"]:
+                won = line_won(mk, side, sc[0], sc[1], g)
+                if won is None or ours - book < 0.05:
+                    continue
+                u = dec(price) - 1 if won else -1
+                t = mk_tot[mk]
+                t[0] += 1; t[1] += won; t[2] += u; t[3] += ours; t[4] += book
+                adj = book + 0.25 * (ours - book)
+                if price >= -150 and ours - book <= 0.15 and adj - book >= 0.02 and adj >= 0.2 and adj * dec(price) > 1:
+                    best[0] += 1; best[1] += won; best[2] += u
+    if not games:
+        return None
+    order = ["Result", "Double chance", "Draw no bet", "Handicap", "Total", "Both score"]
+    return {"games": games, "first": min(days), "last": max(days),
+            "markets": [[m, t[0], t[1], round(t[2], 2), round(100 * t[3] / t[0], 1), round(100 * t[4] / t[0], 1)]
+                        for m in order for t in [mk_tot.get(m)] if t and t[0]],
+            "best": [best[0], best[1], round(best[2], 2)]}
 
 
 if __name__ == "__main__":

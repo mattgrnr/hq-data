@@ -33,7 +33,8 @@ SPORTS = {
                                      "player_reception_yds", "player_receptions"]),
     "soccer": (["soccer_epl", "soccer_la_liga", "soccer_serie_a", "soccer_bundesliga", "soccer_ligue_1",
                 "soccer_uefa_champions_league", "soccer_uefa_europa_league", "soccer_uefa_conference_league"],
-               ["h2h", "totals", "both_teams_to_score", "anytime_goal_scorer", "player_assists", "goal_or_assist"]),
+               ["h2h", "totals", "both_teams_to_score", "draw_no_bet", "double_chance", "spreads",
+                "anytime_goal_scorer", "player_assists", "goal_or_assist", "player_shots_on_target", "player_shots"]),
 }
 
 

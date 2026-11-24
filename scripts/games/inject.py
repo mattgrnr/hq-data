@@ -21,7 +21,7 @@ BOOKOF = {
     "touchdown": 'function bookOf(r, st){ st = st || F.stat; const x = r.tab && r.tab[st]; return { name:r.p.name, stat:st, lam:st==="TD" ? r.projTD : x && x.proj }; }\n'
                  'const BSTATS = ["TD","CYD","RYD","REC","PYD","PTD"]; function hurt(r){ return !!r.p.st; }\n',
     "futbol": 'function bookOf(r, st){ st = st || F.stat; const p = r.p; return { name:p.n, stat:st, lam:{ G:p.pg, A:p.pa, GA:p.pg+p.pa, T:p.psot, S:p.psh }[st] }; }\n'
-              'const BSTATS = ["G","A","GA"]; function hurt(r){ return r.p.st === "bench"; }\n',
+              'const BSTATS = ["G","A","GA","T","S"]; function hurt(r){ return r.p.st === "bench" || r.p.st === "out"; }\n',
 }
 GLUE = {
     "slapshot": 'const LEGSPORT = "nhl"; function legWho(r){ return { sp:"nhl", gid:String(r.gm.gid || r.gm.id), pid:String(r.p.id) }; }\nlet LIVEP = {}; function liveVal(r, st){ const x = LIVEP[r.p.id]; return x ? x[st] : null; }\nconst PTABS = [["G","Goals"],["A","Assists"],["P","Points"],["S","SOG"]];\nfunction logCols(r){ return [["TOI",s=>s.toi],["G",s=>s.g,"G"],["A",s=>s.a,"A"],["PTS",s=>s.g+s.a,"P"],["SOG",s=>s.sog,"S"]]; }\n' + 'const GKIND = "hockey", PSITE = "Slapshot";\nfunction gList(){ return GAMES.map(g=>({ id:g.id, gid:g.gid, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }\nfunction gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final }; }\n',

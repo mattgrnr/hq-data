@@ -174,14 +174,58 @@ def soccer(bd):
             continue
         lh = hg * rate(h, 1, 2) * rate(a, 3, 4)
         la = ag * rate(a, 1, 2) * rate(h, 3, 4)
-        g = grid(lh, la, 11)
-        rng = range(11)
-        hw = sum(g[i][j] for i in rng for j in rng if i > j)
-        dr = sum(g[i][i] for i in rng)
-        o25 = sum(g[i][j] for i in rng for j in rng if i + j > 2.5)
-        btts = sum(g[i][j] for i in rng for j in rng if i and j)
-        gm["proj"] = {"hs": round(lh, 2), "as": round(la, 2), "win": [round(hw, 3), round(dr, 3), round(1 - hw - dr, 3)],
-                      "total": round(lh + la, 2), "over": [2.5, round(o25, 3)], "btts": round(btts, 3)}
+        gm["proj"] = soccer_proj(lh, la)
+
+
+def soccer_proj(lh, la):
+    g = grid(lh, la, 11)
+    rng = range(11)
+    hw = sum(g[i][j] for i in rng for j in rng if i > j)
+    dr = sum(g[i][i] for i in rng)
+    o25 = sum(g[i][j] for i in rng for j in rng if i + j > 2.5)
+    btts = sum(g[i][j] for i in rng for j in rng if i and j)
+    return {"hs": round(lh, 2), "as": round(la, 2), "win": [round(hw, 3), round(dr, 3), round(1 - hw - dr, 3)],
+            "total": round(lh + la, 2), "over": [2.5, round(o25, 3)], "btts": round(btts, 3)}
+
+
+def solve(f, lo, hi, want):
+    """x in [lo, hi] where the increasing function f(x) hits want."""
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if f(mid) < want else (lo, mid)
+    return (lo + hi) / 2
+
+
+def soccer_lean(bd):
+    """Take out the slate-wide lean in our soccer goal numbers, competition by competition.
+
+    Each game's total line implies how many goals the books expect. Where ours run high across a whole
+    competition, that is a lean in our model, not an edge in every game, so we scale ours to the books'
+    average and keep each game's own differences.
+    """
+    groups = defaultdict(list)
+    for gm in bd["games"]:
+        p = gm.get("proj")
+        b = (p or {}).get("book") or {}
+        if not p or b.get("over") is None:
+            continue
+        tl = b.get("total", 2.5)
+        tot = solve(lambda x: 1 - sum(pois(x, k) for k in range(int(tl) + 1)), 0.3, 8, b["over"])
+        groups[gm["lid"]].append((tot, p["hs"] + p["as"]))
+    every = [r for rs in groups.values() for r in rs]
+    if len(every) < 3:
+        return {}
+    out = {}
+    for gm in bd["games"]:
+        p = gm.get("proj")
+        if not p or not p.get("book"):
+            continue
+        rows = groups.get(gm["lid"]) if len(groups.get(gm["lid"], [])) >= 3 else every     # too few lines: judge the whole slate
+        kt = min(1.25, max(0.75, sum(r[0] for r in rows) / sum(r[1] for r in rows)))
+        keep = {k: v for k, v in p.items() if k not in ("hs", "as", "win", "total", "over", "btts")}
+        gm["proj"] = {**soccer_proj(p["hs"] * kt, p["as"] * kt), **keep, "lean": round(kt, 2)}
+        out[gm.get("league")] = round(kt, 2)
+    return out
 
 
 # ---------- sportsbook lines (PropLine, saved by odds.py) ----------
@@ -283,6 +327,41 @@ def two_way(rows, pick_a, pick_b):
     return statistics.median(fair), a + (ids(pa),), b + (ids(pb),)
 
 
+def double_chance(rows, hn, an):
+    """Fair chances of [home or draw, away or draw, either side wins] (margin removed per book) and the best price on each."""
+    import statistics
+    pick = []
+    for want in ((hn, "Draw"), (an, "Draw"), (hn, an)):
+        hit = None
+        for r in rows:
+            parts = [x.strip() for x in str(r[0]).split("/")]
+            if len(parts) == 2 and all(any(w == "Draw" and x == "Draw" or w != "Draw" and same_team(x, w) for x in parts) for w in want):
+                hit = r
+                break
+        if not hit:
+            return None
+        pick.append(hit)
+    fair = [[], [], []]
+    for bk in set.intersection(*(set(r[3]) for r in pick)):
+        tot = sum(implied(r[3][bk]) for r in pick)
+        for i, r in enumerate(pick):
+            fair[i].append(2 * implied(r[3][bk]) / tot)      # the three sides cover every result twice
+    bests = [best_of(r[3]) for r in pick]
+    if not fair[0] or not all(bests):
+        return None
+    return [statistics.median(f) for f in fair], [b + ((r[4] if len(r) > 4 else {}),) for b, r in zip(bests, pick)]
+
+
+def handicap(rows, hn, an):
+    """The half-goal Asian handicap closest to even money (no pushes to account for): home line, fair home chance, best prices."""
+    best = None
+    for line in sorted({r[2] for r in rows if r[2] is not None and same_team(r[0], hn) and abs(r[2] * 2) % 2 == 1}):
+        t = two_way(rows, lambda r: same_team(r[0], hn) and r[2] == line, lambda r: same_team(r[0], an) and r[2] == -line)
+        if t and (best is None or abs(t[0] - 0.5) < abs(best[1] - 0.5)):
+            best = (line, t[0], t[1], t[2])
+    return best
+
+
 def main_line(rows, side):
     """The point most books post for this side (their main line)."""
     from collections import Counter
@@ -335,6 +414,33 @@ def attach_odds(sport, bd, lam=None):
                     book["mlp"] = [px(b) for b in bests]
                     for i, (lab, k) in enumerate(((home, "h"), ("Draw", "d"), (away, "a"))):
                         add_value("Result", lab, p["win"][i], fm[i], bests[i])
+            hw, dr, aw = p["win"]
+            dn = two_way(m.get("draw_no_bet", []), lambda r: same_team(r[0], hn), lambda r: same_team(r[0], an))
+            if dn and hw + aw > 0:
+                ours = hw / (hw + aw)
+                book["dnb"] = round(dn[0], 3)
+                book["dnbp"] = [px(dn[1]), px(dn[2])]
+                p["dnb"] = round(ours, 3)
+                add_value("Draw no bet", home, ours, dn[0], dn[1])
+                add_value("Draw no bet", away, 1 - ours, 1 - dn[0], dn[2])
+            dc = double_chance(m.get("double_chance", []), hn, an)
+            if dc:
+                ours = [hw + dr, dr + aw, hw + aw]
+                book["dc"] = [round(x, 3) for x in dc[0]]
+                book["dcp"] = [px(b) for b in dc[1]]
+                p["dc"] = [round(x, 3) for x in ours]
+                for i, lab in enumerate((f"{home} or draw", f"{away} or draw", f"{home} or {away}")):
+                    add_value("Double chance", lab, ours[i], dc[0][i], dc[1][i])
+            ah = handicap(m.get("spreads", []), hn, an)
+            if ah:
+                line, fair, bh, ba = ah
+                ours = cover_at("soccer", p, line, lam)
+                book["ah"] = line
+                book["ahc"] = round(fair, 3)
+                book["ahp"] = [px(bh), px(ba)]
+                p["ah_book"] = round(ours, 3)
+                add_value("Handicap", f"{home} {line:+g}", ours, fair, bh)
+                add_value("Handicap", f"{away} {-line:+g}", 1 - ours, 1 - fair, ba)
             bt = two_way(m.get("both_teams_to_score", []), lambda r: r[0] == "Yes", lambda r: r[0] == "No")
             if bt:
                 book["btts"] = round(bt[0], 3)
@@ -361,7 +467,9 @@ def attach_odds(sport, bd, lam=None):
                     add_value("Spread", f"{home} {line:+g}", ours, s2[0], s2[1])
                     add_value("Spread", f"{away} {-line:+g}", 1 - ours, 1 - s2[0], s2[2])
         tot = m.get("totals", [])
-        tl = 2.5 if sport == "soccer" else main_line(tot, lambda r: r[0] == "Over")
+        tl = main_line(tot, lambda r: r[0] == "Over")
+        if sport == "soccer" and any(r[0] == "Over" and r[2] == 2.5 for r in tot):
+            tl = 2.5
         if tl is not None:
             t2 = two_way(tot, lambda r: r[0] == "Over" and r[2] == tl, lambda r: r[0] == "Under" and r[2] == tl)
             if t2:
@@ -390,7 +498,8 @@ PROP_STAT = {
             "player_threes": "3PM", "player_blocks": "BLK", "player_steals": "STL"},
     "nfl": {"player_anytime_td": "TD", "player_pass_tds": "PTD", "player_pass_yds": "PYD", "player_reception_yds": "CYD",
             "player_rush_yds": "RYD", "player_receptions": "REC"},
-    "soccer": {"anytime_goal_scorer": "G", "player_assists": "A", "goal_or_assist": "GA"},
+    "soccer": {"anytime_goal_scorer": "G", "player_assists": "A", "goal_or_assist": "GA",
+               "player_shots_on_target": "T", "player_shots": "S"},
 }
 ONE_SIDED_VIG = 1.07     # a yes-only price carries the book's margin with nothing to net it against
 
@@ -481,7 +590,9 @@ def attach_props(sport, bd):
             continue
         for stat, rows in st.items():
             rows.sort(key=lambda x: x[0])
-            if stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "PR", "PA", "RA", "REC", "3PM", "BLK", "STL", "S"):
+            if sport == "soccer" and stat in ("T", "S"):       # soccer shots come as 1+, 2+, 3+ ladders
+                keep.setdefault(who, {})[stat] = [x for x in rows if x[0] <= 4]
+            elif stat in ("PYD", "CYD", "RYD", "PTS", "REB", "AST", "PRA", "PR", "PA", "RA", "REC", "3PM", "BLK", "STL", "S"):
                 two = [x for x in rows if x[5]]
                 keep.setdefault(who, {})[stat] = [max(two, key=lambda x: x[4])] if two else sorted(rows, key=lambda x: -x[4])[:5]
             else:
@@ -494,8 +605,8 @@ def attach_props(sport, bd):
 
 def cover_at(sport, p, line, lam):
     """Our chance the home side covers `line` (home perspective, -1.5 = home gives 1.5)."""
-    if sport == "nhl":
-        g = grid(p["lh"], p["la"])
+    if sport in ("nhl", "soccer"):
+        g = grid(p["lh"], p["la"]) if sport == "nhl" else grid(p["hs"], p["as"])
         return sum(g[i][j] for i in range(15) for j in range(15) if i - j + line > 0)
     sd = 12.5 if sport == "nba" else 13.5
     return ncdf((p["hs"] - p["as"] + line) / sd)
@@ -510,6 +621,53 @@ def over_at(sport, p, line, lam):
     return 1 - ncdf((line - p["hs"] - p["as"]) / sd)
 
 
+def save_lines(bd, path):
+    """Every soccer game line we priced, saved before kickoff so the Results Dashboard can grade them after."""
+    if path.resolve() != (ROOT / "soccer" / "board.json").resolve():
+        return
+    from zoneinfo import ZoneInfo
+    ldir = ROOT / "soccer" / "history" / "lines"
+    ldir.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    files = {}
+    for gm in bd["games"]:
+        p = gm.get("proj") or {}
+        b = p.get("book") or {}
+        t = datetime.fromisoformat(gm["t"].replace("Z", "+00:00"))
+        if not b or t <= now:
+            continue
+        H, A = gm["h"], gm["a"]
+        rows = []
+        def add(mk, side, ours, fair, q):
+            if ours is not None and fair is not None and q:
+                rows.append([mk, side, round(ours, 3), round(fair, 3), q[0], q[1]])
+        if b.get("ml"):
+            for i, lab in enumerate((H, "Draw", A)):
+                add("Result", lab, p["win"][i], b["ml"][i], b["mlp"][i])
+        if b.get("dnb") is not None:
+            add("Draw no bet", H, p["dnb"], b["dnb"], b["dnbp"][0])
+            add("Draw no bet", A, 1 - p["dnb"], 1 - b["dnb"], b["dnbp"][1])
+        if b.get("dc"):
+            for i, lab in enumerate((f"{H} or draw", f"{A} or draw", f"{H} or {A}")):
+                add("Double chance", lab, p["dc"][i], b["dc"][i], b["dcp"][i])
+        if b.get("ah") is not None:
+            add("Handicap", f"{H} {b['ah']:+g}", p["ah_book"], b["ahc"], b["ahp"][0])
+            add("Handicap", f"{A} {-b['ah']:+g}", 1 - p["ah_book"], 1 - b["ahc"], b["ahp"][1])
+        if b.get("over") is not None:
+            add("Total", f"Over {b['total']:g}", p.get("over_book"), b["over"], b["totp"][0])
+            add("Total", f"Under {b['total']:g}", 1 - p["over_book"], 1 - b["over"], b["totp"][1])
+        if b.get("btts") is not None:
+            add("Both score", "Yes", p["btts"], b["btts"], b["bttsp"][0])
+            add("Both score", "No", 1 - p["btts"], 1 - b["btts"], b["bttsp"][1])
+        day = t.astimezone(ZoneInfo("America/Chicago")).date().isoformat()
+        if day not in files:
+            f = ldir / f"{day}.json"
+            files[day] = json.loads(f.read_text()) if f.exists() else {}
+        files[day][str(gm["id"])] = {"t": gm["t"], "h": H, "a": A, "league": gm.get("league"), "ah": b.get("ah"), "rows": rows}
+    for day, d in files.items():
+        (ldir / f"{day}.json").write_text(json.dumps(d, separators=(",", ":"), ensure_ascii=False))
+
+
 def main():
     sport = sys.argv[1]
     path = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / sport / "board.json"
@@ -520,7 +678,12 @@ def main():
     {"nhl": nhl, "nba": nba, "nfl": nfl, "soccer": soccer}[sport](bd)
     n = sum(1 for g in bd["games"] if g.get("proj"))
     attach_cal(sport, bd)
-    print(f"{sport}: book lines on {attach_odds(sport, bd)} games, props for {attach_props(sport, bd)} players")
+    nb = attach_odds(sport, bd)
+    if sport == "soccer" and nb:
+        print("soccer: lean taken out per competition:", soccer_lean(bd))
+        nb = attach_odds(sport, bd)
+        save_lines(bd, path)
+    print(f"{sport}: book lines on {nb} games, props for {attach_props(sport, bd)} players")
     path.write_text(json.dumps(bd, separators=(",", ":"), ensure_ascii=False))
     print(f"{sport}: {n} of {len(bd['games'])} games projected")
 

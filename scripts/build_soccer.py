@@ -128,7 +128,7 @@ def refresh_fixtures(lid, state):
             rows.append({"id": int(m["id"]), "t": st.get("utcTime"), "h": int(m["home"]["id"]),
                          "a": int(m["away"]["id"]), "hn": m["home"].get("shortName") or m["home"]["name"],
                          "an": m["away"].get("shortName") or m["away"]["name"],
-                         "fin": bool(st.get("finished")), "aw": bool(st.get("awarded"))})
+                         "fin": bool(st.get("finished")), "aw": bool(st.get("awarded")), "sc": score_of(m)})
         fx["matches"][label] = rows
         if season is None and len(seasons) > 1 and seasons[1] not in fx["matches"] and not out_of_time():
             want.append(seasons[1])
@@ -358,6 +358,19 @@ def rate(p, k, prior, K=5.0):
 
 
 # ---------- today's slate ----------
+
+def score_of(m):
+    """Final score [home, away] once a match is finished, for grading game lines."""
+    if not (m.get("status") or {}).get("finished"):
+        return None
+    h, a = (m.get("home") or {}).get("score"), (m.get("away") or {}).get("score")
+    if h is None or a is None:
+        try:
+            h, a = (int(x) for x in str(m["status"].get("scoreStr", "")).split("-"))
+        except (ValueError, KeyError):
+            return None
+    return [int(h), int(a)]
+
 
 def lineup_info(d):
     """Starters, bench and unavailable players for each side, plus whether the lineup is confirmed."""

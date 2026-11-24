@@ -908,9 +908,20 @@ function gMarkets(g){
     out.push(gTable("Result", [[H+gEdge(g,"Result",g.home), w[0], b&&b.ml&&b.ml[0], b&&b.mlp&&b.mlp[0], g.home+" to win"],
       ["Draw"+gEdge(g,"Result","Draw"), w[1], b&&b.ml&&b.ml[1], b&&b.mlp&&b.mlp[1], "Draw"],
       [A+gEdge(g,"Result",g.away), w[2], b&&b.ml&&b.ml[2], b&&b.mlp&&b.mlp[2], g.away+" to win"]], g));
-    const ov = p.over_book != null ? p.over_book : p.over[1];
-    out.push(gTable("Total goals 2.5", [["Over"+gEdge(g,"Total","Over 2.5"), ov, b&&b.over, b&&b.totp&&b.totp[0], "Over 2.5 goals"],
-      ["Under"+gEdge(g,"Total","Under 2.5"), 1-ov, b&&b.over!=null?1-b.over:null, b&&b.totp&&b.totp[1], "Under 2.5 goals"]], g));
+    const dc = p.dc || [w[0]+w[1], w[1]+w[2], w[0]+w[2]], dn = p.dnb != null ? p.dnb : w[0]/(w[0]+w[2]);
+    out.push(gTable("Double chance", [[H+" or draw"+gEdge(g,"Double chance",g.home+" or draw"), dc[0], b&&b.dc&&b.dc[0], b&&b.dcp&&b.dcp[0], g.home+" or draw"],
+      [A+" or draw"+gEdge(g,"Double chance",g.away+" or draw"), dc[1], b&&b.dc&&b.dc[1], b&&b.dcp&&b.dcp[1], g.away+" or draw"],
+      ["Either wins"+gEdge(g,"Double chance",g.home+" or "+g.away), dc[2], b&&b.dc&&b.dc[2], b&&b.dcp&&b.dcp[2], g.home+" or "+g.away]], g));
+    out.push(gTable("Draw no bet <i>stake back on a draw</i>", [[H+gEdge(g,"Draw no bet",g.home), dn, b&&b.dnb, b&&b.dnbp&&b.dnbp[0], g.home+" draw no bet"],
+      [A+gEdge(g,"Draw no bet",g.away), 1-dn, b&&b.dnb!=null?1-b.dnb:null, b&&b.dnbp&&b.dnbp[1], g.away+" draw no bet"]], g));
+    if(b && b.ah != null){
+      const l = b.ah, hs = g.home+" "+(l>0?"+":"")+l, as = g.away+" "+(-l>0?"+":"")+(-l);
+      out.push(gTable("Handicap", [[esc(hs)+gEdge(g,"Handicap",hs), p.ah_book, b.ahc, b.ahp&&b.ahp[0], hs],
+        [esc(as)+gEdge(g,"Handicap",as), 1-p.ah_book, 1-b.ahc, b.ahp&&b.ahp[1], as]], g));
+    }
+    const tl = b && b.total != null ? b.total : 2.5, ov = p.over_book != null ? p.over_book : p.over[1];
+    out.push(gTable("Total goals "+tl, [["Over"+gEdge(g,"Total","Over "+tl), ov, b&&b.over, b&&b.totp&&b.totp[0], "Over "+tl+" goals"],
+      ["Under"+gEdge(g,"Total","Under "+tl), 1-ov, b&&b.over!=null?1-b.over:null, b&&b.totp&&b.totp[1], "Under "+tl+" goals"]], g));
     out.push(gTable("Both teams score", [["Yes"+gEdge(g,"Both score","Yes"), p.btts, b&&b.btts, b&&b.bttsp&&b.bttsp[0], "Both teams to score: Yes"],
       ["No"+gEdge(g,"Both score","No"), 1-p.btts, b&&b.btts!=null?1-b.btts:null, b&&b.bttsp&&b.bttsp[1], "Both teams to score: No"]], g));
     return out;
@@ -1074,7 +1085,7 @@ function bookPick(o, kk){
 }
 function lineName(st, x, kk){
   if(kk) return kk+"+ "+(BLBL[st+kk] || BLBL[st]);
-  return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+BLBL[st];
+  return PONE[st] ? (st === "3PM" ? x.k+"+ threes" : BLBL[st]) : (x.two ? "o"+(x.k-0.5) : x.k+"+")+" "+blbl(st);
 }
 // ---------- live: once a game starts, each card shows the stat so far against the line ----------
 // each site keeps LIVEP (player -> stats so far) and gives liveVal(r, stat)
@@ -1115,7 +1126,8 @@ function bookHTML(r){
 // ---------- best bets: every priced bet in a game on one scale ----------
 const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
   "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
-  PTD:"pass TDs", S:"shots on goal", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
+  PTD:"pass TDs", S:"shots on goal", T:"shots on target", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
+function blbl(st){ return GKIND === "soccer" && st === "S" ? "shots" : BLBL[st]; }
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
 // the books are sharp on game lines, so we only trust part of a gap there (less again in soccer)
@@ -1142,6 +1154,7 @@ function bestBets(g){
   for(const v of (g.proj.value||[])){
     const top = myBest(v.all || { [v.bk]: v.price }); if(!top) continue;
     const what = v.mk === "Moneyline" || v.mk === "Result" ? [v.side, v.side === "Draw" ? "" : "to win"]
+      : v.mk === "Draw no bet" ? [v.side, "draw no bet"]
       : v.mk === "Total" ? [v.side, GKIND === "soccer" ? "goals" : GKIND === "hockey" ? "goals" : "points"]
       : v.mk === "Both score" ? ["Both teams to score:", v.side] : [v.side, ""];
     const b = betOf(what[0], what[1], v.ours, v.book, top[1], top[0], "game",
@@ -1449,7 +1462,7 @@ function gList(){ return dayGames().filter(g=>F.lg==="all" || String(g.lid)===F.
   when:new Date(g.t).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }), t:Date.parse(g.t), fin:g.fin, proj:g.proj })); }
 function gInfo(r){ return { n:r.gm.h+" v "+r.gm.a, t:Date.parse(r.gm.t), f:r.gm.fin }; }
 function bookOf(r, st){ st = st || F.stat; const p = r.p; return { name:p.n, stat:st, lam:{ G:p.pg, A:p.pa, GA:p.pg+p.pa, T:p.psot, S:p.psh }[st] }; }
-const BSTATS = ["G","A","GA"]; function hurt(r){ return r.p.st === "bench"; }
+const BSTATS = ["G","A","GA","T","S"]; function hurt(r){ return r.p.st === "bench" || r.p.st === "out"; }
 function gRows(id){ return sortedRows().filter(r=>String(r.gm.id)===String(id)); }
 /* ===== end games view ===== */
 /* ===== results dashboard: shared by every HQ site; RSTATS and FAVKEY are set per site ===== */
@@ -1670,6 +1683,20 @@ function calibHTML(){
     + (HIST.calmap ? '<p class="cal-key">The board now corrects every chance like these using this record before comparing it with the books, so the % you see and the value tags already account for where we run high or low.</p>' : '')
     + '</div>';
 }
+// soccer game lines: every side we rated 5+ points over the books, graded after the match
+function linesHTML(){
+  const ln = HIST && HIST.lines; if(!ln || !ln.markets.length) return "";
+  const u = v => '<span class="'+(v >= 0 ? "cg-good" : "cg-off")+'">'+(v >= 0 ? "+" : "")+v.toFixed(1)+'u</span>';
+  const pc = (w, n) => n ? Math.round(100*w/n)+"%" : "—";
+  const b = ln.best;
+  return '<div class="dash-card calib"><h4>How our game lines held up</h4>'
+    + '<p class="cal-sub">Every side we rated at least 5 points above the books, across '+ln.games+' match'+(ln.games === 1 ? "" : "es")+' since '+ln.first+'. Units = profit staking 1 on each at the best price. Draw no bet draws are left out (stake back).</p>'
+    + (b[0] ? '<p class="cal-verdict">Best-bet picks: <b>'+b[1]+'–'+(b[0]-b[1])+'</b> ('+pc(b[1], b[0])+') · '+u(b[2])+'</p>' : '')
+    + '<table class="cal-tbl"><tr><th style="text-align:left">Market</th><th>Bets</th><th>Won</th><th>We said</th><th>Books said</th><th>Units</th></tr>'
+    + ln.markets.map(m=>'<tr><td style="text-align:left">'+esc(m[0])+'</td><td>'+m[1]+'</td><td>'+pc(m[2], m[1])+'</td><td>'+Math.round(m[4])+'%</td><td>'+Math.round(m[5])+'%</td><td>'+u(m[3])+'</td></tr>').join("")+'</table>'
+    + '<p class="cal-key">If "Won" lands nearer "Books said" than "We said", the books were right more often in that market. A few weeks of matches are needed before any of it means much.</p>'
+    + '</div>';
+}
 function resultsHTML(){
   const tabs = '<div class="rtabs">'+RSTATS.map(x=>'<button class="'+(rstat()===x[0]?"on":"")+'" data-rstat="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
   if(!HIST) return tabs + '<div class="status"><div class="spinner"></div><h2>Loading results</h2></div>';
@@ -1686,6 +1713,7 @@ function resultsHTML(){
     + (HV==="trend" ? trendSVG(days) : HV==="tiers" ? tiersHTML(days) : donutSVG(days)) + '</div>';
   h += drillHTML();
   h += calibHTML();
+  h += linesHTML();
   h += favsHTML();
   h += playersHTML();
   h += nightsHTML(days);
