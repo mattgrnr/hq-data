@@ -235,7 +235,7 @@ footer a:hover{color:var(--paper)}
   </div>
   <div class="item">
     <h3>Send it to a book or a friend</h3>
-    <p>Tap a sportsbook to price the whole parlay there; set <b>My books</b> to the ones you use. Where the book supports it, <b>Open bet slip</b> loads every leg for you. <b>Share betslip</b> makes a short link anyone can open; it lasts two weeks.</p>
+    <p>Tap a sportsbook to price the whole parlay there; set <b>My books</b> to the ones you use. Where the book supports it, <b>Open bet slip</b> loads every leg for you. <b>Share betslip</b> makes a short link anyone can open, until two days after its last game.</p>
     <div class="demo d-btns"><span class="go">Open DraftKings bet slip</span><span>Share betslip</span><span>Track this bet</span></div>
   </div>
 </section>
@@ -319,8 +319,12 @@ async function betLink(url, request, env) {
   return out;
 }
 
-// ---------- shared betslips: a short link to a parlay, kept for two weeks ----------
-const SLIP_TTL = 14 * 86400;
+// ---------- shared betslips: a short link to a parlay, kept until two days after its last game ----------
+function slipTtl(legs) {
+  const last = Math.max(0, ...legs.map(l => l.t || 0));
+  const ttl = Math.round(((last || Date.now()) + 2 * 86400e3 - Date.now()) / 1000);
+  return Math.min(10 * 86400, Math.max(86400, ttl));      // at least a day, at most ten (a long NFL week)
+}
 function page(origin, shared, meta) {
   let h = HTML.split("__ORIGIN__").join(origin);
   h = h.replace("var SHARED = null;", "var SHARED = " + JSON.stringify(shared).replace(/</g, "\\u003c") + ";");
@@ -356,7 +360,7 @@ async function saveSlip(request, env, url) {
   if (!legs.length) return out({ error: "no legs" }, 400);
   const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789", r = crypto.getRandomValues(new Uint8Array(7));
   const id = Array.from(r, x => abc[x % abc.length]).join("");
-  await env.SLIPS.put(id, JSON.stringify({ legs, bk: str(d.bk, 4) || null, at: Date.now() }), { expirationTtl: SLIP_TTL });
+  await env.SLIPS.put(id, JSON.stringify({ legs, bk: str(d.bk, 4) || null, at: Date.now() }), { expirationTtl: slipTtl(legs) });
   return out({ id, url: url.origin + "/p/" + id });
 }
 async function showSlip(id, env, url) {
@@ -1183,7 +1187,7 @@ function shareGo(legs, bk, btn, label){
   else { btn.textContent = "Making link…"; sharePrep(legs, bk, function(url){ btn.textContent = label; go(url); }); }
 }
 if(SHARED && SHARED.gone){
-  document.getElementById("shared").innerHTML = '<div class="pl"><div class="t">This parlay link has expired</div><p class="pl-note">Shared parlays last two weeks. Build a new one from any HQ board.</p></div>';
+  document.getElementById("shared").innerHTML = '<div class="pl"><div class="t">This parlay link has expired</div><p class="pl-note">Shared parlays last until two days after their last game. Build a new one from any HQ board.</p></div>';
 } else if(SHARED){
   SHARED.legs = SHARED.legs.filter(function(l){ return !l.t || l.t > Date.now() - 6*3600e3; }).concat([]);
   renderParlay("share");
