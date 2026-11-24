@@ -1369,14 +1369,14 @@ function plMath(legs){
            sameGame: new Set(legs.map(l=>l.g)).size < legs.length, at: bk => l => prices(l)[bk] };
 }
 // when My books can't take every leg: name the leg, and the books of ours that do have it
-function plMissing(pick){
+function plMissing(pick, slip){
   const px = l => l.a || { [l.b]: l.p };
   if(!PLMY.length || !pick) return 'No single sportsbook has every leg right now. Remove a leg or swap it for one your book has.';
-  const miss = PL.filter(l=>px(l)[pick.bk] == null), one = miss.length === 1, bk = BKNAME[pick.bk] || pick.bk;
+  const miss = PL.filter(l=>px(l)[pick.bk] == null), one = miss.length === 1, bk = esc(BKNAME[pick.bk] || pick.bk), left = PL.length - miss.length;
   const alt = MYBOOKS.filter(b=>b !== pick.bk && miss.every(l=>px(l)[b] != null)).map(b=>BKNAME[b]);
-  return '<b>'+(one ? esc(miss[0].l)+' isn’t' : miss.length+' legs aren’t')+' at '+esc(bk)+'.</b> '
-    + (alt.length ? alt.slice(0, 3).join(alt.length === 2 ? ' and ' : ', ')+(alt.length === 1 ? ' has ' : ' have ')+(one ? 'it' : 'them')+': add one under My books, or remove '+(one ? 'the leg.' : 'those legs.')
-                  : 'None of the books we cover '+(one ? 'has it' : 'have them all')+'. Remove '+(one ? 'it' : 'them')+' or swap for a leg '+esc(bk)+' has.');
+  return '<b>'+(one ? esc(miss[0].l)+' isn’t' : miss.length+' legs aren’t')+' at '+bk+'.</b> '
+    + (slip ? 'The button adds the other '+left+(left === 1 ? ' leg' : '')+'.' : 'Remove '+(one ? 'it' : 'them')+' to bet the rest there.')
+    + (alt.length ? ' '+alt.slice(0, 3).join(', ').replace(/, ([^,]*)$/, ' and $1')+' '+(alt.length === 1 ? 'has' : 'have')+' '+(PL.length === 2 ? 'both' : 'all '+PL.length)+', if you use '+(alt.length === 1 ? 'it' : 'them')+'.' : '');
 }
 function plBar(){
   let el = document.getElementById("plbar");
@@ -1413,16 +1413,18 @@ function plBar(){
   const games = [...new Set(PL.map(l=>l.g))];
   const oneGameUrl = pick && games.length === 1 ? (PL.find(l=>l.u && l.u[pick.bk])||{u:{}}).u[pick.bk] : null;
   const gone = PL.filter(l=>l.t && Date.now() >= l.t);
-  const slip = pick && full && !gone.length ? slipUrl(pick.bk, PL) : null;
+  // load every leg the book has; a leg it doesn't carry is named in the note above the buttons
+  const ready = pick ? PL.filter(l=>m.at(pick.bk)(l) != null) : [];
+  const slip = pick && ready.length && !gone.length ? slipUrl(pick.bk, ready) : null;
   const placeUrl = pick ? (slip || oneGameUrl || BKHOME[pick.bk]) : null;
   el.innerHTML = (PLOPEN ? '<div class="pl-legs">'+PL.map(legLine).join("")
       + '<div class="pl-where"><div class="pl-wt">Tap a sportsbook to price your parlay there</div>'+all.slice(0, 8).map(bookRow).join("")+'</div>'
       + '<div class="pl-my"><div class="pl-wt">My books <span>'+(PLMY.length ? 'only these are priced' : 'tap the ones you use')+'</span></div>'
       + MYBOOKS.map(bk=>'<button class="pl-chip'+(PLMY.includes(bk)?" on":"")+'" data-my="'+bk+'">'+esc(BKNAME[bk])+'</button>').join("")+'</div>'
       + (gone.length ? '<p class="pl-note pl-warn">'+gone.length+' leg'+(gone.length>1?"s have":" has")+' started and can\\'t be bet anymore. <button class="pl-link" id="pl-drop">Remove started legs</button></p>' : '')
-      + (m.full.length ? '' : '<p class="pl-note pl-warn">'+plMissing(pick)+'</p>')
+      + (m.full.length ? '' : '<p class="pl-note pl-warn">'+plMissing(pick, slip)+'</p>')
       + (m.sameGame ? '<p class="pl-note">Some legs share a game. Books price same-game parlays their own way, so the price there may differ.</p>' : '')
-      + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? 'Add to '+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
+      + '<div class="pl-acts">'+(placeUrl ? '<a class="navbtn pl-go" id="pl-go" href="'+esc(SLIPLINK[placeUrl] || placeUrl)+'"'+(slip ? '' : ' target="_blank" rel="noopener"')+'>'+(slip ? (ready.length < PL.length ? 'Add '+ready.length+' of '+PL.length+' legs to ' : 'Add to ')+esc(BKNAME[pick.bk]||pick.bk)+' bet slip' : 'Open '+esc(BKNAME[pick.bk]||pick.bk))+'</a>' : '')
       + '<button class="navbtn" id="pl-share">Share betslip</button></div>'
       + (pick && PLWENT ? '<p class="pl-note"><b>Placed it?</b> Track it to follow it live in My bets on Total HQ.</p>' : '')
       + (pick && !slip ? '<p class="pl-note">'+(oneGameUrl ? 'Opens this game at '+esc(BKNAME[pick.bk]||pick.bk)+'.' : 'Opens '+esc(BKNAME[pick.bk]||pick.bk)+'; add each leg there.')+'</p>' : '')
