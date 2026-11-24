@@ -512,7 +512,7 @@ async function slate() {
         ? { h: g.h, a: g.a, k: String(g.id), id: g.id, lg: g.league, t: g.t, win: g.proj.win, hs: g.proj.hs, as: g.proj.as, st: g.fin ? "final" : null, sc: g.sc || null }
         : { h: g.home, a: g.away, k: g.home, id: g.id, t: g.start || (g.ko ? new Date(g.ko * 1000).toISOString() : null), win: g.proj.win, hs: g.proj.hs, as: g.proj.as, st: g.final ? "final" : null, sc: null });
       await scores(key, list, now);
-      const rank = g => g.st === "live" ? 0 : g.st === "final" ? 2 : 1;
+      const rank = g => g.st === "final" ? 0 : g.st === "live" ? 1 : 2;      // the day in order: finished, live, still to come
       out[key] = list.sort((x, y) => rank(x) - rank(y) || Date.parse(x.t) - Date.parse(y.t)).map(g => { delete g.id; return g; });
     } catch (e) {}
   }));
@@ -767,6 +767,8 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .gm .pr i{display:block}
 .gm .pr .a,.gm .pr .h{background:#3a3f48}.gm .pr .d{background:#262a31}.gm .pr .fav{background:var(--open)}
 .games .all{display:inline-block;margin-top:12px;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--open);text-decoration:none}
+.fin-row{display:flex;justify-content:space-between;width:100%;padding:11px 0;border:0;border-bottom:1px solid var(--rule);background:none;color:var(--mute);font:inherit;font-size:13px;cursor:pointer;text-align:left}
+.fin-row span{color:var(--paper);font-size:12px}
 .games .none{color:var(--dim);font-size:12.5px;padding:10px 0}
 @media (max-width:520px){ .games{padding-left:59px} }
 
@@ -1278,15 +1280,23 @@ renderBets();
 plLinks();
 trackStart();
 
-var SLATE = null;
+var SLATE = null, FINOPEN = {};
 function fillGames(){
   BOARDS.forEach(function(b){
     var el = document.getElementById("games-" + b.key);
     if(!el || !SLATE) return;
     var list = SLATE[b.key] || [];
-    el.innerHTML = (list.length ? list.map(function(g){ return gameHTML(b.key, b.url, g); }).join("") : '<div class="none">' + (b.key === "nfl" ? 'No games left this week. Next week’s board goes up Wednesday, once the lines are out.' : 'No games left today.') + '</div>')
+    var fins = list.filter(function(g){ return g.st === "final"; }), rest = list.filter(function(g){ return g.st !== "final"; });
+    var html = function(g){ return gameHTML(b.key, b.url, g); };
+    // finished games fold into one line while there's still something to watch or bet; once the day is done they're the list
+    var top = fins.length && rest.length
+      ? '<button class="fin-row" data-k="' + b.key + '">' + fins.length + ' finished<span>' + (FINOPEN[b.key] ? 'Hide' : 'Show') + '</span></button>'
+        + (FINOPEN[b.key] ? fins.map(html).join("") : '')
+      : fins.map(html).join("");
+    el.innerHTML = (list.length ? top + rest.map(html).join("") : '<div class="none">' + (b.key === "nfl" ? 'No games left this week. Next week’s board goes up Wednesday, once the lines are out.' : 'No games left today.') + '</div>')
       + '<a class="all" href="' + esc(b.url) + '">Open ' + esc(b.word) + ' HQ →</a>';
   });
+  document.querySelectorAll(".fin-row").forEach(function(btn){ btn.onclick = function(){ FINOPEN[btn.dataset.k] = !FINOPEN[btn.dataset.k]; fillGames(); }; });
   plLinks();
 }
 fetch("/slate").then(function(r){ return r.json(); }).then(function(s){ SLATE = s; fillGames(); }).catch(function(){
