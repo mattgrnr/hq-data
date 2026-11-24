@@ -984,7 +984,26 @@ const FAVKEY = "hq.slam.fav";
 /* ===== games view: shared by every HQ site; gList, gRows, GKIND are set per site ===== */
 // a game is "pre" until its start time, then "live", then "final"; only pre-game bets can be added
 function gState(t, fin){ return fin ? "final" : (t && Date.now() >= t ? "live" : "pre"); }
-function gTag(st){ return st === "pre" ? "" : '<span class="g-tag '+st+'">'+(st === "final" ? "Final" : "Live")+'</span>'; }
+function gTag(st, x){
+  if(st === "pre") return "";
+  const sc = x && x.sc ? ' · '+x.sc[0]+'–'+x.sc[1] : '', clk = st === "live" && x && x.clk ? ' · '+esc(x.clk) : '';
+  return '<span class="g-tag '+st+'">'+(st === "final" ? "Final" : "Live")+sc+clk+'</span>';
+}
+// live and final scores for the Games tab, from Total HQ (the same numbers its lanes show), refreshed every minute while games are on
+const SLATE_URL = "https://total-hq.com/slate";
+let GSCORE = {};
+function gScore(g){ return GSCORE[String(GKIND === "soccer" ? g.id : g.home)] || null; }
+function gScores(){
+  const on = gList().some(g=>gState(g.t, g.fin) !== "pre");
+  if(!on) return;
+  fetch(SLATE_URL, { cache: "no-store" }).then(r=>r.json()).then(d=>{
+    GSCORE = {};
+    (d[LEGSPORT] || []).forEach(x=>{ GSCORE[x.k] = x; });
+    if(GV) render();
+  }).catch(()=>{});
+}
+setTimeout(gScores, 1500);
+setInterval(gScores, 60000);
 let GV = false, GOPEN = {}, GQ = null, GJUMP = null;
 // arriving from Total HQ with ?game=<home team or match id> opens the Games tab on that game
 try { GQ = new URLSearchParams(location.search).get("game"); if(GQ) GV = true; } catch(e) {}
@@ -1067,10 +1086,10 @@ function gMarkets(g){
 }
 
 function gCard(g){
-  const p = g.proj, open = !!GOPEN[g.id], st = gState(g.t, g.fin);
+  const p = g.proj, open = !!GOPEN[g.id], sx = gScore(g), st = sx && sx.st && gState(g.t, g.fin) !== "pre" ? sx.st : gState(g.t, g.fin);
   const score = p.hs.toFixed(1)+' – '+p.as.toFixed(1);
   let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+'" data-gid="'+esc(g.id)+'">'
-    + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+(st !== "pre" ? gTag(st) : esc(g.when||""))+'</div></div>'
+    + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+(st !== "pre" ? gTag(st, sx) : esc(g.when||""))+'</div></div>'
     + (st !== "pre" ? '<div class="gc-closed">Game started · these bets can\\'t be added anymore</div>' : '')
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
     + gWinBar(g)

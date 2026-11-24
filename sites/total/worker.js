@@ -61,7 +61,7 @@ export default {
     const asset = serveAsset(path);
     if (asset) return asset;
 
-    if (path === "/slate") return slate(env);
+    if (path === "/slate") return slate(env, request);
     if (path === "/betlink") return betLink(url, request, env);
     if (path === "/p") return saveSlip(request, env, url);
     if (path === "/best") return best();
@@ -518,7 +518,7 @@ function sameSide(a, b) {
 // ESPN's NFL abbreviations where they differ from the board's
 const NFL_ESPN = { LA: "LAR", WAS: "WSH" };
 
-async function slate(env) {
+async function slate(env, request) {
   const out = {};
   await Promise.all(Object.entries(SPORT_DIR).map(async ([key, dir]) => {
     try {
@@ -537,7 +537,9 @@ async function slate(env) {
       out[key] = list.sort((x, y) => rank(x) - rank(y) || Date.parse(x.t) - Date.parse(y.t)).map(g => { delete g.id; return g; });
     } catch (e) {}
   }));
-  return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
+  const origin = request ? request.headers.get("Origin") || "" : "";      // the sport sites read it for their Games tab scores
+  const cors = HQ_REF.test(origin + "/") ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin" } : {};
+  return new Response(JSON.stringify(out), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60", ...cors } });
 }
 
 // live and final scores for games under way, from the same sources bet tracking uses;
