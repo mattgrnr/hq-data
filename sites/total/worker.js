@@ -969,7 +969,7 @@ function fillGames(){
     var el = document.getElementById("games-" + b.key);
     if(!el || !SLATE) return;
     var list = SLATE[b.key] || [];
-    el.innerHTML = (list.length ? list.map(function(g){ return gameHTML(b.key, b.url, g); }).join("") : '<div class="none">No games left today.</div>')
+    el.innerHTML = (list.length ? list.map(function(g){ return gameHTML(b.key, b.url, g); }).join("") : '<div class="none">' + (b.key === "nfl" ? 'No games left this week. Next week’s board goes up Wednesday, once the lines are out.' : 'No games left today.') + '</div>')
       + '<a class="all" href="' + esc(b.url) + '">Open ' + esc(b.word) + ' HQ →</a>';
   });
   plLinks();
