@@ -39,7 +39,7 @@ LEAGUES = [
     (132, "FA Cup"), (133, "EFL Cup"), (138, "Copa del Rey"), (141, "Coppa Italia"),
     (209, "DFB Pokal"), (134, "Coupe de France"),
 ]
-SLATE = {47, 87, 55, 54, 53}
+SLATE = {47, 87, 55, 54, 53, 42, 73, 10216}   # the big five and the three European cups
 LNAME = dict(LEAGUES)
 FIELDS = ["mid", "date", "lid", "pid", "team", "opp", "home", "start", "min", "g", "a",
           "xg", "npxg", "xa", "sh", "sot", "tib", "penw"]
