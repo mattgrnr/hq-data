@@ -1,0 +1,13 @@
+name: Track probe
+on:
+  push:
+    branches: ["preview/hub"]
+    paths: [".github/track-probe.txt"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -H "Referer: https://slapshot-hq.com/" "https://slapshot-hq.com/live?d=2026-11-23" | head -c 300; echo
+          curl -s -H "Referer: https://slapshot-hq.com/" "https://slapshot-hq.com/live" | head -c 300; echo
+          curl -s -o /dev/null -w "score %{http_code}\n" "https://api-web.nhle.com/v1/score/2026-11-23"
