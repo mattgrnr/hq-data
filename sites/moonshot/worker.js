@@ -242,6 +242,11 @@ details.method[open]>summary::before{content:"▾"}
 .wt{display:grid;grid-template-columns:70px 1fr 28px;align-items:center;gap:8px}
 .wt label{font-size:11px;color:var(--mut)}.wt input{accent-color:var(--stitch);width:100%}.wt .wv{font-family:'IBM Plex Mono';font-size:11px;text-align:right}
 .mbody p{font-size:12px;color:var(--mut);line-height:1.6}
+/* site footer */
+footer.hqft{display:block;color:#6e7681;font-size:11.5px;line-height:1.6;margin:28px 0 8px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)}
+footer.hqft p{margin:0 0 8px}
+footer.hqft .ft-sites{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px;font-size:12px;letter-spacing:.06em}
+footer.hqft a{color:#9aa4b2;text-decoration:none}
 footer{margin-top:20px;color:var(--faint);font-size:10.5px;line-height:1.6}
 
 .status{padding:60px 20px;text-align:center;color:var(--mut)}
@@ -505,6 +510,7 @@ font-family:'Space Grotesk',system-ui,sans-serif;
 <div id="app">
   <div class="status"><div class="spinner"></div><h2>Loading Moonshot HQ</h2><p id="status-line">Fetching today's slate…</p><div class="bar-progress"><i id="status-bar"></i></div></div>
 </div>
+<footer class="hqft"><div class="ft-sites"><a href="https://total-hq.com">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a></div><p>Scores and projections are estimates, not guarantees, and book prices move.</p><p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p></footer>
 <script>
 "use strict";
 (function(){
@@ -540,7 +546,6 @@ function sportsMenuHTML(){
           ? '<a class="cur"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>'
           : '<a href="'+s.url+'"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>';
       }).join("")
-    + '<span class="soon">More sports coming soon</span>'
     + '</div></div>';
 }
 function wireSports(){
