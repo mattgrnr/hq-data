@@ -77,9 +77,9 @@ export default {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
       const s = parseInt(url.searchParams.get("s"), 10), w = parseInt(url.searchParams.get("w"), 10);
       if (!(s >= 2020 && s <= 2100 && w >= 1 && w <= 18)) return new Response("Bad request", { status: 400 });
-      const res = await fetch(LIVE_URL + s + "/" + w, { cf: { cacheTtl: 30, cacheEverything: true } });
+      const res = await fetch(LIVE_URL + s + "/" + w, { cf: { cacheTtl: 15, cacheEverything: true } });
       if (!res.ok) return new Response(JSON.stringify({ error: "live upstream " + res.status }), { status: 502, headers: { "Content-Type": "application/json" } });
-      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" } });
+      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=15" } });
     }
 
     if (path === "/slate") {
@@ -2201,7 +2201,7 @@ function liveStart(){
   clearInterval(LIVE_TIMER);
   LIVE_ONCE = false;
   liveTick();
-  LIVE_TIMER = setInterval(liveTick, 60000);
+  LIVE_TIMER = setInterval(liveTick, 30000);
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) liveTick(); });
 

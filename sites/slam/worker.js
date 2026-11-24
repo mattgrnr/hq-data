@@ -1974,7 +1974,7 @@ function liveStart(){
   clearInterval(LIVE_TIMER);
   LIVE_ONCE = false;
   liveTick();
-  LIVE_TIMER = setInterval(liveTick, 60000);
+  LIVE_TIMER = setInterval(liveTick, 30000);
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) liveTick(); });
 
@@ -2062,7 +2062,7 @@ export default {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
       const d = url.searchParams.get("d") || "";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return new Response("Bad request", { status: 400 });
-      const res = await fetch(LIVE_URL + d.replace(/-/g, ""), { cf: { cacheTtl: 30, cacheEverything: true } });
+      const res = await fetch(LIVE_URL + d.replace(/-/g, ""), { cf: { cacheTtl: 15, cacheEverything: true } });
       if (!res.ok) return json({ error: "live upstream " + res.status }, 502);
       const data = await res.json();
       // every player's line so far in games that have started, from each game's box score
@@ -2070,7 +2070,7 @@ export default {
       const want = { points: "PTS", rebounds: "REB", assists: "AST", steals: "STL", blocks: "BLK", PTS: "PTS", REB: "REB", AST: "AST", STL: "STL", BLK: "BLK" };
       await Promise.all((data.events || []).filter(e => e.status && e.status.type && ["in", "post"].includes(e.status.type.state)).map(async e => {
         try {
-          const b = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=" + e.id, { cf: { cacheTtl: 30, cacheEverything: true } })).json();
+          const b = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=" + e.id, { cf: { cacheTtl: 15, cacheEverything: true } })).json();
           for (const team of (b.boxscore && b.boxscore.players) || []) for (const grp of team.statistics || []) {
             const names = grp.keys && grp.keys.length ? grp.keys : (grp.labels || []);
             for (const a of grp.athletes || []) {
@@ -2085,7 +2085,7 @@ export default {
           }
         } catch (err) {}
       }));
-      return new Response(JSON.stringify({ events: data.events || [], players }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" } });
+      return new Response(JSON.stringify({ events: data.events || [], players }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=15" } });
     }
 
     if (path === "/inj") {

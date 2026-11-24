@@ -1954,7 +1954,7 @@ function liveStart(){
   clearInterval(LIVE_TIMER);
   LIVE_ONCE = false;
   liveTick();
-  LIVE_TIMER = setInterval(liveTick, 60000);
+  LIVE_TIMER = setInterval(liveTick, 30000);
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) liveTick(); });
 
@@ -2041,20 +2041,20 @@ export default {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
       const d = url.searchParams.get("d") || "";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return new Response("Bad request", { status: 400 });
-      const res = await fetch(LIVE_URL + d, { cf: { cacheTtl: 30, cacheEverything: true } });
+      const res = await fetch(LIVE_URL + d, { cf: { cacheTtl: 15, cacheEverything: true } });
       if (!res.ok) return json({ error: "live upstream " + res.status }, 502);
       const data = await res.json();
       // every skater's line so far in games that have started: goals, assists, points, shots on goal
       const players = {};
       await Promise.all((data.games || []).filter(g => ["LIVE", "CRIT", "FINAL", "OFF"].includes(g.gameState)).map(async g => {
         try {
-          const b = await (await fetch("https://api-web.nhle.com/v1/gamecenter/" + g.id + "/boxscore", { cf: { cacheTtl: 30, cacheEverything: true } })).json();
+          const b = await (await fetch("https://api-web.nhle.com/v1/gamecenter/" + g.id + "/boxscore", { cf: { cacheTtl: 15, cacheEverything: true } })).json();
           const side = b.playerByGameStats || {};
           for (const t of [side.awayTeam, side.homeTeam]) for (const x of [...((t || {}).forwards || []), ...((t || {}).defense || [])])
             players[x.playerId] = { G: x.goals || 0, A: x.assists || 0, P: x.points != null ? x.points : (x.goals || 0) + (x.assists || 0), S: x.sog != null ? x.sog : (x.shots || 0) };
         } catch (e) {}
       }));
-      return new Response(JSON.stringify({ games: data.games || [], players }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" } });
+      return new Response(JSON.stringify({ games: data.games || [], players }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=15" } });
     }
 
     const og = url.origin + "/og.png" + (/^\d{4}$/.test(day) ? "?d=" + day : "");
