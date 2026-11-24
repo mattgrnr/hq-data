@@ -1,0 +1,24 @@
+name: probe
+on: { push: { branches: [preview/slipttl], paths: [".github/workflows/probe.yml"] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - env: { PROPLINE_KEY: "${{ secrets.PROPLINE_KEY }}" }
+        run: |
+          python3 - <<'PY'
+          import sys; sys.path.insert(0, "scripts")
+          import odds
+          evs = odds.get("sports/hockey_nhl/events") or []
+          evs = evs if isinstance(evs, list) else evs.get("events") or evs.get("data") or []
+          ev = evs[0]["id"]
+          for mk in ["player_points", "player_assists", "player_points_alternate", "player_goals"]:
+              d = odds.get(f"sports/hockey_nhl/events/{ev}/odds", markets=mk) or {}
+              bks = {}
+              for b in d.get("bookmakers") or []:
+                  for m in b.get("markets") or []:
+                      if m.get("outcomes"):
+                          bks[b["key"]] = sorted({(o.get("name"), o.get("point")) for o in m["outcomes"]})[:3]
+              print("MK", mk, sorted(bks), list(bks.values())[:1])
+          PY
