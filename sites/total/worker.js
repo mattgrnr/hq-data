@@ -326,20 +326,20 @@ body{
 .wrap{max-width:720px;margin:0 auto;padding:0 20px 44px}
 
 /* ---------- masthead ---------- */
-header{padding:56px 0 0}
+header{padding:30px 0 0}
 .eyebrow{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);font-weight:500}
-.rule{height:1px;background:var(--rule);margin:14px 0 30px}
+.rule{height:1px;background:var(--rule);margin:12px 0 20px}
 h1{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:clamp(52px,15vw,86px);
    line-height:.86;letter-spacing:.005em;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
    padding:0;border:0;border-radius:0;letter-spacing:.015em;line-height:inherit;
    vertical-align:baseline;transform:none;margin-left:.06em}
-.thesis{margin-top:20px;color:var(--mute);font-size:15px;line-height:1.6;max-width:44ch}
+.thesis{margin-top:12px;color:var(--mute);font-size:15px;line-height:1.55;max-width:46ch}
 .thesis b{color:var(--paper);font-weight:500}
 
 /* ---------- the board ---------- */
 .boardhead{display:grid;grid-template-columns:3px 52px 1fr auto;align-items:center;gap:0 16px;
-  margin:44px 0 0;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
+  margin:30px 0 0;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
   padding:0 2px 10px;border-bottom:1px solid var(--rule)}
 .boardhead .hl{grid-column:1 / 3}
 .boardhead .hb{grid-column:3}
@@ -418,7 +418,7 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl.lost{box-shadow:inset 0 0 0 1px rgba(248,113,113,.5);background:linear-gradient(180deg,rgba(248,113,113,.06),rgba(248,113,113,.01))}
 .pl.lost .px{color:#f87171}
 /* my bets */
-#bets{margin-bottom:18px}
+#shared:not(:empty),#bets:not(:empty),#parlay:not(:empty){margin-top:22px}
 .mb{border-radius:14px;padding:16px 16px 8px;border:1px solid var(--rule);background:rgba(255,255,255,.02)}
 .mb-h{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;list-style:none;padding-bottom:6px}
 .mb-h::-webkit-details-marker{display:none}
@@ -496,6 +496,10 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .soon .t{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:23px;
   letter-spacing:.07em;color:var(--mute)}
 
+footer p{margin:0 0 8px}
+.ft-sites{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px;font-size:12px;letter-spacing:.06em}
+.ft-sites a,.ft-rg a{color:var(--mute);text-decoration:none}
+.ft-rg{color:var(--dim)}
 footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   color:var(--dim);font-size:11.5px;line-height:1.7;max-width:52ch;text-wrap:pretty}
 
@@ -537,7 +541,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
     <div class="eyebrow">Every sport · Scored 0–100</div>
     <div class="rule"></div>
     <h1>TOTAL<span class="badge">HQ</span></h1>
-    <p class="thesis">One board per sport. Every player on the slate, scored <b>0 to 100</b>.</p>
+    <p class="thesis">Every sport’s board, tonight’s best bets and your parlays in one place. Every player scored <b>0 to 100</b>.</p>
   </header>
 
   <div id="shared"></div>
@@ -549,7 +553,11 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   <div id="best"></div>
 
 
-  <footer>Each board reads the same way: one score, five tiers, every input shown.</footer>
+  <footer>
+    <div class="ft-sites"><a href="https://moonshot-hq.com">Moonshot</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a></div>
+    <p>Each board reads the same way: one score, five tiers, every input shown. Projections are estimates, not guarantees, and book prices move.</p>
+    <p class="ft-rg">21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
+  </footer>
 
   
 
