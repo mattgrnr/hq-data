@@ -234,6 +234,12 @@ header.hero{padding:calc(env(safe-area-inset-top,0px) + 12px) 0 14px;border-bott
 .method summary{color:var(--faint);font-size:13px;cursor:pointer}
 .method p{color:var(--faint);font-size:12.5px;line-height:1.55;margin-top:8px}
 /* site footer */
+.hqnew{display:flex;align-items:center;gap:8px;font-size:13px;color:#8b949e;padding:8px 8px 8px 12px;margin:12px 0 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
+.hqnew[hidden]{display:none}
+.hqnew a{color:inherit;font-weight:600;text-underline-offset:3px}
+.hqnew a:hover{color:#e6edf3}
+.hqnew button{margin-left:auto;background:none;border:0;color:inherit;font-size:18px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:6px}
+.hqnew button:hover{color:#e6edf3}
 footer.hqft{display:block;color:#6e7681;font-size:11.5px;line-height:1.6;margin:28px 0 8px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)}
 footer.hqft p{margin:0 0 8px}
 footer.hqft .ft-sites{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px;font-size:12px;letter-spacing:.06em}
@@ -706,10 +712,14 @@ body{padding-bottom:84px}
 <body>
 <div id="xfade"></div>
 <div class="wrap">
+<div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="https://guide-total-hq.wehttam30.workers.dev/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
+<script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
+  try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
+  e.hidden = false; e.querySelector("a").addEventListener("click", done); e.querySelector("button").onclick = function(){ done(); e.hidden = true; }; })();</script>
   <div id="app">
     <div class="status"><div class="spinner"></div><h2>Loading TOUCHDOWN HQ</h2><p>Fetching this week\\'s slate…</p></div>
   </div>
-  <footer class="hqft"><div class="ft-sites"><a href="https://total-hq.com">Total HQ</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div><p>Scores and projections are estimates, not guarantees, and book prices move.</p><p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p></footer>
+  <footer class="hqft"><p class="ft-guide"><a href="https://guide-total-hq.wehttam30.workers.dev/guide">How HQ works</a></p><div class="ft-sites"><a href="https://total-hq.com">Total HQ</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div><p>Scores and projections are estimates, not guarantees, and book prices move.</p><p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p></footer>
 </div>
 <script>
 "use strict";
@@ -749,6 +759,7 @@ function sportsMenuHTML(){
     + '<button class="navbtn" id="btn-sports">HQ \\u25be</button>'
     + '<div class="sportmenu" id="sportmenu">'
     + '<a href="https://total-hq.com"><span class="lg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.86 18.13 A8 8 0 1 1 17.14 18.13" fill="none" stroke="#E3B341" stroke-width="3" stroke-linecap="round"/></svg></span>Total HQ<span class="tag">ALL</span></a>'
+    + '<a href="https://guide-total-hq.wehttam30.workers.dev/guide"><span class="lg" style="color:var(--faint)">?</span>How it works</a>'
     + '<div class="mdiv"></div>'
     + SPORTS.map(function(s){
         return s.cur
