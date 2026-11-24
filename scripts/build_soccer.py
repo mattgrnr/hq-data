@@ -468,7 +468,8 @@ def build_board(state, rows):
             if not m["t"]:
                 continue
             k = datetime.fromisoformat(m["t"].replace("Z", "+00:00")).astimezone(CT)
-            if k.date() in days and (REPLAY or not m["fin"]):
+            # today's finished matches stay on the board so their cards can show how they went
+            if k.date() in days and (REPLAY or not m["fin"] or k.date() == days[0]):
                 games.append((k, lid, m))
     games.sort(key=lambda g: g[0])
     print(f"slate: {len(games)} matches")
