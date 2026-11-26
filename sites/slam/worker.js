@@ -534,6 +534,13 @@ body{padding-bottom:84px}
 #app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
 #app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
 #app header.hero .sub{display:none}
@@ -1015,6 +1022,8 @@ const FAVKEY = "hq.slam.fav";
 /* ===== games view: shared by every HQ site; gList, gRows, GKIND are set per site ===== */
 // a game is "pre" until its start time, then "live", then "final"; only pre-game bets can be added
 function gState(t, fin){ return fin ? "final" : (t && Date.now() >= t ? "live" : "pre"); }
+// a player's game: the board's word, unless the live scores feed already has it final
+function rState(gi){ const st = gState(gi.t, gi.f), x = gi.k != null && typeof GSCORE !== "undefined" ? GSCORE[gi.k] : null; return st === "live" && x && x.st === "final" ? "final" : st; }
 function gTag(st, x){
   if(st === "pre") return "";
   const sc = x && x.sc ? ' · '+x.sc[0]+'–'+x.sc[1] : '', clk = st === "live" && x && x.clk ? ' · '+esc(x.clk) : '';
@@ -1024,13 +1033,13 @@ function gTag(st, x){
 // while anything is still bettable; once the whole slate has started they're the board, like Total HQ's lanes
 let STOPEN = false;
 function boardSplit(rows){
-  const started = r => { const gi = gInfo(r); return gState(gi.t, gi.f) !== "pre"; };
+  const started = r => { const gi = gInfo(r); return rState(gi) !== "pre"; };
   const on = rows.filter(r=>!started(r)), off = rows.filter(started);
   return on.length ? { list:on, folded:off } : { list:off, folded:[] };
 }
 function foldedHTML(folded){
   if(!folded.length) return "";
-  const games = {}; folded.forEach(r=>{ const gi = gInfo(r); games[gi.n] = gState(gi.t, gi.f); });
+  const games = {}; folded.forEach(r=>{ const gi = gInfo(r); games[gi.n] = rState(gi); });
   const st = Object.values(games), live = st.filter(x=>x === "live").length, fin = st.length - live;
   const what = [live ? live+' live' : '', fin ? fin+' final' : ''].filter(Boolean).join(' · ');
   return '<button class="st-row" id="st-row">'+what+' · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
@@ -1048,7 +1057,7 @@ function gScores(){
   fetch(SLATE_URL, { cache: "no-store" }).then(r=>r.json()).then(d=>{
     GSCORE = {};
     (d[LEGSPORT] || []).forEach(x=>{ GSCORE[x.k] = x; });
-    if(GV) render();
+    if(GV) render(); else liveRepaint();
   }).catch(()=>{});
 }
 setTimeout(gScores, 1500);
@@ -1290,7 +1299,7 @@ function liveLine(r){
   const st = F.stat; let v = null;
   try { v = liveVal(r, st); } catch(e){}
   if(v == null) return "";
-  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = gState(gi.t, gi.f) === "final";
+  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = rState(gi) === "final";
   const hit = line ? v >= line.k : false;
   const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
   return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
@@ -1305,12 +1314,12 @@ function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Ga
 function liveRepaint(){
   document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
     const r = LVROW[el.dataset.lv]; if(!r) return;
-    const gi = gInfo(r), st = gState(gi.t, gi.f); el.innerHTML = liveBody(r, st); el.classList.toggle("fin", st === "final");
+    const gi = gInfo(r), st = rState(gi); el.innerHTML = liveBody(r, st); el.classList.toggle("fin", st === "final");
     const row = el.closest(".row"); if(row) row.classList.toggle("scored", liveHit(r));
   });
 }
 function bookHTML(r){
-  const gi = gInfo(r), st = gState(gi.t, gi.f);
+  const gi = gInfo(r), st = rState(gi);
   if(st !== "pre"){
     const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
     return '<div class="bk bk-off lv'+(st === "final" ? ' fin' : '')+'" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
@@ -1689,7 +1698,7 @@ function logCols(r){ const c = [["MIN",s=>s.min],["PTS",s=>s.pts,"PTS"],["REB",s
 const GKIND = "points", PSITE = "Slam";
 function gDay(){ return DAYSEL; } function gSetDay(d){ DAYSEL = d; F.game = "all"; boot(true); }
 function gList(){ return GAMES.map(g=>({ id:g.id, gid:g.gid, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }
-function gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final }; }
+function gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final, k:r.gm.home }; }
 function bookOf(r, st){ st = st || F.stat; return { name:r.p.name, stat:st, lam:r.proj[KEY[st]] }; }
 const BSTATS = STATS; function hurt(r){ return !!injOf(r.p); }
 function gRows(id){ return sorted().filter(r=>String(r.gm.id)===String(id)); }
