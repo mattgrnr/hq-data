@@ -519,8 +519,9 @@ body{padding-bottom:84px}
 #app .g-tag.final{color:var(--faint);border:1px solid var(--line)}
 #plbar .g-tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700;text-transform:uppercase}
 #app .bk-off{padding-left:0;color:var(--faint)}
-#app .row:has(.bk-off){opacity:.55}
-#app .gcard.gc-off{opacity:.6}
+/* finished games dim; live ones stay bright so their stat lines and scores are easy to follow */
+#app .row:has(.bk-off.fin){opacity:.55}
+#app .gcard.gc-fin{opacity:.6}
 #app .gc-closed{margin-top:8px;font-size:12px;color:var(--faint)}
 #plbar .pl-gone{opacity:.6}
 #plbar .pl-gone b{text-decoration:line-through}
@@ -586,6 +587,13 @@ body{padding-bottom:84px}
 #app .lg-all{display:block;width:100%;margin-top:8px;padding:8px 0;border:0;border-radius:10px;background:rgba(255,255,255,.04);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 #app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
 
 /* props board: started games folded into one line */
 #app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
@@ -1320,7 +1328,7 @@ function gMarkets(g){
 function gCard(g){
   const p = g.proj, open = !!GOPEN[g.id], sx = gScore(g), st = sx && sx.st && gState(g.t, g.fin) !== "pre" ? sx.st : gState(g.t, g.fin);
   const score = p.hs.toFixed(1)+' – '+p.as.toFixed(1);
-  let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+'" data-gid="'+esc(g.id)+'">'
+  let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+(st === "final" ? " gc-fin" : "")+'" data-gid="'+esc(g.id)+'">'
     + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+(st !== "pre" ? gTag(st, sx) : esc(g.when||""))+'</div></div>'
     + (st !== "pre" ? '<div class="gc-closed">Game started · these bets can\\'t be added anymore</div>' : '')
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
@@ -1482,14 +1490,14 @@ function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Ga
 function liveRepaint(){
   document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
     const r = LVROW[el.dataset.lv]; if(!r) return;
-    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+    const gi = gInfo(r), st = gState(gi.t, gi.f); el.innerHTML = liveBody(r, st); el.classList.toggle("fin", st === "final");
   });
 }
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
   if(st !== "pre"){
     const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
-    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+    return '<div class="bk bk-off lv'+(st === "final" ? ' fin' : '')+'" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
   }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{

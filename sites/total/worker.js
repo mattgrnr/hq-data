@@ -727,7 +727,6 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-place .pl-mine{color:var(--paper)}
 .pl-chips{margin-top:8px}
 .lv{font-style:normal;display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#dc2626;vertical-align:2px}
-.gm.live{opacity:.6}
 .gm.fin{opacity:.45}
 .lv.fn{background:#3a3f48;color:var(--paper)}
 .pl-leg.gone{opacity:.6}

@@ -121,7 +121,7 @@ function gMarkets(g){
 function gCard(g){
   const p = g.proj, open = !!GOPEN[g.id], sx = gScore(g), st = sx && sx.st && gState(g.t, g.fin) !== "pre" ? sx.st : gState(g.t, g.fin);
   const score = p.hs.toFixed(1)+' – '+p.as.toFixed(1);
-  let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+'" data-gid="'+esc(g.id)+'">'
+  let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+(st === "final" ? " gc-fin" : "")+'" data-gid="'+esc(g.id)+'">'
     + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+(st !== "pre" ? gTag(st, sx) : esc(g.when||""))+'</div></div>'
     + (st !== "pre" ? '<div class="gc-closed">Game started · these bets can\'t be added anymore</div>' : '')
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
@@ -283,14 +283,14 @@ function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Ga
 function liveRepaint(){
   document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
     const r = LVROW[el.dataset.lv]; if(!r) return;
-    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+    const gi = gInfo(r), st = gState(gi.t, gi.f); el.innerHTML = liveBody(r, st); el.classList.toggle("fin", st === "final");
   });
 }
 function bookHTML(r){
   const gi = gInfo(r), st = gState(gi.t, gi.f);
   if(st !== "pre"){
     const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
-    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+    return '<div class="bk bk-off lv'+(st === "final" ? ' fin' : '')+'" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
   }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
