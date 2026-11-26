@@ -297,7 +297,7 @@ function bookHTML(r){
     const x = bookPick(o, kk);
     if(!x){     // no book prices this rung (soccer 2+ goals): our chance alone, for anyone whose book has it
       const ours = kk && bookPick(o, 0) ? atLeast(o.stat, o.lam, kk) : null;     // only under a player the books do price
-      return ours != null && ours >= 0.02 ? '<div class="bk bk-off"><b>'+kk+'+</b> '+(BLBL[o.stat+kk] || BLBL[o.stat])+' · ours '+gPct(ours)+' · no book line yet</div>' : "";
+      return ours != null && ours >= 0.02 ? '<div class="bk bk-none"><b>'+kk+'+</b> '+(BLBL[o.stat+kk] || BLBL[o.stat])+' · ours '+gPct(ours)+' · no book line yet</div>' : "";
     }
     const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
     const edge = x.ours - x.book;
