@@ -599,6 +599,12 @@ body{padding-bottom:84px}
 #app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
 #app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 #app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
 
 /* props board: started games folded into one line */
@@ -2376,7 +2382,6 @@ async function liveFetch(){
 }
 function paintTD(p){
   document.querySelectorAll('.row[data-pid="'+p.id+'"]').forEach(function(el){
-    el.classList.toggle("scored", !!p.td);
     const old = el.querySelector(".tdtag"); if(old) old.remove();
     if(p.td) el.querySelector(".pname").insertAdjacentHTML("beforeend", tdTag(p));
   });
@@ -2390,7 +2395,7 @@ function liveApply(data){
     const p = r.p, st = p.sl && by[p.sl];
     if(!st) continue;
     const s = liveState(r.gm, now);
-    if(s !== "live" && s !== "post") continue;
+    if(s === "pre") continue;      // finished games too, so the week's results stay on the board
     const n = Math.round((+st.rush_td || 0) + (+st.rec_td || 0));
     if(n !== (p.td || 0)){ p.td = n; paintTD(p); }
     LIVEP[p.sl] = { TD:n, CYD:Math.round(+st.rec_yd || 0), RYD:Math.round(+st.rush_yd || 0), REC:Math.round(+st.rec || 0), PYD:Math.round(+st.pass_yd || 0), PTD:Math.round(+st.pass_td || 0) };
@@ -2400,7 +2405,7 @@ function liveApply(data){
 function liveTick(){
   if(document.hidden || !SEASON || WEEKNO > 18) return;
   const now = Date.now()/1000;
-  let live = false, post = false;
+  let live = false, post = false, done = false;
   for(const g of GAMES){
     const s = liveState(g, now);
     const d = s === "live" ? "Live" : (s === "post" && !g.final) ? "Final \\u00b7 updating" : null;
@@ -2410,8 +2415,9 @@ function liveTick(){
     }
     if(s === "live") live = true;
     if(s === "post") post = true;
+    if(s === "done") done = true;
   }
-  if(!live && !(post && !LIVE_ONCE)) return;
+  if(!live && !((post || done) && !LIVE_ONCE)) return;      // finished games: read the week's stats once per visit
   liveFetch().then(function(d){ LIVE_ONCE = true; liveApply(d); }).catch(function(){});
 }
 function liveStart(){

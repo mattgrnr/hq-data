@@ -628,6 +628,49 @@ def attach_props(sport, bd):
     return len(keep)
 
 
+def carry_props(sport, bd, path):
+    """Players whose game has started keep the prices from the last build.
+
+    The books pull a game's lines at kickoff, so without this the line a player was bet at disappears
+    from the board, and the site can't show that he cleared it.
+    """
+    import subprocess
+    try:
+        rel = path.resolve().relative_to(ROOT.resolve())
+        old = json.loads(subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=ROOT, capture_output=True, check=True).stdout)
+    except Exception:
+        return 0
+    if sport == "nfl" and (old.get("week"), old.get("season")) != (bd.get("week"), bd.get("season")):
+        return 0
+    if sport in ("nba", "nhl") and old.get("date") != bd.get("date"):
+        return 0
+    now = datetime.now(timezone.utc)
+    def started(g):
+        try:
+            if sport == "nfl":
+                return bool(g.get("ko")) and g["ko"] <= now.timestamp()
+            t = g["t"] if sport == "soccer" else g["start"]
+            return datetime.fromisoformat(str(t).replace("Z", "+00:00")) <= now
+        except (KeyError, ValueError, TypeError):
+            return False
+    if sport == "soccer":
+        names = {pl["n"] for pl in bd["players"] if started(bd["games"][pl["g"]])}
+    else:
+        teams = {t for g in bd["games"] if started(g) for t in (g["home"], g["away"])}
+        names = {pl["name"] for pl in bd["players"] if pl.get("team") in teams}
+    props, oldp, n = bd.setdefault("props", {}), old.get("props") or {}, 0
+    for nm in names:
+        k = norm(nm)
+        for st, rows in (oldp.get(k) or {}).items():
+            if st not in props.get(k, {}):
+                props.setdefault(k, {})[st] = rows
+                for x in rows:
+                    if len(x) > 7 and x[7] in (old.get("evlinks") or {}):
+                        bd.setdefault("evlinks", {})[x[7]] = old["evlinks"][x[7]]
+                n += 1
+    return n
+
+
 def cover_at(sport, p, line, lam):
     """Our chance the home side covers `line` (home perspective, -1.5 = home gives 1.5)."""
     if sport in ("nhl", "soccer"):
@@ -708,7 +751,7 @@ def main():
         print("soccer: lean taken out per competition:", soccer_lean(bd))
         nb = attach_odds(sport, bd)
         save_lines(bd, path)
-    print(f"{sport}: book lines on {nb} games, props for {attach_props(sport, bd)} players")
+    print(f"{sport}: book lines on {nb} games, props for {attach_props(sport, bd)} players, kept {carry_props(sport, bd, path)} closing lines for games under way")
     path.write_text(json.dumps(bd, separators=(",", ":"), ensure_ascii=False))
     print(f"{sport}: {n} of {len(bd['games'])} games projected")
 

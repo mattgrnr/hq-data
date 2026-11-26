@@ -509,6 +509,12 @@ body{padding-bottom:84px}
 #app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
 #app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 #app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
 
 /* props board: started games folded into one line */
@@ -2131,7 +2137,6 @@ function liveWanted(now){
 }
 function paintGoal(p){
   document.querySelectorAll('.row[data-pid="'+p.id+'"]').forEach(function(el){
-    el.classList.toggle("scored", !!p.gl);
     const old = el.querySelector(".tdtag"); if(old) old.remove();
     if(p.gl) el.querySelector(".pname").insertAdjacentHTML("beforeend", goalTag(p));
   });
