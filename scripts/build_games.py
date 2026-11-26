@@ -517,7 +517,7 @@ def attach_odds(sport, bd, lam=None):
 # ---------- player props ----------
 
 PROP_STAT = {
-    "nhl": {"player_goals": "G", "player_points": "P", "player_points_1plus": "P", "player_points_2plus": ("P", 2), "player_shots_on_goal": "S"},
+    "nhl": {"player_goals": "G", "player_goals_2plus": ("G", 2), "player_points": "P", "player_points_1plus": "P", "player_points_2plus": ("P", 2), "player_shots_on_goal": "S"},
     "nba": {"player_points": "PTS", "player_rebounds": "REB", "player_assists": "AST", "player_points_rebounds_assists": "PRA",
             "player_points_rebounds": "PR", "player_points_assists": "PA", "player_rebounds_assists": "RA",
             "player_threes": "3PM", "player_blocks": "BLK", "player_steals": "STL"},

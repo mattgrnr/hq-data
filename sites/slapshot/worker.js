@@ -429,8 +429,9 @@ body{padding-bottom:84px}
 #app .g-tag.final{color:var(--faint);border:1px solid var(--line)}
 #plbar .g-tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700;text-transform:uppercase}
 #app .bk-off{padding-left:0;color:var(--faint)}
-#app .row:has(.bk-off){opacity:.55}
-#app .gcard.gc-off{opacity:.6}
+/* finished games dim; live ones stay bright so their stat lines and scores are easy to follow */
+#app .row:has(.bk-off.fin){opacity:.55}
+#app .gcard.gc-fin{opacity:.6}
 #app .gc-closed{margin-top:8px;font-size:12px;color:var(--faint)}
 #plbar .pl-gone{opacity:.6}
 #plbar .pl-gone b{text-decoration:line-through}
@@ -496,6 +497,53 @@ body{padding-bottom:84px}
 #app .lg-all{display:block;width:100%;margin-top:8px;padding:8px 0;border:0;border-radius:10px;background:rgba(255,255,255,.04);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 #app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
 #app header.hero .sub{display:none}
@@ -942,11 +990,31 @@ const FAVKEY = "hq.slapshot.fav";
 /* ===== games view: shared by every HQ site; gList, gRows, GKIND are set per site ===== */
 // a game is "pre" until its start time, then "live", then "final"; only pre-game bets can be added
 function gState(t, fin){ return fin ? "final" : (t && Date.now() >= t ? "live" : "pre"); }
+// a player's game: the board's word, unless the live scores feed already has it final
+function rState(gi){ const st = gState(gi.t, gi.f), x = gi.k != null && typeof GSCORE !== "undefined" ? GSCORE[gi.k] : null; return st === "live" && x && x.st === "final" ? "final" : st; }
 function gTag(st, x){
   if(st === "pre") return "";
   const sc = x && x.sc ? ' · '+x.sc[0]+'–'+x.sc[1] : '', clk = st === "live" && x && x.clk ? ' · '+esc(x.clk) : '';
   return '<span class="g-tag '+st+'">'+(st === "final" ? "Final" : "Live")+sc+clk+'</span>';
 }
+// ---------- props board: players whose game has started fold into one line at the top ----------
+// while anything is still bettable; once the whole slate has started they're the board, like Total HQ's lanes
+let STOPEN = false;
+function boardSplit(rows){
+  const started = r => { const gi = gInfo(r); return rState(gi) !== "pre"; };
+  const on = rows.filter(r=>!started(r)), off = rows.filter(started);
+  return on.length ? { list:on, folded:off } : { list:off, folded:[] };
+}
+function foldedHTML(folded){
+  if(!folded.length) return "";
+  const games = {}; folded.forEach(r=>{ const gi = gInfo(r); games[gi.n] = rState(gi); });
+  const st = Object.values(games), live = st.filter(x=>x === "live").length, fin = st.length - live;
+  const what = [live ? live+' live' : '', fin ? fin+' final' : ''].filter(Boolean).join(' · ');
+  return '<button class="st-row" id="st-row">'+what+' · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
+    + (STOPEN ? '<div class="st-list">'+folded.map((r,i)=>rowHTML(r,i)).join("")+'</div>' : '');
+}
+document.addEventListener("click", e=>{ if(e.target.closest && e.target.closest("#st-row")){ STOPEN = !STOPEN; render(); } });
+
 // live and final scores for the Games tab, from Total HQ (the same numbers its lanes show), refreshed every minute while games are on
 const SLATE_URL = "https://total-hq.com/slate";
 let GSCORE = {};
@@ -957,7 +1025,7 @@ function gScores(){
   fetch(SLATE_URL, { cache: "no-store" }).then(r=>r.json()).then(d=>{
     GSCORE = {};
     (d[LEGSPORT] || []).forEach(x=>{ GSCORE[x.k] = x; });
-    if(GV) render();
+    if(GV) render(); else liveRepaint();
   }).catch(()=>{});
 }
 setTimeout(gScores, 1500);
@@ -1046,7 +1114,7 @@ function gMarkets(g){
 function gCard(g){
   const p = g.proj, open = !!GOPEN[g.id], sx = gScore(g), st = sx && sx.st && gState(g.t, g.fin) !== "pre" ? sx.st : gState(g.t, g.fin);
   const score = p.hs.toFixed(1)+' – '+p.as.toFixed(1);
-  let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+'" data-gid="'+esc(g.id)+'">'
+  let h = '<div class="gcard'+(open?" open":"")+(st !== "pre" ? " gc-off" : "")+(st === "final" ? " gc-fin" : "")+'" data-gid="'+esc(g.id)+'">'
     + '<div class="gc-top"><div class="gc-teams">'+(GKIND === "soccer" ? esc(g.home)+' <span>v</span> '+esc(g.away) : esc(g.away)+' <span>@</span> '+esc(g.home))+'</div><div class="gc-when">'+(st !== "pre" ? gTag(st, sx) : esc(g.when||""))+'</div></div>'
     + (st !== "pre" ? '<div class="gc-closed">Game started · these bets can\\'t be added anymore</div>' : '')
     + (g.lg ? '<div class="gc-lg">'+esc(g.lg)+'</div>' : '')
@@ -1142,7 +1210,7 @@ function tpPick(e, el){
 }
 // ---------- book prices on player rows ----------
 const PONE = { G:1, A:1, P:1, GA:1, TD:1 };           // yes/no props, shown as a chance of at least one; the rest use the books' main line
-const PEXTRA = { P:[2] };     // extra rungs priced alongside a tab's main line (2+ points in hockey)
+const PEXTRA = { P:[2], G:[2] };     // extra rungs shown alongside a tab's main line (2+ points in hockey, 2+ goals in hockey and soccer)
 const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
               PR:x=>1.35*Math.sqrt(x), PA:x=>1.35*Math.sqrt(x), RA:x=>1.3*Math.sqrt(x),
               CYD:x=>0.55*x+8, RYD:x=>0.55*x+8, PYD:x=>0.25*x+30 };            // spread of volume stats; the rest are counts
@@ -1199,27 +1267,34 @@ function liveLine(r){
   const st = F.stat; let v = null;
   try { v = liveVal(r, st); } catch(e){}
   if(v == null) return "";
-  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = gState(gi.t, gi.f) === "final";
+  const line = logLine(r), t = ((PTABS.find(x=>x[0]===st) || [st, st])[1]), gi = gInfo(r), fin = rState(gi) === "final";
   const hit = line ? v >= line.k : false;
   const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
   return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
+}
+// a row turns green when the player has cleared the line for the tab being viewed (a goal on Goals, an assist on Assists...)
+function liveHit(r){
+  let v = null; try { v = liveVal(r, F.stat); } catch(e){}
+  const line = v == null ? null : logLine(r);
+  return !!line && v >= line.k;
 }
 function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\\'t be added'); }
 function liveRepaint(){
   document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
     const r = LVROW[el.dataset.lv]; if(!r) return;
-    const gi = gInfo(r); el.innerHTML = liveBody(r, gState(gi.t, gi.f));
+    const gi = gInfo(r), st = rState(gi); el.innerHTML = liveBody(r, st); el.classList.toggle("fin", st === "final");
+    const row = el.closest(".row"); if(row) row.classList.toggle("scored", liveHit(r));
   });
 }
 function bookHTML(r){
-  const gi = gInfo(r), st = gState(gi.t, gi.f);
+  const gi = gInfo(r), st = rState(gi);
   if(st !== "pre"){
     const k = String(r.p.id != null ? r.p.id : (r.p.name || r.p.n)); LVROW[k] = r;
-    return '<div class="bk bk-off lv" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
+    return '<div class="bk bk-off lv'+(st === "final" ? ' fin' : '')+'" data-lv="'+esc(k)+'">'+liveBody(r, st)+'</div>';
   }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
-    const x = bookPick(o, kk); if(!x) return "";
+    const x = bookPick(o, kk); if(!x) return "";     // a rung shows only where a book prices it
     const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
     const edge = x.ours - x.book;
     const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r), q:legQ(r, o.stat, x.k) });
@@ -1231,7 +1306,7 @@ function bookHTML(r){
 // ---------- best bets: every priced bet in a game on one scale ----------
 const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
   "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
-  PTD:"pass TDs", S:"shots on goal", T:"shots on target", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
+  PTD:"pass TDs", S:"shots on goal", T:"shots on target", P2:"points", G2:"goals", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
 function blbl(st){ return GKIND === "soccer" && st === "S" ? "shots" : BLBL[st]; }
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
@@ -1586,7 +1661,7 @@ function logCols(r){ return [["TOI",s=>s.toi],["G",s=>s.g,"G"],["A",s=>s.a,"A"],
 const GKIND = "hockey", PSITE = "Slapshot";
 function gDay(){ return DAYSEL; } function gSetDay(d){ DAYSEL = d; F.game = "all"; boot(true); }
 function gList(){ return GAMES.map(g=>({ id:g.id, gid:g.gid, home:g.home, away:g.away, when:g.detail, t:g.start, fin:g.final, proj:g.proj })); }
-function gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final }; }
+function gInfo(r){ return { n:r.gm.short, t:r.gm.start, f:r.gm.final, k:r.gm.home }; }
 function bookOf(r, st){ st = st || F.stat; return { name:r.p.name, stat:st, lam:{ G:r.projG, A:r.projA, P:r.projP, S:r.projS }[st] }; }
 const BSTATS = ["G","A","P","S"]; function hurt(r){ return false; }
 function gRows(id){ return sortedRows().filter(r=>String(r.gm.id)===String(id)); }
@@ -1947,7 +2022,7 @@ function rowHTML(r, n){
              : F.stat === "P" ? '<div class="yproj">to get a point<b>'+(r.projP != null ? gPct(atLeast("P", r.projP, 1)) : "—")+'</b></div>'
              : F.stat === "S" ? '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>'
              : '<div class="yproj">to score<b>'+gPct(atLeast("G", r.projG, 1))+'</b></div>';
-  return '<div class="row'+(p.gl?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
+  return '<div class="row'+(liveHit(r)?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn'+(shortName(p.name).length>14?' long':'')+'">'+esc(shortName(p.name))+'</span>'+goalTag(p)+'</div>'
@@ -2005,7 +2080,8 @@ function render(banner){
     + ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"].map(t=>'<option'+(F.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'
     + '</div>';
   h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+(F.stat==="A"?"Assist":F.stat==="P"?"Points":F.stat==="S"?"Shots":"Goal")+' Score</div></div>';
-  h += rows.length ? pinnedHTML(rows) + rows.map((r,i)=>rowHTML(r,i)).join("")
+  const split = boardSplit(rows);
+  h += rows.length ? pinnedHTML(rows) + foldedHTML(split.folded) + split.list.map((r,i)=>rowHTML(r,i)).join("")
      : '<div class="status"><div class="big">🏒</div><h2>No players match</h2><p>Loosen the filters to see the board.</p></div>';
   h += '<details class="method"><summary>How the model works</summary>'
     + '<p><b style="color:var(--ink)">Goals:</b> six inputs, each an index where <b style="color:var(--ink)">1.00 = a typical top-six forward</b> (matchup and game environment: <b style="color:var(--ink)">1.00 = league average</b>): shot volume, chance quality, scoring form, power-play role, the opponent’s defense, likely goalie and what it allows to his position, and how many goals his team should score tonight.</p>'
@@ -2177,10 +2253,20 @@ export default {
 
     if (path === "/board") {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
-      const src = url.searchParams.get("day") === "1" ? BOARD_URL.replace("board.json", "board-tomorrow.json") : BOARD_URL;   // ?day=1: tomorrow's slate
-      const res = await fetch(src + "?v=" + Math.floor(Date.now() / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
-      if (!res.ok) return json({ error: res.status === 404 ? "Tomorrow's board isn't built yet. It's added with the morning build." : "board upstream " + res.status }, 502);
-      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
+      // serve the saved board whose date is the day asked for (Central time), whichever file it's in:
+      // around midnight, or when a build runs late, "today" can still be sitting in the tomorrow file
+      const day = url.searchParams.get("day") === "1" ? 1 : 0;
+      const want = new Date(Date.now() + day * 864e5).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+      const v = "?v=" + Math.floor(Date.now() / 300000);
+      const boards = await Promise.all([BOARD_URL, BOARD_URL.replace("board.json", "board-tomorrow.json")].map(async u => {
+        try { const r = await fetch(u + v, { cf: { cacheTtl: 300, cacheEverything: true } }); return r.ok ? await r.text() : null; } catch (e) { return null; }
+      }));
+      const dated = boards.map(t => { try { return t && JSON.parse(t).date; } catch (e) { return null; } });
+      const i = dated.indexOf(want);
+      if (i < 0 && day) return json({ error: "Tomorrow's games show up after the next board update. Check back in a bit." }, 502);
+      const body = i >= 0 ? boards[i] : boards[0];
+      if (!body) return json({ error: "board upstream unavailable" }, 502);
+      return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
     }
 
     if (path === "/live") {

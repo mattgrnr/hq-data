@@ -230,9 +230,9 @@ def grade(sport):
 
 # yes/no bets: (label, stat, at least k). Our chance is the Poisson chance of k or more from the saved projection.
 CALIB = {
-    "nhl": [("1+ point", "P", 1), ("2+ points", "P", 2), ("Goal", "G", 1), ("Assist", "A", 1)],
+    "nhl": [("1+ point", "P", 1), ("2+ points", "P", 2), ("Goal", "G", 1), ("2+ goals", "G", 2), ("Assist", "A", 1)],
     "nfl": [("Anytime TD", "TD", 1)],
-    "soccer": [("Goal", "G", 1), ("Assist", "A", 1), ("Goal or assist", "GA", 1),
+    "soccer": [("Goal", "G", 1), ("2+ goals", "G", 2), ("Assist", "A", 1), ("Goal or assist", "GA", 1),
                ("1+ SOT", "T", 1), ("1+ shot", "S", 1), ("2+ shots", "S", 2)],
 }
 

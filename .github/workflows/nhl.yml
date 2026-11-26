@@ -43,7 +43,7 @@ jobs:
         run: pip install pyarrow
 
       - name: Build board
-        run: python scripts/build_nhl.py && (python scripts/odds.py nhl || true) && python scripts/build_games.py nhl
+        run: TODAY=$(TZ=America/Chicago date +%F) python scripts/build_nhl.py && (python scripts/odds.py nhl || true) && python scripts/build_games.py nhl    # today in Central time, like every page
         env:
           PROPLINE_KEY: ${{ secrets.PROPLINE_KEY }}
 
