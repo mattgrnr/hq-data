@@ -10,13 +10,13 @@ jobs:
           python3 - <<'PY'
           import sys, collections; sys.path.insert(0, "scripts")
           import odds
-          C = {"icehockey_nhl": ["player_goals","player_goals_alternate","player_goal_scorer_anytime","player_2plus_goals","player_goals_2plus"],
-               "soccer_epl": ["anytime_goal_scorer","player_goals","player_to_score_2_or_more","player_goals_2plus","player_2plus_goals","player_score_2_or_more","player_goals_alternate","player_to_score_two_or_more"]}
+          C = {"hockey_nhl": ["player_goals","player_goals_1plus","player_goals_2plus","player_goals_3plus"],
+               "soccer_epl": ["anytime_goal_scorer","player_goals_2plus","player_to_score_2_or_more","player_brace"], "soccer_uefa_europa_league": ["anytime_goal_scorer","player_goals_2plus","player_to_score_2_or_more"]}
           for sp, mks in C.items():
               evs = odds.get(f"sports/{sp}/events") or []
               evs = evs if isinstance(evs, list) else (evs.get("events") or evs.get("data") or [])
               if not evs: print("SP", sp, "no events"); continue
-              ev = evs[min(2, len(evs)-1)]["id"]; print("SP", sp, len(evs), "events")
+              evs.sort(key=lambda e: e.get("commence_time","")); ev = evs[0]["id"]; print("   first", evs[0].get("home_team"), evs[0].get("commence_time")); print("SP", sp, len(evs), "events")
               for mk in mks:
                   d = odds.get(f"sports/{sp}/events/{ev}/odds", markets=mk) or {}
                   names = collections.defaultdict(set)
