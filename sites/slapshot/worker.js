@@ -1142,7 +1142,7 @@ function tpPick(e, el){
 }
 // ---------- book prices on player rows ----------
 const PONE = { G:1, A:1, P:1, GA:1, TD:1 };           // yes/no props, shown as a chance of at least one; the rest use the books' main line
-const PEXTRA = { P:[2] };     // extra rungs priced alongside a tab's main line (2+ points in hockey)
+const PEXTRA = { P:[2], G:[2] };     // extra rungs shown alongside a tab's main line (2+ points in hockey, 2+ goals in hockey and soccer)
 const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
               PR:x=>1.35*Math.sqrt(x), PA:x=>1.35*Math.sqrt(x), RA:x=>1.3*Math.sqrt(x),
               CYD:x=>0.55*x+8, RYD:x=>0.55*x+8, PYD:x=>0.25*x+30 };            // spread of volume stats; the rest are counts
@@ -1219,7 +1219,11 @@ function bookHTML(r){
   }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
-    const x = bookPick(o, kk); if(!x) return "";
+    const x = bookPick(o, kk);
+    if(!x){     // no book prices this rung (soccer 2+ goals): our chance alone, for anyone whose book has it
+      const ours = kk && bookPick(o, 0) ? atLeast(o.stat, o.lam, kk) : null;     // only under a player the books do price
+      return ours != null && ours >= 0.02 ? '<div class="bk bk-off"><b>'+kk+'+</b> '+(BLBL[o.stat+kk] || BLBL[o.stat])+' · ours '+gPct(ours)+' · no book line yet</div>' : "";
+    }
     const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
     const edge = x.ours - x.book;
     const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r), q:legQ(r, o.stat, x.k) });
@@ -1231,7 +1235,7 @@ function bookHTML(r){
 // ---------- best bets: every priced bet in a game on one scale ----------
 const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
   "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
-  PTD:"pass TDs", S:"shots on goal", T:"shots on target", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
+  PTD:"pass TDs", S:"shots on goal", T:"shots on target", P2:"points", G2:"goals", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
 function blbl(st){ return GKIND === "soccer" && st === "S" ? "shots" : BLBL[st]; }
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet
@@ -2177,10 +2181,20 @@ export default {
 
     if (path === "/board") {
       if (!fromSite(request)) return new Response("Forbidden", { status: 403 });
-      const src = url.searchParams.get("day") === "1" ? BOARD_URL.replace("board.json", "board-tomorrow.json") : BOARD_URL;   // ?day=1: tomorrow's slate
-      const res = await fetch(src + "?v=" + Math.floor(Date.now() / 300000), { cf: { cacheTtl: 300, cacheEverything: true } });
-      if (!res.ok) return json({ error: res.status === 404 ? "Tomorrow's board isn't built yet. It's added with the morning build." : "board upstream " + res.status }, 502);
-      return new Response(res.body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
+      // serve the saved board whose date is the day asked for (Central time), whichever file it's in:
+      // around midnight, or when a build runs late, "today" can still be sitting in the tomorrow file
+      const day = url.searchParams.get("day") === "1" ? 1 : 0;
+      const want = new Date(Date.now() + day * 864e5).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+      const v = "?v=" + Math.floor(Date.now() / 300000);
+      const boards = await Promise.all([BOARD_URL, BOARD_URL.replace("board.json", "board-tomorrow.json")].map(async u => {
+        try { const r = await fetch(u + v, { cf: { cacheTtl: 300, cacheEverything: true } }); return r.ok ? await r.text() : null; } catch (e) { return null; }
+      }));
+      const dated = boards.map(t => { try { return t && JSON.parse(t).date; } catch (e) { return null; } });
+      const i = dated.indexOf(want);
+      if (i < 0 && day) return json({ error: "Tomorrow's games show up after the next board update. Check back in a bit." }, 502);
+      const body = i >= 0 ? boards[i] : boards[0];
+      if (!body) return json({ error: "board upstream unavailable" }, 502);
+      return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
     }
 
     if (path === "/live") {

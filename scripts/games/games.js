@@ -201,7 +201,7 @@ function tpPick(e, el){
 }
 // ---------- book prices on player rows ----------
 const PONE = { G:1, A:1, P:1, GA:1, TD:1 };           // yes/no props, shown as a chance of at least one; the rest use the books' main line
-const PEXTRA = { P:[2] };     // extra rungs priced alongside a tab's main line (2+ points in hockey)
+const PEXTRA = { P:[2], G:[2] };     // extra rungs shown alongside a tab's main line (2+ points in hockey, 2+ goals in hockey and soccer)
 const PSD = { PTS:x=>1.35*Math.sqrt(x), REB:x=>1.25*Math.sqrt(x), AST:x=>1.3*Math.sqrt(x), PRA:x=>1.4*Math.sqrt(x),
               PR:x=>1.35*Math.sqrt(x), PA:x=>1.35*Math.sqrt(x), RA:x=>1.3*Math.sqrt(x),
               CYD:x=>0.55*x+8, RYD:x=>0.55*x+8, PYD:x=>0.25*x+30 };            // spread of volume stats; the rest are counts
@@ -278,7 +278,11 @@ function bookHTML(r){
   }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
-    const x = bookPick(o, kk); if(!x) return "";
+    const x = bookPick(o, kk);
+    if(!x){     // no book prices this rung (soccer 2+ goals): our chance alone, for anyone whose book has it
+      const ours = kk && bookPick(o, 0) ? atLeast(o.stat, o.lam, kk) : null;     // only under a player the books do price
+      return ours != null && ours >= 0.02 ? '<div class="bk bk-off"><b>'+kk+'+</b> '+(BLBL[o.stat+kk] || BLBL[o.stat])+' · ours '+gPct(ours)+' · no book line yet</div>' : "";
+    }
     const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
     const edge = x.ours - x.book;
     const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r), q:legQ(r, o.stat, x.k) });
@@ -290,7 +294,7 @@ function bookHTML(r){
 // ---------- best bets: every priced bet in a game on one scale ----------
 const BLBL = { G:"to score", A:"to assist", P:"1+ point", GA:"goal or assist", TD:"anytime TD", BLK:"1+ block", STL:"1+ steal",
   "3PM":"threes", PTS:"pts", REB:"reb", AST:"ast", PRA:"pts+reb+ast", REC:"receptions", CYD:"rec yds", RYD:"rush yds", PYD:"pass yds",
-  PTD:"pass TDs", S:"shots on goal", T:"shots on target", P2:"points", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
+  PTD:"pass TDs", S:"shots on goal", T:"shots on target", P2:"points", G2:"goals", PR:"pts+reb", PA:"pts+ast", RA:"reb+ast" };
 function blbl(st){ return GKIND === "soccer" && st === "S" ? "shots" : BLBL[st]; }
 function dec(a){ return a > 0 ? 1 + a/100 : 1 + 100/(-a); }
 // our number pulled halfway to the book's: the books are sharp and our edges are not proven yet

@@ -36,8 +36,9 @@ function serveAsset(path) {
 // time is caught by the tick in its 10-minute window. The token (Actions: write on hq-data only) is a secret.
 const BUILDS = [
   { wf: "soccer.yml", at: m => m.mi === 20 },                                  // hourly
-  { wf: "nhl.yml", at: m => [[12, 10], [16, 10], [14, 30], [19, 30], [22, 30]].some(([h, mi]) => m.h === h && m.mi === mi) },
-  { wf: "nba.yml", at: m => [[13, 10], [21, 40], [15, 30], [18, 30], [23, 30]].some(([h, mi]) => m.h === h && m.mi === mi) },
+  // 6:10 UTC is just after midnight Central: tomorrow's board becomes today's and the next day's is built
+  { wf: "nhl.yml", at: m => [[6, 10], [12, 10], [16, 10], [14, 30], [19, 30], [22, 30]].some(([h, mi]) => m.h === h && m.mi === mi) },
+  { wf: "nba.yml", at: m => [[6, 10], [13, 10], [21, 40], [15, 30], [18, 30], [23, 30]].some(([h, mi]) => m.h === h && m.mi === mi) },
   { wf: "nfl.yml", at: m => [[11, 10], [21, 10], [14, 30], [19, 30]].some(([h, mi]) => m.h === h && m.mi === mi) || (m.dow === 0 && m.h === 16 && m.mi === 0) },
 ];
 async function startBuilds(when, env) {
