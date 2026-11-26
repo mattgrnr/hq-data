@@ -513,6 +513,19 @@ body{padding-bottom:84px}
 #app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
 #app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 #app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
 
 /* props board: started games folded into one line */
@@ -1326,11 +1339,7 @@ function bookHTML(r){
   }
   const o = bookOf(r);
   return [0].concat(PEXTRA[o.stat] || []).map(kk=>{
-    const x = bookPick(o, kk);
-    if(!x){     // no book prices this rung (soccer 2+ goals): our chance alone, for anyone whose book has it
-      const ours = kk && bookPick(o, 0) ? atLeast(o.stat, o.lam, kk) : null;     // only under a player the books do price
-      return ours != null && ours >= 0.02 ? '<div class="bk bk-none"><b>'+kk+'+</b> '+(BLBL[o.stat+kk] || BLBL[o.stat])+' · ours '+gPct(ours)+' · no book line yet</div>' : "";
-    }
+    const x = bookPick(o, kk); if(!x) return "";     // a rung shows only where a book prices it
     const lbl = kk ? '<b>'+kk+'+</b> ' : PONE[o.stat] ? "" : '<b>'+(x.two ? "o"+(x.k-0.5) : x.k+"+")+'</b> ';
     const edge = x.ours - x.book;
     const leg = legOf(shortName(o.name)+" "+lineName(o.stat, x, kk), { ours:x.ours, book:x.book, price:x.price, bk:x.bk, all:x.all, links:x.links, ids:x.ids, game:gInfo(r), q:legQ(r, o.stat, x.k) });

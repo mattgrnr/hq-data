@@ -164,4 +164,3 @@ body{padding-bottom:84px}
 #app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
 #app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
-#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
