@@ -588,7 +588,7 @@ function sportsMenuHTML(){
           : '<a href="'+s.url+'"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>';
       }).join("")
     + '<div class="mdiv"></div>'
-    + '<a href="https://total-hq.com/guide?from=moonshot"><span class="lg"><span class="qm">?</span></span>How it works</a>'
+    + '<a href="https://total-hq.com/guide?from=moonshot"><span class="lg"><span class="qm">?</span></span>How HQ works</a>'
     + '</div></div>';
 }
 function wireSports(){
