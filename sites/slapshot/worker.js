@@ -517,6 +517,13 @@ body{padding-bottom:84px}
 #app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
 #app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
 #app header.hero .sub{display:none}
@@ -978,8 +985,10 @@ function boardSplit(rows){
 }
 function foldedHTML(folded){
   if(!folded.length) return "";
-  const n = new Set(folded.map(r=>gInfo(r).n)).size, unit = GKIND === "soccer" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games");
-  return '<button class="st-row" id="st-row">'+n+' '+unit+' started · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
+  const games = {}; folded.forEach(r=>{ const gi = gInfo(r); games[gi.n] = gState(gi.t, gi.f); });
+  const st = Object.values(games), live = st.filter(x=>x === "live").length, fin = st.length - live;
+  const what = [live ? live+' live' : '', fin ? fin+' final' : ''].filter(Boolean).join(' · ');
+  return '<button class="st-row" id="st-row">'+what+' · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
     + (STOPEN ? '<div class="st-list">'+folded.map((r,i)=>rowHTML(r,i)).join("")+'</div>' : '');
 }
 document.addEventListener("click", e=>{ if(e.target.closest && e.target.closest("#st-row")){ STOPEN = !STOPEN; render(); } });
@@ -1241,11 +1250,18 @@ function liveLine(r){
   const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
   return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
 }
+// a row turns green when the player has cleared the line for the tab being viewed (a goal on Goals, an assist on Assists...)
+function liveHit(r){
+  let v = null; try { v = liveVal(r, F.stat); } catch(e){}
+  const line = v == null ? null : logLine(r);
+  return !!line && v >= line.k;
+}
 function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\\'t be added'); }
 function liveRepaint(){
   document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
     const r = LVROW[el.dataset.lv]; if(!r) return;
     const gi = gInfo(r), st = gState(gi.t, gi.f); el.innerHTML = liveBody(r, st); el.classList.toggle("fin", st === "final");
+    const row = el.closest(".row"); if(row) row.classList.toggle("scored", liveHit(r));
   });
 }
 function bookHTML(r){
@@ -1988,7 +2004,7 @@ function rowHTML(r, n){
              : F.stat === "P" ? '<div class="yproj">to get a point<b>'+(r.projP != null ? gPct(atLeast("P", r.projP, 1)) : "—")+'</b></div>'
              : F.stat === "S" ? '<div class="yproj">proj sog<b>'+r.projS.toFixed(1)+'</b></div>'
              : '<div class="yproj">to score<b>'+gPct(atLeast("G", r.projG, 1))+'</b></div>';
-  return '<div class="row'+(p.gl?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
+  return '<div class="row'+(liveHit(r)?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn'+(shortName(p.name).length>14?' long':'')+'">'+esc(shortName(p.name))+'</span>'+goalTag(p)+'</div>'

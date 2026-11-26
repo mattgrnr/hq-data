@@ -215,6 +215,9 @@ body{background:
  box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);
  transition:box-shadow .3s cubic-bezier(.4,0,.2,1), background .3s ease}
 #app .row:hover{box-shadow:inset 0 0 0 1px rgba(255,255,255,.15), 0 10px 30px rgba(0,0,0,.4)}
+#app .row.scored,#app .row.scored.open{
+ background:linear-gradient(180deg, rgba(95,208,138,.16), rgba(95,208,138,.04));
+ box-shadow:inset 5px 0 0 var(--strong), inset 0 0 0 1px rgba(95,208,138,.34), 0 0 26px rgba(95,208,138,.10)}
 #app .row.open{box-shadow:inset 0 0 0 1px rgba(255,255,255,.17), 0 14px 38px rgba(0,0,0,.46)}
 #app .controls{border-color:transparent;border-radius:16px;
  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));
@@ -504,6 +507,13 @@ body{padding-bottom:84px}
 #app .lg-all{display:block;width:100%;margin-top:8px;padding:8px 0;border:0;border-radius:10px;background:rgba(255,255,255,.04);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 #app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+#app .bk.bk-none{color:var(--faint)}     /* a rung the books don't price: muted, but the player stays bright */
 
 /* props board: started games folded into one line */
 #app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
@@ -1020,8 +1030,10 @@ function boardSplit(rows){
 }
 function foldedHTML(folded){
   if(!folded.length) return "";
-  const n = new Set(folded.map(r=>gInfo(r).n)).size, unit = GKIND === "soccer" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games");
-  return '<button class="st-row" id="st-row">'+n+' '+unit+' started · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
+  const games = {}; folded.forEach(r=>{ const gi = gInfo(r); games[gi.n] = gState(gi.t, gi.f); });
+  const st = Object.values(games), live = st.filter(x=>x === "live").length, fin = st.length - live;
+  const what = [live ? live+' live' : '', fin ? fin+' final' : ''].filter(Boolean).join(' · ');
+  return '<button class="st-row" id="st-row">'+what+' · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
     + (STOPEN ? '<div class="st-list">'+folded.map((r,i)=>rowHTML(r,i)).join("")+'</div>' : '');
 }
 document.addEventListener("click", e=>{ if(e.target.closest && e.target.closest("#st-row")){ STOPEN = !STOPEN; render(); } });
@@ -1283,11 +1295,18 @@ function liveLine(r){
   const rest = !line ? "" : hit ? ' · cleared '+line.txt : fin ? ' · missed '+line.txt : ' · '+logNum(line.k - v)+' more for '+line.txt;
   return '<span class="lv-v'+(hit ? ' hit' : fin && line ? ' miss' : '')+'"><b>'+logNum(v)+'</b> '+esc(String(t).toLowerCase())+'</span>'+rest;
 }
+// a row turns green when the player has cleared the line for the tab being viewed (a goal on Goals, an assist on Assists...)
+function liveHit(r){
+  let v = null; try { v = liveVal(r, F.stat); } catch(e){}
+  const line = v == null ? null : logLine(r);
+  return !!line && v >= line.k;
+}
 function liveBody(r, st){ const ln = liveLine(r); return gTag(st)+' '+(ln || 'Game started · can\\'t be added'); }
 function liveRepaint(){
   document.querySelectorAll(".bk.lv[data-lv]").forEach(el=>{
     const r = LVROW[el.dataset.lv]; if(!r) return;
     const gi = gInfo(r), st = gState(gi.t, gi.f); el.innerHTML = liveBody(r, st); el.classList.toggle("fin", st === "final");
+    const row = el.closest(".row"); if(row) row.classList.toggle("scored", liveHit(r));
   });
 }
 function bookHTML(r){
@@ -2025,7 +2044,7 @@ function shortName(n){
 function rowHTML(r, n){
   const p = r.p, k = KEY[F.stat], sc = r.score[k], tier = tierOf(sc);
   const rk = r.rk[k];
-  return '<div class="row" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
+  return '<div class="row'+(liveHit(r)?' scored':'')+'" data-i="'+n+'" data-pid="'+p.id+'" data-g="'+r.gm.id+'">'
     + '<div class="rowtop" onclick="this.parentNode.classList.toggle(\\'open\\')">'
     + '<div class="rank">'+(n+1)+'</div>'
     + '<div class="who"><div class="pname"><span class="pn'+(shortName(p.name).length>14?' long':'')+'">'+esc(shortName(p.name))+'</span>'+injBadge(p)+'</div>'
