@@ -1334,7 +1334,7 @@ function fillGames(){
       ? '<button class="fin-row" data-k="' + b.key + '">' + fins.length + ' finished<span>' + (FINOPEN[b.key] ? 'Hide' : 'Show') + '</span></button>'
         + (FINOPEN[b.key] ? fins.map(html).join("") : '')
       : fins.map(html).join("");
-    el.innerHTML = (list.length ? top + rest.map(html).join("") : '<div class="none">' + (b.key === "nfl" ? 'No games left this week. Next week’s board goes up Wednesday, once the lines are out.' : 'No games left today.') + '</div>')
+    el.innerHTML = (list.length ? top + rest.map(html).join("") : '<div class="none">' + (b.key === "nfl" ? 'No games left this week. Next week’s board goes up Wednesday, once the lines are out.' : 'No games today.') + '</div>')
       + '<a class="all" href="' + esc(b.url) + '">Open ' + esc(b.word) + ' HQ →</a>';
   });
   document.querySelectorAll(".fin-row").forEach(function(btn){ btn.onclick = function(){ FINOPEN[btn.dataset.k] = !FINOPEN[btn.dataset.k]; fillGames(); }; });

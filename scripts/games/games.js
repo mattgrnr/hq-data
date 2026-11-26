@@ -6,6 +6,22 @@ function gTag(st, x){
   const sc = x && x.sc ? ' · '+x.sc[0]+'–'+x.sc[1] : '', clk = st === "live" && x && x.clk ? ' · '+esc(x.clk) : '';
   return '<span class="g-tag '+st+'">'+(st === "final" ? "Final" : "Live")+sc+clk+'</span>';
 }
+// ---------- props board: players whose game has started fold into one line at the top ----------
+// while anything is still bettable; once the whole slate has started they're the board, like Total HQ's lanes
+let STOPEN = false;
+function boardSplit(rows){
+  const started = r => { const gi = gInfo(r); return gState(gi.t, gi.f) !== "pre"; };
+  const on = rows.filter(r=>!started(r)), off = rows.filter(started);
+  return on.length ? { list:on, folded:off } : { list:off, folded:[] };
+}
+function foldedHTML(folded){
+  if(!folded.length) return "";
+  const n = new Set(folded.map(r=>gInfo(r).n)).size, unit = GKIND === "soccer" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games");
+  return '<button class="st-row" id="st-row">'+n+' '+unit+' started · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
+    + (STOPEN ? '<div class="st-list">'+folded.map((r,i)=>rowHTML(r,i)).join("")+'</div>' : '');
+}
+document.addEventListener("click", e=>{ if(e.target.closest && e.target.closest("#st-row")){ STOPEN = !STOPEN; render(); } });
+
 // live and final scores for the Games tab, from Total HQ (the same numbers its lanes show), refreshed every minute while games are on
 const SLATE_URL = "https://total-hq.com/slate";
 let GSCORE = {};

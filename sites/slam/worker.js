@@ -503,6 +503,12 @@ body{padding-bottom:84px}
 #app .lg-all{display:block;width:100%;margin-top:8px;padding:8px 0;border:0;border-radius:10px;background:rgba(255,255,255,.04);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 #app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 /* ===== results dashboard + starred players (shared) ===== */
 /* header: logo and buttons share one row; the date line lives in the board itself */
 #app header.hero .sub{display:none}
@@ -989,6 +995,22 @@ function gTag(st, x){
   const sc = x && x.sc ? ' · '+x.sc[0]+'–'+x.sc[1] : '', clk = st === "live" && x && x.clk ? ' · '+esc(x.clk) : '';
   return '<span class="g-tag '+st+'">'+(st === "final" ? "Final" : "Live")+sc+clk+'</span>';
 }
+// ---------- props board: players whose game has started fold into one line at the top ----------
+// while anything is still bettable; once the whole slate has started they're the board, like Total HQ's lanes
+let STOPEN = false;
+function boardSplit(rows){
+  const started = r => { const gi = gInfo(r); return gState(gi.t, gi.f) !== "pre"; };
+  const on = rows.filter(r=>!started(r)), off = rows.filter(started);
+  return on.length ? { list:on, folded:off } : { list:off, folded:[] };
+}
+function foldedHTML(folded){
+  if(!folded.length) return "";
+  const n = new Set(folded.map(r=>gInfo(r).n)).size, unit = GKIND === "soccer" ? (n === 1 ? "match" : "matches") : (n === 1 ? "game" : "games");
+  return '<button class="st-row" id="st-row">'+n+' '+unit+' started · '+folded.length+' player'+(folded.length === 1 ? '' : 's')+'<span>'+(STOPEN ? 'Hide' : 'Show')+'</span></button>'
+    + (STOPEN ? '<div class="st-list">'+folded.map((r,i)=>rowHTML(r,i)).join("")+'</div>' : '');
+}
+document.addEventListener("click", e=>{ if(e.target.closest && e.target.closest("#st-row")){ STOPEN = !STOPEN; render(); } });
+
 // live and final scores for the Games tab, from Total HQ (the same numbers its lanes show), refreshed every minute while games are on
 const SLATE_URL = "https://total-hq.com/slate";
 let GSCORE = {};
@@ -2045,7 +2067,8 @@ function render(banner){
     + ["ELITE","STRONG","SOLID","FRINGE","LONGSHOT"].map(t=>'<option'+(F.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'
     + '</div>';
   h += '<div class="board-head"><div>Rank · Player · Matchup</div><div>'+WORD[F.stat]+' Score</div></div>';
-  h += rows.length ? pinnedHTML(rows) + rows.map((r,i)=>rowHTML(r,i)).join("")
+  const split = boardSplit(rows);
+  h += rows.length ? pinnedHTML(rows) + foldedHTML(split.folded) + split.list.map((r,i)=>rowHTML(r,i)).join("")
      : '<div class="status"><div class="big">🏀</div><h2>No players match</h2><p>Loosen the filters to see the board.</p></div>';
   h += '<details class="method"><summary>How the model works</summary>'
     + '<p>Each player gets a projection for points, rebounds and assists: his <b style="color:var(--ink)">minutes</b> times his <b style="color:var(--ink)">per-minute rate</b>, adjusted for the <b style="color:var(--ink)">opponent’s defense against his position</b>, the <b style="color:var(--ink)">pace</b> of the game, home court, and <b style="color:var(--ink)">teammates ruled out tonight</b>. The <b style="color:var(--ink)">Score (0–100)</b> weighs that projection against a typical 30-minute starter, plus minutes, recent form, matchup and pace. This season is blended with last so early-season streaks can’t swing it: last season counts as 20 games of rates and 10 games of minutes, fading as this season builds. Players ruled out are taken off the board.</p></details>';
