@@ -654,8 +654,6 @@ h1{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:clam
 h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
    padding:0;border:0;border-radius:0;letter-spacing:.015em;line-height:inherit;
    vertical-align:baseline;transform:none;margin-left:.06em}
-.thesis{margin-top:12px;color:var(--mute);font-size:15px;line-height:1.55;max-width:46ch}
-.thesis b{color:var(--paper);font-weight:500}
 
 .hqnew{transition:opacity .4s}
 .hqnew.bye{opacity:0}
@@ -861,7 +859,6 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 @media (min-width:1024px){
   .wrap{max-width:clamp(820px,70vw,1180px)}
   h1{font-size:clamp(62px,5.2vw,96px)}
-  .thesis{font-size:clamp(15px,1.1vw,19px);max-width:50ch}
   .lane{grid-template-columns:3px 64px 1fr auto;gap:0 20px;padding:21px 2px}
   .boardhead{grid-template-columns:3px 64px 1fr auto;gap:0 20px}
   .lane .nm{font-size:clamp(28px,2.1vw,36px)}
@@ -879,7 +876,6 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
     <div class="toprow"><div class="eyebrow">Every sport · Scored 0–100</div><a class="howlink" href="/guide"><span class="qm">?</span>How HQ works</a></div>
     <div class="rule"></div>
     <h1>TOTAL<span class="badge">HQ</span></h1>
-    <p class="thesis">Every sport’s board, today’s best bets and your parlays in one place. Every player scored <b>0 to 100</b>.</p>
   </header>
 <div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
