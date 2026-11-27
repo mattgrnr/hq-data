@@ -14,3 +14,9 @@ id = "8c34921c4f624543815f310ecf29dd12"
 # every 10 minutes: start any board build that's due (GitHub's own scheduler skips runs)
 [triggers]
 crons = ["*/10 * * * *"]
+
+# accounts: sign-in, sessions and visit counts (scripts/auth)
+[[d1_databases]]
+binding = "ACCOUNTS"
+database_name = "hq-accounts"
+database_id = "0e4fb67e-8386-4745-ba92-ef1baedb7f20"
