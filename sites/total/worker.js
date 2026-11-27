@@ -1657,6 +1657,11 @@ label.f{display:block;font-size:13px;color:var(--mute);margin-bottom:6px}
 input[type=email],input[type=text],input[type=password]{width:100%;height:50px;border-radius:12px;border:1px solid var(--rule);background:var(--lift);color:var(--paper);
   font:500 16px 'Space Grotesk',system-ui,sans-serif;padding:0 14px}
 input.code{font-size:26px;letter-spacing:.35em;text-align:center}
+.pw{position:relative}
+.pw input{padding-right:48px}
+.pw .eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:42px;height:42px;display:grid;place-items:center;border:0;border-radius:10px;background:none;color:var(--mute);cursor:pointer}
+.pw .eye:hover{color:var(--paper)}
+.pw .eye:focus-visible{outline:2px solid var(--paper);outline-offset:0}
 .check{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--rule);border-radius:12px;margin-top:10px;cursor:pointer;font-size:15px;line-height:1.45}
 .check input{width:20px;height:20px;margin-top:1px;accent-color:var(--hq);flex:none}
 .check small{display:block;color:var(--mute);font-size:13px}
@@ -1693,8 +1698,17 @@ function hqaPage(title, body, wide) {
 <link rel="icon" type="image/png" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${HQA_CSS}</style></head><body><main class="wrap${wide ? " wide" : ""}">${body}</main></body></html>`;
+<style>${HQA_CSS}</style></head><body><main class="wrap${wide ? " wide" : ""}">${body}</main>${HQA_EYE}</body></html>`;
 }
+// an eye on every password box: tap to see what you typed, tap again to hide it
+const HQA_EYE = `<script>(function(){
+var open='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+var shut='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+document.querySelectorAll('input[type=password]').forEach(function(i){
+  var w=document.createElement('div'); w.className='pw'; i.parentNode.insertBefore(w,i); w.appendChild(i);
+  var b=document.createElement('button'); b.type='button'; b.className='eye'; b.innerHTML=open; b.setAttribute('aria-label','Show password'); w.appendChild(b);
+  b.onclick=function(){ var show=i.type==='password'; i.type=show?'text':'password'; b.innerHTML=show?shut:open; b.setAttribute('aria-label',show?'Hide password':'Show password'); i.focus(); };
+});})();</script>`;
 const HQA_FINE = `<p class="fine">21+ only. By continuing you agree to our <a href="/privacy">privacy policy</a>. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>`;
 
 function hqaLogin(url, next, error, email) {
@@ -1709,7 +1723,7 @@ ${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
 <form method="post" action="/auth/password">
   <input type="hidden" name="next" value="${hqaEsc(next || "/")}">
   <label class="f" for="email">Email</label>
-  <input id="email" type="email" name="email" autocomplete="username" inputmode="email" required placeholder="you@example.com" value="${hqaEsc(email || "")}">
+  <input id="email" type="email" name="email" autocomplete="username" inputmode="email" required value="${hqaEsc(email || "")}">
   <label class="f" for="pw" style="margin-top:12px">Password</label>
   <input id="pw" type="password" name="password" autocomplete="current-password" required>
   <button class="btn go" type="submit">Sign in</button>
