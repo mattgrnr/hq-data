@@ -26,7 +26,7 @@ jobs:
         run: |
           for sp in soccer; do
             python scripts/build_$sp.py && (python scripts/odds.py $sp || true) && python scripts/build_games.py $sp
-            cp $sp/board.json preview-data/$sp.json
+            cp $sp/board.json preview-data/$sp.json; cp $sp/odds.json preview-data/$sp-odds.json || true
           done
       - name: Commit
         run: |
