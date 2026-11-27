@@ -1998,7 +1998,7 @@ async function hqaPassword(request, env, url) {
   const lock = await db.prepare("SELECT fails, locked_until FROM attempts WHERE email = ?").bind(email).first();
   if (lock && lock.locked_until > now) return hqaLogin(url, next, "Too many wrong passwords. Try again in 15 minutes, or reset your password.", email);
   const u = await db.prepare("SELECT id, pw_hash FROM users WHERE email = ?").bind(email).first();
-  if (u && !u.pw_hash) return hqaLogin(url, next, "This account doesn't have a password yet. Use the setup link you were sent, or Continue with Apple or Google.", email);
+  if (u && !u.pw_hash) return hqaLogin(url, next, "This account doesn't have a password yet. Tap Create an account with this email to set one, or use Apple or Google.", email);
   if (!u || !(await hqaPwCheck(pw, u.pw_hash))) {
     const fails = (lock ? lock.fails : 0) + 1;
     await db.prepare("INSERT OR REPLACE INTO attempts (email, fails, locked_until) VALUES (?, ?, ?)").bind(email, fails >= 5 ? 0 : fails, fails >= 5 ? now + 15 * HQA_MIN : 0).run();
@@ -2036,9 +2036,18 @@ async function hqaSignup(request, env, url) {
   const bad = hqaPwProblem(pw, String(f.get("again") || ""));
   if (bad) return hqaHtml(hqaSignupPage(next, bad, email), 400);
   if (f.get("age") !== "yes") return hqaHtml(hqaSignupPage(next, "You need to be 21 or older to use HQ.", email), 400);
-  if (await db.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) {
-    return hqaLogin(url, next, "There's already an account for this email. Sign in, or reset the password.", email);
+  const had = await db.prepare("SELECT id, pw_hash IS NULL AND apple_sub IS NULL AND google_sub IS NULL waiting FROM users WHERE email = ?").bind(email).first();
+  if (had && had.waiting) {
+    // an account made for them ahead of time (free year and all): this sign-up claims it.
+    // Until Apple, Google or an emailed link proves the inbox, the real owner can still take it back.
+    await db.batch([
+      db.prepare("UPDATE users SET pw_hash = ?, email_ok = 0, opt_in = ?, age_ok = CASE WHEN age_ok = 0 THEN ? ELSE age_ok END WHERE id = ?")
+        .bind(await hqaPwHash(pw), f.get("updates") === "yes" ? 1 : 0, now, had.id),
+      db.prepare("DELETE FROM setup WHERE user_id = ?").bind(had.id),
+    ]);
+    return hqaContinue(env, url, had.id, next, await hqaStartSession(env, had.id, "total-hq"));
   }
+  if (had) return hqaLogin(url, next, "There's already an account for this email. Sign in, or reset the password.", email);
   const id = hqaToken().slice(0, 16);
   // nobody has proved they own this inbox yet (email_ok = 0) until Apple, Google, an admin or an emailed link does
   await db.prepare("INSERT INTO users (id, email, method, opt_in, age_ok, created_at, last_seen, pw_hash, email_ok) VALUES (?, ?, 'password', ?, ?, ?, ?, ?, 0)")
