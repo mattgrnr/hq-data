@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   apple_sub TEXT UNIQUE,
   google_sub TEXT UNIQUE,
   opt_in INTEGER NOT NULL DEFAULT 0, -- agreed to occasional updates
+  admin INTEGER NOT NULL DEFAULT 0,  -- can open /admin
   age_ok INTEGER NOT NULL,           -- when they confirmed 21+
   created_at INTEGER NOT NULL,
   last_seen INTEGER NOT NULL

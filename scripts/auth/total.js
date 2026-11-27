@@ -1,7 +1,7 @@
 // ==== HQ SIGN-IN (scripts/auth/total.js, Total HQ only, injected by scripts/auth/inject.py) ====
 // Sign in with Apple, Google or a six-digit email code. No passwords anywhere.
 // Secrets MG sets on the total-hq Worker: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
-// APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, RESEND_API_KEY, ADMIN_EMAILS (comma-separated).
+// APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, RESEND_API_KEY. Admins are marked in the database (users.admin = 1).
 const HQA_MIN = 60e3;
 
 function hqaEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
@@ -375,9 +375,8 @@ const HQA_PRIVACY = hqaPage("Privacy · Total HQ", `
 // ---------- admin: who's using HQ ----------
 async function hqaAdmin(request, env, url) {
   const me = await hqaSession(request, env);
-  const admins = String(env.ADMIN_EMAILS || "").toLowerCase().split(",").map(s => s.trim()).filter(Boolean);
   if (!me) return hqaRedirect("/login?next=/admin");
-  if (!admins.includes(me.email.toLowerCase())) return new Response("Not found", { status: 404 });
+  if (!me.admin) return new Response("Not found", { status: 404 });
   const db = env.ACCOUNTS, now = Date.now(), today = hqaDay(now);
   const since = d => hqaDay(now - d * 864e5);
   const [tot, wk, act, opt, methods, signups, daily, sites] = await db.batch([
