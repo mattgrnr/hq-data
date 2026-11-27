@@ -31,15 +31,16 @@ BUDGET = float(os.environ.get("BUDGET_MIN", "30")) * 60
 DELAY = 1.0
 START = time.time()
 
-# FotMob league ids, in backfill priority order. The board covers the big five leagues;
+# FotMob league ids, in backfill priority order. The board covers the big five leagues, the European cups, MLS, Liga MX and Saudi;
 # the European and domestic cups are kept so their players' form counts every competition.
 LEAGUES = [
     (47, "Premier League"), (87, "LaLiga"), (55, "Serie A"), (54, "Bundesliga"), (53, "Ligue 1"),
     (42, "Champions League"), (73, "Europa League"), (10216, "Conference League"),
+    (130, "MLS"), (230, "Liga MX"), (536, "Saudi Pro League"),
     (132, "FA Cup"), (133, "EFL Cup"), (138, "Copa del Rey"), (141, "Coppa Italia"),
     (209, "DFB Pokal"), (134, "Coupe de France"),
 ]
-SLATE = {47, 87, 55, 54, 53, 42, 73, 10216}   # the big five and the three European cups
+SLATE = {47, 87, 55, 54, 53, 42, 73, 10216, 130, 230, 536}   # the big five, the three European cups, MLS, Liga MX and the Saudi league
 LNAME = dict(LEAGUES)
 FIELDS = ["mid", "date", "lid", "pid", "team", "opp", "home", "start", "min", "g", "a",
           "xg", "npxg", "xa", "sh", "sot", "tib", "penw"]

@@ -513,7 +513,7 @@ function ctDay(ms) { return new Date(ms).toLocaleDateString("en-CA", { timeZone:
 // our competitions under PropLine's names, for live soccer scores
 const SOC_FEED = { "Premier League": "soccer_epl", "LaLiga": "soccer_la_liga", "Serie A": "soccer_serie_a", "Bundesliga": "soccer_bundesliga",
   "Ligue 1": "soccer_ligue_1", "Champions League": "soccer_uefa_champions_league", "Europa League": "soccer_uefa_europa_league",
-  "Conference League": "soccer_uefa_conference_league" };
+  "Conference League": "soccer_uefa_conference_league", "MLS": "soccer_mls", "Liga MX": "soccer_liga_mx", "Saudi Pro League": "soccer_saudi_pro" };
 // the same club under two spellings ("Man.City" / "Man City", "Betis" / "Real Betis", "Bodo Glimt" / "Bodø/Glimt")
 function clubWords(n) {
   return String(n || "").toLowerCase().replace(/ø/g, "o").replace(/æ/g, "ae").normalize("NFKD").replace(/[\u0300-\u036f]/g, "")

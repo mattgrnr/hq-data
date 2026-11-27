@@ -1,8 +1,8 @@
 // FUTBOL HQ — worker v1 (futbol-hq.com; soccer-hq.com redirects here)
-// Daily soccer board for the big five leagues and the European cups: goals, shots on target, shots and assists.
+// Daily soccer board for the big five leagues, the European cups, MLS, Liga MX and the Saudi league: goals, shots on target, shots and assists.
 // Data: soccer/board.json built hourly in mattgrnr/hq-data.
 
-const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/soccer/board.json";
+const BOARD_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/preview/leagues/preview-data/soccer.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/mattgrnr/hq-data/main/soccer/history/summary.json";
 
 const SITE_ORIGINS = [
