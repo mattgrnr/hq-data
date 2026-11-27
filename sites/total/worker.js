@@ -1500,6 +1500,7 @@ function hqaWrap(app, site, auth) {
 // Secrets MG sets on the total-hq Worker: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
 // APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, RESEND_API_KEY. Admins are marked in the database (users.admin = 1).
 const HQA_MIN = 60e3;
+const HQA_FOREVER = 253402300799000;   // free_until for lifetime members (the last day of 9999)
 
 function hqaEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
 function hqaHtml(body, status, cookies) {
@@ -1814,7 +1815,7 @@ ${note ? `<p class="note ok">${hqaEsc(note)}</p>` : ""}
 ${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
 <dl class="me"><dt>Email</dt><dd>${hqaEsc(me.email)}</dd><dt>Signed up with</dt><dd>${how}</dd>
 <dt>Member since</dt><dd>${new Date(me.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>
-${me.free_until > Date.now() ? `<dt>Premium</dt><dd>Free until ${new Date(me.free_until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>` : ""}</dl>
+${me.free_until > Date.now() ? `<dt>Premium</dt><dd>${me.free_until >= HQA_FOREVER ? "Free for life" : "Free until " + new Date(me.free_until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>` : ""}</dl>
 <form method="post" action="/account/updates"><input type="hidden" name="on" value="${me.opt_in ? "0" : "1"}">
   <button class="btn" type="submit">${me.opt_in ? "Stop update emails" : "Send me occasional updates"}</button></form>
 <form method="post" action="/logout"><button class="btn" type="submit">Sign out everywhere</button></form>
@@ -1906,7 +1907,7 @@ async function hqaAdmin(request, env, url) {
     else {
       // an invited member: the admin vouches for the email; they confirm 21+ when they set their password
       await db.prepare("INSERT INTO users (id, email, method, opt_in, age_ok, created_at, last_seen, free_until, email_ok) VALUES (?, ?, 'invite', 0, 0, ?, ?, ?, 1) ON CONFLICT(email) DO UPDATE SET free_until = COALESCE(excluded.free_until, free_until)")
-        .bind(hqaToken().slice(0, 16), email, now, now, f.get("free") === "yes" ? now + 365 * 864e5 : null).run();
+        .bind(hqaToken().slice(0, 16), email, now, now, f.get("free") === "life" ? HQA_FOREVER : f.get("free") === "yes" ? now + 365 * 864e5 : null).run();
       const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
       link = { email, url: await hqaMakeLink(env, url, u.id, 24 * 7) };
     }
@@ -1960,12 +1961,14 @@ ${days.map(d => `<tr><td>${new Date(d + "T12:00:00Z").toLocaleDateString("en-US"
 <form method="post" action="/admin/add">
   <label class="f" for="nm">Email</label>
   <input id="nm" type="email" name="email" required>
-  <label class="check"><input type="checkbox" name="free" value="yes" checked><span>Free for a year</span></label>
+  <label class="check"><input type="radio" name="free" value="yes" checked><span>Free for a year</span></label>
+  <label class="check"><input type="radio" name="free" value="life"><span>Free for life</span></label>
+  <label class="check"><input type="radio" name="free" value="no"><span>Regular free account</span></label>
   <button class="btn go" type="submit">Add and make a setup link</button>
 </form>
 <h2>Members</h2>
 <table><thead><tr><th>Email</th><th>Joined</th><th>Last seen</th><th>Free until</th><th>Sign-in</th></tr></thead><tbody>
-${members.map(m => `<tr><td style="word-break:break-all">${hqaEsc(m.email)}</td><td>${fmt(m.created_at)}</td><td>${m.last_seen > m.created_at + 60e3 ? fmt(m.last_seen) : ""}</td><td>${m.free_until > now ? fmt(m.free_until) : ""}</td>
+${members.map(m => `<tr><td style="word-break:break-all">${hqaEsc(m.email)}</td><td>${fmt(m.created_at)}</td><td>${m.last_seen > m.created_at + 60e3 ? fmt(m.last_seen) : ""}</td><td>${m.free_until >= HQA_FOREVER ? "Forever" : m.free_until > now ? fmt(m.free_until) : ""}</td>
 <td>${m.has_pw || m.has_sso ? "Ready" : `<form method="post" action="/admin/link" style="display:inline"><input type="hidden" name="id" value="${hqaEsc(m.id)}"><button class="btn quiet" type="submit" style="margin:0;min-height:0;width:auto;padding:0;text-decoration:underline">Setup link</button></form>`}</td></tr>`).join("")}
 </tbody></table>`, true));
 }
