@@ -333,6 +333,8 @@ ${me.free_until > Date.now() ? `<dt>Premium</dt><dd>${me.free_until >= HQA_FOREV
   <label class="f" for="home" style="margin-top:14px">Home sport <span style="color:var(--dim)">(listed first on Total HQ)</span></label>
   <select id="home" name="home">${[["", "No favorite"], ["nfl", "NFL · Touchdown"], ["nhl", "NHL · Slapshot"], ["nba", "NBA · Slam"], ["soc", "Soccer · Futbol"], ["mlb", "MLB · Moonshot"]]
     .map(([k, v]) => `<option value="${k}"${p.home === k ? " selected" : ""}>${v}</option>`).join("")}</select>
+  <label class="f" style="margin-top:14px">Odds format</label>
+  <div class="chips"><label class="chip"><input type="radio" name="fmt" value="us"${p.fmt !== "dec" ? " checked" : ""}><span>American · +150</span></label><label class="chip"><input type="radio" name="fmt" value="dec"${p.fmt === "dec" ? " checked" : ""}><span>Decimal · 2.50</span></label></div>
   <label class="check"><input type="checkbox" name="fin" value="yes"${p.fin ? " checked" : ""}><span>Show finished games<small>Open the finished games and started players instead of folding them away.</small></span></label>
   <button class="btn go" type="submit">Save preferences</button>
 </form>
@@ -372,6 +374,7 @@ async function hqaAccount(request, env, url, path) {
     p.books = f.getAll("books").map(String).filter(b => HQA_BOOKS[b]);
     p.home = ["nfl", "nhl", "nba", "soc", "mlb"].includes(String(f.get("home"))) ? String(f.get("home")) : "";
     p.fin = f.get("fin") === "yes";
+    p.fmt = f.get("fmt") === "dec" ? "dec" : "us";
     await db.prepare("UPDATE users SET prefs = ? WHERE id = ?").bind(JSON.stringify(p), me.id).run();
     return hqaHtml(hqaAccountPage({ ...me, prefs: JSON.stringify(p) }, "Preferences saved. They follow you to any device you sign in on."));
   }

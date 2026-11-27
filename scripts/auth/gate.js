@@ -120,6 +120,7 @@ function hqaPrefs(me) {
     books: Array.isArray(p.books) ? p.books.filter(b => HQA_BOOKS[b]) : null,
     home: ["nfl", "nhl", "nba", "soc", "mlb"].includes(p.home) ? p.home : "",
     fin: !!p.fin,
+    fmt: p.fmt === "dec" ? "dec" : "us",
   };
 }
 // My books changed on a board: keep the account's copy in step (same-site posts only)

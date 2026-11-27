@@ -57,7 +57,13 @@ function gWinBar(g){
     + '<div class="gw-lbl"><span>'+esc(g.away)+' <b>'+gPct(w[1])+'</b></span><span><b>'+gPct(w[0])+'</b> '+esc(g.home)+'</span></div>';
 }
 
-function gPrice(x){ return x == null ? "" : (x > 0 ? "+"+x : String(x)); }
+// the account can ask for decimal odds (2.50) instead of American (+150)
+const ODEC = typeof HQ_ME === "object" && !!(HQ_ME && HQ_ME.p && HQ_ME.p.fmt === "dec");
+function gPrice(x){
+  if(x == null) return "";
+  if(ODEC) return (x > 0 ? 1 + x/100 : 1 + 100/-x).toFixed(2);
+  return x > 0 ? "+"+x : String(x);
+}
 function gEdge(g, mk, side){
   const v = (g.proj.value||[]).find(v=>v.mk===mk && v.side===side);
   return v ? ' <span class="g-val">+'+Math.round(100*(v.ours-v.book))+'%</span>' : '';

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   free_until INTEGER,                -- premium on the house until this time
   pw_hash TEXT,                      -- PBKDF2-SHA256 with its own salt; never the password itself
   email_ok INTEGER NOT NULL DEFAULT 1, -- 0 until Apple, Google or an admin vouches for the email
-  prefs TEXT,                        -- JSON: My books, home sport, show finished games
+  prefs TEXT,                        -- JSON: My books, home sport, show finished games, odds format
   age_ok INTEGER NOT NULL,           -- when they confirmed 21+
   created_at INTEGER NOT NULL,
   last_seen INTEGER NOT NULL
