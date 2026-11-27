@@ -444,11 +444,28 @@ async function hqaAdmin(request, env, url) {
       link = { email, url: await hqaMakeLink(env, url, u.id, 24 * 7) };
     }
   }
+  if (request.method === "POST" && path === "/admin/welcome") {
+    if (!env.RESEND_API_KEY) note = "Email isn't connected, so nothing was sent.";
+    else {
+      // everyone made ahead of time who hasn't got in yet and hasn't had this email: each gets their own 7-day link
+      const waiting = (await db.prepare("SELECT id, email, free_until FROM users WHERE pw_hash IS NULL AND google_sub IS NULL AND apple_sub IS NULL AND welcomed IS NULL LIMIT 90").all()).results;
+      let sent = 0;
+      for (const u of waiting) {
+        if (await hqaWelcome1(env, url, u)) {
+          await db.prepare("UPDATE users SET welcomed = ? WHERE id = ?").bind(Date.now(), u.id).run();
+          sent++;
+        }
+        await new Promise(r => setTimeout(r, 600));    // Resend allows two emails a second
+      }
+      note = "Sent " + sent + " welcome email" + (sent === 1 ? "" : "s") + (sent < waiting.length ? " · " + (waiting.length - sent) + " failed, press again to retry them" : "") + ".";
+    }
+  }
   if (request.method === "POST" && path === "/admin/link") {
     const u = await db.prepare("SELECT id, email FROM users WHERE id = ?").bind(String((await hqaForm(request)).get("id") || "")).first();
     if (u) link = { email: u.email, url: await hqaMakeLink(env, url, u.id, 24 * 7) };
   }
-  const members = (await db.prepare("SELECT id, email, method, created_at, last_seen, free_until, pw_hash IS NOT NULL has_pw, apple_sub IS NOT NULL OR google_sub IS NOT NULL has_sso FROM users ORDER BY created_at DESC LIMIT 500").all()).results;
+  const members = (await db.prepare("SELECT id, email, method, created_at, last_seen, free_until, welcomed, pw_hash IS NOT NULL has_pw, apple_sub IS NOT NULL OR google_sub IS NOT NULL has_sso FROM users ORDER BY created_at DESC LIMIT 500").all()).results;
+  const unsent = members.filter(m => !m.has_pw && !m.has_sso && !m.welcomed).length;
   const fmt = t => t ? new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit", timeZone: "America/Chicago" }) : "";
   const since = d => hqaDay(now - d * 864e5);
   const [tot, wk, act, opt, methods, signups, daily, sites] = await db.batch([
@@ -489,6 +506,9 @@ ${HQA_SITES.map(s => `<tr><td>${name[s]}</td><td>${(st[s] || {}).today || 0}</td
 <table><thead><tr><th>Day</th><th>New accounts</th><th>Active people</th></tr></thead><tbody>
 ${days.map(d => `<tr><td>${new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}</td><td>${(su[d] || {}).n || 0}</td><td>${(da[d] || {}).n || 0}</td></tr>`).join("")}
 </tbody></table>
+${unsent ? `<h2>Welcome emails</h2>
+<p class="lede" style="margin:0 0 6px">${unsent} member${unsent === 1 ? " hasn't" : "s haven't"} signed in and haven't had a welcome email. Each gets a link to set their password, with their free time already on the account.</p>
+<form method="post" action="/admin/welcome" onsubmit="return confirm('Send ${unsent} welcome email${unsent === 1 ? "" : "s"} now?')"><button class="btn go" type="submit">Send ${unsent} welcome email${unsent === 1 ? "" : "s"}</button></form>` : ""}
 <h2>Add a member</h2>
 <form method="post" action="/admin/add">
   <label class="f" for="nm">Email</label>
@@ -501,7 +521,7 @@ ${days.map(d => `<tr><td>${new Date(d + "T12:00:00Z").toLocaleDateString("en-US"
 <h2>Members</h2>
 <table><thead><tr><th>Email</th><th>Joined</th><th>Last seen</th><th>Free until</th><th>Sign-in</th></tr></thead><tbody>
 ${members.map(m => `<tr><td style="word-break:break-all">${hqaEsc(m.email)}</td><td>${fmt(m.created_at)}</td><td>${m.last_seen > m.created_at + 60e3 ? fmt(m.last_seen) : ""}</td><td>${m.free_until >= HQA_FOREVER ? "Forever" : m.free_until > now ? fmt(m.free_until) : ""}</td>
-<td>${m.has_pw || m.has_sso ? "Ready" : `<form method="post" action="/admin/link" style="display:inline"><input type="hidden" name="id" value="${hqaEsc(m.id)}"><button class="btn quiet" type="submit" style="margin:0;min-height:0;width:auto;padding:0;text-decoration:underline">Setup link</button></form>`}</td></tr>`).join("")}
+<td>${m.has_pw || m.has_sso ? "Ready" : (m.welcomed ? "Emailed · " : "") + `<form method="post" action="/admin/link" style="display:inline"><input type="hidden" name="id" value="${hqaEsc(m.id)}"><button class="btn quiet" type="submit" style="margin:0;min-height:0;width:auto;padding:0;text-decoration:underline">Setup link</button></form>`}</td></tr>`).join("")}
 </tbody></table>`, true));
 }
 
@@ -671,6 +691,28 @@ async function hqaChangePassword(request, env, url, me) {
   return hqaHtml(hqaAccountPage({ ...me, has_pw: 1 }, "Password saved. Other devices were signed out."));
 }
 
+
+// one welcome email: their free time, and a 7-day link to set a password
+async function hqaWelcome1(env, url, u) {
+  const link = await hqaMakeLink(env, url, u.id, 24 * 7);
+  const term = u.free_until >= HQA_FOREVER ? "for life" : u.free_until > Date.now() ? "for a year" : "";
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Total HQ <noreply@total-hq.com>", reply_to: "support@total-hq.com", to: [u.email], subject: "Your Total HQ access is ready",
+      text: (term ? "You've got free Total HQ access " + term + ", on us.\n\n" : "Your Total HQ account is ready.\n\n")
+        + "Set your password to get in (the link works for 7 days):\n" + link
+        + "\n\nTotal HQ scores every sport's player props and game lines from 0 to 100 and finds the best price across your books.\n\nQuestions? Just reply, or email support@total-hq.com.",
+      html: `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5;color:#111;max-width:520px">
+<p>${term ? "You've got free Total HQ access <b>" + term + "</b>, on us." : "Your Total HQ account is ready."}</p>
+<p><a href="${link}" style="display:inline-block;background:#FF4D3D;color:#fff;text-decoration:none;font-weight:600;padding:12px 18px;border-radius:10px">Set my password</a></p>
+<p style="color:#555;font-size:14px">The link works for 7 days.</p>
+<p>Total HQ scores every sport's player props and game lines from 0 to 100 and finds the best price across your books.</p>
+<p style="color:#555;font-size:14px">Questions? Just reply, or email support@total-hq.com.</p></div>`,
+    }),
+  }).catch(() => null);
+  return !!(r && r.ok);
+}
 
 // ---------- routes ----------
 async function hqaAuth(request, env, ctx, url) {
