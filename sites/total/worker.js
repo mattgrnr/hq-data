@@ -1390,7 +1390,7 @@ document.getElementById("board").addEventListener("click", function(ev){
 // D1 database (binding ACCOUNTS). The lock is on for preview links, and on the real domains once GATE = "on".
 const HQA_SITES = ["total-hq", "slam-hq", "slapshot-hq", "touchdown-hq", "futbol-hq", "moonshot-hq"];
 const HQA_DAYS = 90;
-const HQA_OPEN = /^\/(guide|privacy|login|logout|auth\/.*|og[^/]*\.png|favicon\.(png|ico)|apple-touch-icon\.png|robots\.txt|registry\.json)$/;
+const HQA_OPEN = /^\/(guide|privacy|login|signup|forgot|logout|auth\/.*|og[^/]*\.png|favicon\.(png|ico)|apple-touch-icon\.png|robots\.txt|registry\.json)$/;
 // link previews (X, iMessage, Slack, Discord...) still see each page's title and image
 const HQA_BOTS = /bot\b|crawler|spider|facebookexternalhit|twitterbot|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|embedly|pinterest|skypeuripreview/i;
 
@@ -1429,7 +1429,7 @@ async function hqaSession(request, env) {
   const tok = hqaCookies(request).hq_s;
   if (!tok || !env.ACCOUNTS) return null;
   return await env.ACCOUNTS.prepare(
-    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
+    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.pw_hash IS NOT NULL has_pw, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
   ).bind(await hqaHash(tok), Date.now()).first();
 }
 async function hqaStartSession(env, userId, site) {
@@ -1496,7 +1496,7 @@ function hqaWrap(app, site, auth) {
 // ==== /HQ ACCOUNTS ====
 
 // ==== HQ SIGN-IN (scripts/auth/total.js, Total HQ only, injected by scripts/auth/inject.py) ====
-// Sign in with Apple, Google or a six-digit email code. No passwords anywhere.
+// Sign in with Apple, Google, or an email and password (stored only as a salted PBKDF2 hash).
 // Secrets MG sets on the total-hq Worker: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_SERVICES_ID,
 // APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY, RESEND_API_KEY. Admins are marked in the database (users.admin = 1).
 const HQA_MIN = 60e3;
@@ -1549,8 +1549,14 @@ async function hqaSignedIn(env, url, who, next) {
   if (who.method === "apple") user = await db.prepare("SELECT id FROM users WHERE apple_sub = ?").bind(who.sub).first();
   if (who.method === "google") user = await db.prepare("SELECT id FROM users WHERE google_sub = ?").bind(who.sub).first();
   if (!user && email) {
-    user = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
-    if (user && who.method !== "email") await db.prepare("UPDATE users SET " + who.method + "_sub = ? WHERE id = ?").bind(who.sub, user.id).run();
+    user = await db.prepare("SELECT id, email_ok FROM users WHERE email = ?").bind(email).first();
+    if (user) {
+      const st = [who.method === "email" ? db.prepare("UPDATE users SET email_ok = 1 WHERE id = ?").bind(user.id)
+        : db.prepare("UPDATE users SET email_ok = 1, " + who.method + "_sub = ? WHERE id = ?").bind(who.sub, user.id)];
+      // this sign-in just proved the email: a password set by someone who never proved it stops working
+      if (!user.email_ok) st.push(db.prepare("UPDATE users SET pw_hash = NULL WHERE id = ?").bind(user.id), db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id));
+      await db.batch(st);
+    }
   }
   if (user) return hqaContinue(env, url, user.id, next, await hqaStartSession(env, user.id, "total-hq"));
   if (!email) return hqaLogin(url, next, "We couldn't get an email address from that sign-in. Try another option.");
@@ -1585,7 +1591,7 @@ h2{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:28px
 .or{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:12px;margin:22px 0 12px}
 .or:before,.or:after{content:"";flex:1;height:1px;background:var(--rule)}
 label.f{display:block;font-size:13px;color:var(--mute);margin-bottom:6px}
-input[type=email],input[type=text]{width:100%;height:50px;border-radius:12px;border:1px solid var(--rule);background:var(--lift);color:var(--paper);
+input[type=email],input[type=text],input[type=password]{width:100%;height:50px;border-radius:12px;border:1px solid var(--rule);background:var(--lift);color:var(--paper);
   font:500 16px 'Space Grotesk',system-ui,sans-serif;padding:0 14px}
 input.code{font-size:26px;letter-spacing:.35em;text-align:center}
 .check{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--rule);border-radius:12px;margin-top:10px;cursor:pointer;font-size:15px;line-height:1.45}
@@ -1622,22 +1628,25 @@ function hqaPage(title, body, wide) {
 }
 const HQA_FINE = `<p class="fine">21+ only. By continuing you agree to our <a href="/privacy">privacy policy</a>. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>`;
 
-function hqaLogin(url, next, error) {
+function hqaLogin(url, next, error, email) {
   const n = encodeURIComponent(next || "/");
   return hqaHtml(hqaPage("Sign in · Total HQ", `
 <h1>TOTAL <span>HQ</span></h1>
-<p class="lede">Sign in to use the boards. <b>No password to remember</b>: pick an account you already have, or get a one-time code by email.</p>
+<p class="lede">Sign in to use the boards. New here? <b>Creating an account is free.</b></p>
 ${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
 <a class="btn apple" href="/auth/apple?next=${n}">Continue with Apple</a>
 <a class="btn" href="/auth/google?next=${n}">Continue with Google</a>
 <div class="or">or</div>
-<form method="post" action="/auth/email">
+<form method="post" action="/auth/password">
   <input type="hidden" name="next" value="${hqaEsc(next || "/")}">
   <label class="f" for="email">Email</label>
-  <input id="email" type="email" name="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
-  <button class="btn go" type="submit">Email me a code</button>
+  <input id="email" type="email" name="email" autocomplete="username" inputmode="email" required placeholder="you@example.com" value="${hqaEsc(email || "")}">
+  <label class="f" for="pw" style="margin-top:12px">Password</label>
+  <input id="pw" type="password" name="password" autocomplete="current-password" required>
+  <button class="btn go" type="submit">Sign in</button>
 </form>
-<p class="fine"><a href="/guide">New here? See how HQ works</a></p>
+<a class="btn" href="/signup?next=${n}">Create an account</a>
+<p class="fine"><a href="/forgot">Forgot your password?</a> · <a href="/guide">See how HQ works</a></p>
 ${HQA_FINE}`), error ? 400 : 200);
 }
 
@@ -1796,18 +1805,29 @@ ${HQA_FINE}`);
 }
 
 // ---------- account, sign out, delete ----------
-function hqaAccountPage(me, note) {
-  const how = { apple: "Apple", google: "Google", email: "Email code" }[me.method] || me.method;
+function hqaAccountPage(me, note, error) {
+  const how = { apple: "Apple", google: "Google", email: "Email", password: "Email and password", invite: "Invite" }[me.method] || me.method;
   return hqaPage("Your account · Total HQ", `
 <div class="top"><a href="/">← Total HQ</a><a href="/privacy">Privacy</a></div>
 <h1>YOUR <span>ACCOUNT</span></h1>
 ${note ? `<p class="note ok">${hqaEsc(note)}</p>` : ""}
+${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
 <dl class="me"><dt>Email</dt><dd>${hqaEsc(me.email)}</dd><dt>Signed up with</dt><dd>${how}</dd>
 <dt>Member since</dt><dd>${new Date(me.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>
 ${me.free_until > Date.now() ? `<dt>Premium</dt><dd>Free until ${new Date(me.free_until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>` : ""}</dl>
 <form method="post" action="/account/updates"><input type="hidden" name="on" value="${me.opt_in ? "0" : "1"}">
   <button class="btn" type="submit">${me.opt_in ? "Stop update emails" : "Send me occasional updates"}</button></form>
 <form method="post" action="/logout"><button class="btn" type="submit">Sign out everywhere</button></form>
+<h2>${me.has_pw ? "Change password" : "Add a password"}</h2>
+<form method="post" action="/account/password">
+  <input type="email" name="email" value="${hqaEsc(me.email)}" autocomplete="username" hidden>
+  ${me.has_pw ? `<label class="f" for="cur">Current password</label><input id="cur" type="password" name="current" autocomplete="current-password" required>` : ""}
+  <label class="f" for="npw" style="margin-top:12px">New password <span style="color:var(--dim)">(10+ characters)</span></label>
+  <input id="npw" type="password" name="password" autocomplete="new-password" minlength="10" required>
+  <label class="f" for="npw2" style="margin-top:12px">New password again</label>
+  <input id="npw2" type="password" name="again" autocomplete="new-password" minlength="10" required>
+  <button class="btn" type="submit">Save password</button>
+</form>
 <h2>Delete account</h2>
 <p class="lede" style="margin:0 0 6px">This removes your account and your visit history right away. It can't be undone.</p>
 <form method="post" action="/account/delete">
@@ -1824,6 +1844,7 @@ async function hqaAccount(request, env, url, path) {
     await db.prepare("UPDATE users SET opt_in = ? WHERE id = ?").bind(on, me.id).run();
     return hqaHtml(hqaAccountPage({ ...me, opt_in: on }, on ? "You'll get occasional updates." : "Update emails are off."));
   }
+  if (path === "/account/password" && request.method === "POST") return hqaChangePassword(request, env, url, me);
   if (path === "/account/delete" && request.method === "POST") {
     if ((await hqaForm(request)).get("sure") !== "yes") return hqaHtml(hqaAccountPage(me));
     await db.batch([
@@ -1831,6 +1852,8 @@ async function hqaAccount(request, env, url, path) {
       db.prepare("DELETE FROM visits WHERE user_id = ?").bind(me.id),
       db.prepare("DELETE FROM handoffs WHERE user_id = ?").bind(me.id),
       db.prepare("DELETE FROM codes WHERE email = ?").bind(me.email),
+      db.prepare("DELETE FROM setup WHERE user_id = ?").bind(me.id),
+      db.prepare("DELETE FROM attempts WHERE email = ?").bind(me.email),
       db.prepare("DELETE FROM users WHERE id = ?").bind(me.id),
     ]);
     return hqaHtml(hqaPage("Account deleted · Total HQ", `<h1>ACCOUNT <span>DELETED</span></h1>
@@ -1848,20 +1871,20 @@ const HQA_PRIVACY = hqaPage("Privacy · Total HQ", `
 <h2>What we keep</h2>
 <ul>
 <li><b>Your email address</b>, so you have an account. If you sign in with Apple and choose to hide your email, we only get Apple's relay address.</li>
-<li><b>How you signed in</b> (Apple, Google or an email code) and the account ID Apple or Google gives us, so you can sign in again.</li>
+<li><b>How you signed in</b> (Apple, Google or email and password) and the account ID Apple or Google gives us, so you can sign in again.</li>
+<li><b>Your password, scrambled.</b> We store a one-way hash made with a random salt, never the password itself. Nobody at HQ can read it.</li>
 <li><b>When you joined and when you last visited</b>, and <b>which HQ sites you opened each day</b>. That's how we count how many people use each board.</li>
 <li><b>Whether you want update emails.</b> It's off unless you tick the box.</li>
 </ul>
 <h2>What we don't keep</h2>
 <ul>
-<li>No passwords. There aren't any.</li>
 <li>No payment details, no sportsbook logins, no location.</li>
 <li>No ad trackers. We don't sell or share your information with anyone.</li>
 </ul>
 <h2>Cookies</h2>
 <p>Each HQ site sets one cookie that keeps you signed in for 90 days, plus a small one that stops us counting the same visit twice in a day. Nothing else.</p>
 <h2>Emails</h2>
-<p>We email you a code when you sign in with email. We only send anything else if you asked for updates, and every update has a way to stop them.</p>
+<p>We email you when you ask to reset your password. We only send anything else if you asked for updates, and every update has a way to stop them.</p>
 <h2>Deleting your account</h2>
 <p>Go to <a href="/account">your account</a> and choose Delete. Your account and visit history are removed right away.</p>
 <h2>Age</h2>
@@ -1875,7 +1898,25 @@ async function hqaAdmin(request, env, url) {
   const me = await hqaSession(request, env);
   if (!me) return hqaRedirect("/login?next=/admin");
   if (!me.admin) return new Response("Not found", { status: 404 });
-  const db = env.ACCOUNTS, now = Date.now(), today = hqaDay(now);
+  const db = env.ACCOUNTS, now = Date.now(), today = hqaDay(now), path = url.pathname;
+  let note = "", link = null;
+  if (request.method === "POST" && path === "/admin/add") {
+    const f = await hqaForm(request), email = String(f.get("email") || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) note = "That email address doesn't look right.";
+    else {
+      // an invited member: the admin vouches for the email; they confirm 21+ when they set their password
+      await db.prepare("INSERT INTO users (id, email, method, opt_in, age_ok, created_at, last_seen, free_until, email_ok) VALUES (?, ?, 'invite', 0, 0, ?, ?, ?, 1) ON CONFLICT(email) DO UPDATE SET free_until = COALESCE(excluded.free_until, free_until)")
+        .bind(hqaToken().slice(0, 16), email, now, now, f.get("free") === "yes" ? now + 365 * 864e5 : null).run();
+      const u = await db.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+      link = { email, url: await hqaMakeLink(env, url, u.id, 24 * 7) };
+    }
+  }
+  if (request.method === "POST" && path === "/admin/link") {
+    const u = await db.prepare("SELECT id, email FROM users WHERE id = ?").bind(String((await hqaForm(request)).get("id") || "")).first();
+    if (u) link = { email: u.email, url: await hqaMakeLink(env, url, u.id, 24 * 7) };
+  }
+  const members = (await db.prepare("SELECT id, email, method, created_at, last_seen, free_until, pw_hash IS NOT NULL has_pw, apple_sub IS NOT NULL OR google_sub IS NOT NULL has_sso FROM users ORDER BY created_at DESC LIMIT 500").all()).results;
+  const fmt = t => t ? new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit", timeZone: "America/Chicago" }) : "";
   const since = d => hqaDay(now - d * 864e5);
   const [tot, wk, act, opt, methods, signups, daily, sites] = await db.batch([
     db.prepare("SELECT COUNT(*) n FROM users"),
@@ -1896,13 +1937,17 @@ async function hqaAdmin(request, env, url) {
   return hqaHtml(hqaPage("Admin · Total HQ", `
 <div class="top"><a href="/">← Total HQ</a><span>Central time</span></div>
 <h1>WHO'S <span>IN</span></h1>
+${note ? `<p class="note" role="alert">${hqaEsc(note)}</p>` : ""}
+${link ? `<div class="note ok"><b>Setup link for ${hqaEsc(link.email)}</b> (works once, for 7 days). Send it to them yourself, by text or DM:
+<input type="text" readonly value="${hqaEsc(link.url)}" onclick="this.select()" style="margin-top:8px;font-size:13px;height:40px">
+<button class="btn" type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.textContent='Copied'">Copy link</button></div>` : ""}
 <div class="stats">
   <div class="stat"><b>${n(tot)}</b><span>accounts</span></div>
   <div class="stat"><b>${n(wk)}</b><span>new in the last 7 days</span></div>
   <div class="stat"><b>${n(act)}</b><span>active today</span></div>
   <div class="stat"><b>${n(opt)}</b><span>want updates</span></div>
 </div>
-<p class="lede" style="margin-top:14px">Signed up with Apple ${how.apple || 0} · Google ${how.google || 0} · email ${how.email || 0}</p>
+<p class="lede" style="margin-top:14px">Signed up with Apple ${how.apple || 0} · Google ${how.google || 0} · password ${how.password || 0} · invited ${(how.invite || 0) + (how.email || 0)}</p>
 <h2>By site</h2>
 <table><thead><tr><th>Site</th><th>Today</th><th>Last 7 days</th></tr></thead><tbody>
 ${HQA_SITES.map(s => `<tr><td>${name[s]}</td><td>${(st[s] || {}).today || 0}</td><td>${(st[s] || {}).week || 0}</td></tr>`).join("")}
@@ -1910,15 +1955,185 @@ ${HQA_SITES.map(s => `<tr><td>${name[s]}</td><td>${(st[s] || {}).today || 0}</td
 <h2>Last 14 days</h2>
 <table><thead><tr><th>Day</th><th>New accounts</th><th>Active people</th></tr></thead><tbody>
 ${days.map(d => `<tr><td>${new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}</td><td>${(su[d] || {}).n || 0}</td><td>${(da[d] || {}).n || 0}</td></tr>`).join("")}
+</tbody></table>
+<h2>Add a member</h2>
+<form method="post" action="/admin/add">
+  <label class="f" for="nm">Email</label>
+  <input id="nm" type="email" name="email" required>
+  <label class="check"><input type="checkbox" name="free" value="yes" checked><span>Free for a year</span></label>
+  <button class="btn go" type="submit">Add and make a setup link</button>
+</form>
+<h2>Members</h2>
+<table><thead><tr><th>Email</th><th>Joined</th><th>Last seen</th><th>Free until</th><th>Sign-in</th></tr></thead><tbody>
+${members.map(m => `<tr><td style="word-break:break-all">${hqaEsc(m.email)}</td><td>${fmt(m.created_at)}</td><td>${m.last_seen > m.created_at + 60e3 ? fmt(m.last_seen) : ""}</td><td>${m.free_until > now ? fmt(m.free_until) : ""}</td>
+<td>${m.has_pw || m.has_sso ? "Ready" : `<form method="post" action="/admin/link" style="display:inline"><input type="hidden" name="id" value="${hqaEsc(m.id)}"><button class="btn quiet" type="submit" style="margin:0;min-height:0;width:auto;padding:0;text-decoration:underline">Setup link</button></form>`}</td></tr>`).join("")}
 </tbody></table>`, true));
 }
+
+// ---------- passwords ----------
+// PBKDF2-SHA256, 100,000 rounds (the most Workers allow), a fresh 16-byte salt per password
+async function hqaPwHash(pw, saltHex) {
+  const salt = saltHex ? Uint8Array.from(saltHex.match(/../g), h => parseInt(h, 16)) : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 100000 }, key, 256);
+  return "pbkdf2$100000$" + hqaHex(salt) + "$" + hqaHex(bits);
+}
+async function hqaPwCheck(pw, stored) {
+  const salt = String(stored || "").split("$")[2];
+  if (!salt) return false;
+  const a = await hqaPwHash(pw, salt);
+  let diff = a.length ^ stored.length;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ stored.charCodeAt(i);
+  return diff === 0;
+}
+function hqaPwProblem(pw, again) {
+  if (pw.length < 10) return "Use at least 10 characters.";
+  if (pw.length > 200) return "That password is too long.";
+  if (again != null && pw !== again) return "The two passwords don't match.";
+  return "";
+}
+async function hqaPassword(request, env, url) {
+  const f = await hqaForm(request), db = env.ACCOUNTS, now = Date.now();
+  const email = String(f.get("email") || "").trim().toLowerCase(), pw = String(f.get("password") || ""), next = String(f.get("next") || "/");
+  const lock = await db.prepare("SELECT fails, locked_until FROM attempts WHERE email = ?").bind(email).first();
+  if (lock && lock.locked_until > now) return hqaLogin(url, next, "Too many wrong passwords. Try again in 15 minutes, or reset your password.", email);
+  const u = await db.prepare("SELECT id, pw_hash FROM users WHERE email = ?").bind(email).first();
+  if (u && !u.pw_hash) return hqaLogin(url, next, "This account doesn't have a password yet. Use the setup link you were sent, or Continue with Apple or Google.", email);
+  if (!u || !(await hqaPwCheck(pw, u.pw_hash))) {
+    const fails = (lock ? lock.fails : 0) + 1;
+    await db.prepare("INSERT OR REPLACE INTO attempts (email, fails, locked_until) VALUES (?, ?, ?)").bind(email, fails >= 5 ? 0 : fails, fails >= 5 ? now + 15 * HQA_MIN : 0).run();
+    return hqaLogin(url, next, "That email and password don't match.", email);
+  }
+  await db.prepare("DELETE FROM attempts WHERE email = ?").bind(email).run();
+  return hqaContinue(env, url, u.id, next, await hqaStartSession(env, u.id, "total-hq"));
+}
+
+function hqaSignupPage(next, error, email) {
+  return hqaPage("Create an account · Total HQ", `
+<h1>JOIN <span>HQ</span></h1>
+<p class="lede">Free account. It takes a minute.</p>
+${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
+<form method="post" action="/signup">
+  <input type="hidden" name="next" value="${hqaEsc(next)}">
+  <label class="f" for="email">Email</label>
+  <input id="email" type="email" name="email" autocomplete="email" inputmode="email" required value="${hqaEsc(email || "")}">
+  <label class="f" for="pw" style="margin-top:12px">Password <span style="color:var(--dim)">(10+ characters)</span></label>
+  <input id="pw" type="password" name="password" autocomplete="new-password" minlength="10" required>
+  <label class="f" for="pw2" style="margin-top:12px">Password again</label>
+  <input id="pw2" type="password" name="again" autocomplete="new-password" minlength="10" required>
+  <label class="check"><input type="checkbox" name="age" value="yes" required><span>I'm 21 or older</span></label>
+  <label class="check"><input type="checkbox" name="updates" value="yes"><span>Send me occasional updates<small>New features and sports. No spam, and you can turn it off anytime.</small></span></label>
+  <button class="btn go" type="submit">Create account</button>
+</form>
+<a class="btn quiet" href="/login?next=${encodeURIComponent(next)}">I already have an account</a>
+${HQA_FINE}`);
+}
+async function hqaSignup(request, env, url) {
+  if (request.method !== "POST") return hqaHtml(hqaSignupPage(url.searchParams.get("next") || "/"));
+  const f = await hqaForm(request), db = env.ACCOUNTS, now = Date.now();
+  const email = String(f.get("email") || "").trim().toLowerCase(), pw = String(f.get("password") || ""), next = String(f.get("next") || "/");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return hqaHtml(hqaSignupPage(next, "That email address doesn't look right.", email), 400);
+  const bad = hqaPwProblem(pw, String(f.get("again") || ""));
+  if (bad) return hqaHtml(hqaSignupPage(next, bad, email), 400);
+  if (f.get("age") !== "yes") return hqaHtml(hqaSignupPage(next, "You need to be 21 or older to use HQ.", email), 400);
+  if (await db.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) {
+    return hqaLogin(url, next, "There's already an account for this email. Sign in, or reset the password.", email);
+  }
+  const id = hqaToken().slice(0, 16);
+  // nobody has proved they own this inbox yet (email_ok = 0) until Apple, Google, an admin or an emailed link does
+  await db.prepare("INSERT INTO users (id, email, method, opt_in, age_ok, created_at, last_seen, pw_hash, email_ok) VALUES (?, ?, 'password', ?, ?, ?, ?, ?, 0)")
+    .bind(id, email, f.get("updates") === "yes" ? 1 : 0, now, now, now, await hqaPwHash(pw)).run();
+  return hqaContinue(env, url, id, next, await hqaStartSession(env, id, "total-hq"));
+}
+
+// one-time links to set (or reset) a password: 7 days from the admin page, 1 hour by email
+async function hqaMakeLink(env, url, userId, hours) {
+  const tok = hqaToken();
+  await env.ACCOUNTS.prepare("INSERT INTO setup (token_hash, user_id, expires_at) VALUES (?, ?, ?)").bind(await hqaHash(tok), userId, Date.now() + hours * 3600e3).run();
+  return url.origin + "/auth/setup?t=" + tok;
+}
+function hqaSetupPage(t, u, error) {
+  return hqaPage("Set your password · Total HQ", `
+<h1>SET YOUR <span>PASSWORD</span></h1>
+<p class="lede">For <b>${hqaEsc(u.email)}</b>. You'll use it with your email to sign in.</p>
+${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
+<form method="post" action="/auth/setup">
+  <input type="hidden" name="t" value="${hqaEsc(t)}">
+  <input type="email" name="email" value="${hqaEsc(u.email)}" autocomplete="username" hidden>
+  <label class="f" for="pw">New password <span style="color:var(--dim)">(10+ characters)</span></label>
+  <input id="pw" type="password" name="password" autocomplete="new-password" minlength="10" required autofocus>
+  <label class="f" for="pw2" style="margin-top:12px">Password again</label>
+  <input id="pw2" type="password" name="again" autocomplete="new-password" minlength="10" required>
+  ${u.age_ok ? "" : `<label class="check"><input type="checkbox" name="age" value="yes" required><span>I'm 21 or older</span></label>`}
+  <button class="btn go" type="submit">Save password</button>
+</form>`);
+}
+async function hqaSetup(request, env, url) {
+  const db = env.ACCOUNTS, post = request.method === "POST", f = post ? await hqaForm(request) : null;
+  const t = String(post ? f.get("t") || "" : url.searchParams.get("t") || "");
+  const row = t ? await db.prepare("SELECT u.id, u.email, u.age_ok, s.token_hash FROM setup s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
+    .bind(await hqaHash(t), Date.now()).first() : null;
+  if (!row) return hqaLogin(url, "/", "That link has expired or was already used. Ask for a new one.");
+  if (!post) return hqaHtml(hqaSetupPage(t, row));
+  const pw = String(f.get("password") || ""), bad = hqaPwProblem(pw, String(f.get("again") || ""));
+  if (bad) return hqaHtml(hqaSetupPage(t, row, bad), 400);
+  if (!row.age_ok && f.get("age") !== "yes") return hqaHtml(hqaSetupPage(t, row, "You need to be 21 or older to use HQ."), 400);
+  const now = Date.now();
+  // the link reached this person, so the email is theirs; every other sign-in on the account ends
+  await db.batch([
+    db.prepare("UPDATE users SET pw_hash = ?, email_ok = 1, age_ok = CASE WHEN age_ok = 0 THEN ? ELSE age_ok END WHERE id = ?").bind(await hqaPwHash(pw), now, row.id),
+    db.prepare("DELETE FROM setup WHERE user_id = ? OR expires_at < ?").bind(row.id, now),
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(row.id),
+    db.prepare("DELETE FROM attempts WHERE email = ?").bind(row.email),
+  ]);
+  return hqaContinue(env, url, row.id, "/", await hqaStartSession(env, row.id, "total-hq"));
+}
+
+async function hqaForgot(request, env, url) {
+  const page = (msg, ok) => hqaHtml(hqaPage("Reset your password · Total HQ", `
+<h1>RESET YOUR <span>PASSWORD</span></h1>
+${msg ? `<p class="note${ok ? " ok" : ""}">${msg}</p>` : `<p class="lede">Enter your account email and we'll send you a link to set a new password.</p>`}
+${ok ? "" : `<form method="post" action="/forgot"><label class="f" for="email">Email</label>
+<input id="email" type="email" name="email" autocomplete="email" inputmode="email" required>
+<button class="btn go" type="submit">Send reset link</button></form>`}
+<a class="btn quiet" href="/login">Back to sign-in</a>`));
+  if (!env.RESEND_API_KEY) return page(`Reset emails aren't switched on yet. Email <a href="mailto:support@total-hq.com">support@total-hq.com</a> from your account's address and we'll send you a reset link. If you signed up with Apple or Google, just use that button.`);
+  if (request.method !== "POST") return page();
+  const email = String((await hqaForm(request)).get("email") || "").trim().toLowerCase();
+  const u = await env.ACCOUNTS.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+  if (u) {
+    const link = await hqaMakeLink(env, url, u.id, 1);
+    await fetch("https://api.resend.com/emails", {
+      method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "Total HQ <noreply@total-hq.com>", to: [email], subject: "Reset your Total HQ password",
+        text: "Set a new Total HQ password here (works for 1 hour):\n" + link + "\n\nIf you didn't ask for this, ignore this email.",
+        html: `<div style="font-family:system-ui,sans-serif;font-size:16px;color:#111"><p><a href="${link}">Set a new Total HQ password</a>. The link works for 1 hour.</p><p>If you didn't ask for this, ignore this email.</p></div>` }),
+    }).catch(() => null);
+  }
+  // the same answer either way, so this page can't be used to find out who has an account
+  return page("If there's an account for that email, a reset link is on its way. Check your inbox.", true);
+}
+
+async function hqaChangePassword(request, env, url, me) {
+  const f = await hqaForm(request), db = env.ACCOUNTS;
+  const row = await db.prepare("SELECT pw_hash FROM users WHERE id = ?").bind(me.id).first();
+  if (row.pw_hash && !(await hqaPwCheck(String(f.get("current") || ""), row.pw_hash))) return hqaHtml(hqaAccountPage(me, "", "Your current password isn't right."), 400);
+  const pw = String(f.get("password") || ""), bad = hqaPwProblem(pw, String(f.get("again") || ""));
+  if (bad) return hqaHtml(hqaAccountPage(me, "", bad), 400);
+  await db.batch([
+    db.prepare("UPDATE users SET pw_hash = ? WHERE id = ?").bind(await hqaPwHash(pw), me.id),
+    db.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").bind(me.id, me.token_hash),
+  ]);
+  return hqaHtml(hqaAccountPage({ ...me, has_pw: 1 }, "Password saved. Other devices were signed out."));
+}
+
 
 // ---------- routes ----------
 async function hqaAuth(request, env, ctx, url) {
   const path = url.pathname, post = request.method === "POST";
   // forms only count when they come from this site (Apple's callback is the one cross-site post)
   if (post && path !== "/auth/apple/callback" && request.headers.get("Origin") !== url.origin) {
-    if (/^\/(auth|account|logout)/.test(path)) return new Response("Forbidden", { status: 403 });
+    if (/^\/(auth|account|logout|signup|forgot|admin)/.test(path)) return new Response("Forbidden", { status: 403 });
   }
   if (path === "/login") {
     const next = url.searchParams.get("next") || "/";
@@ -1933,8 +2148,12 @@ async function hqaAuth(request, env, ctx, url) {
   if (path === "/auth/apple") return hqaAppleStart(env, url);
   if (path === "/auth/apple/callback" && post) return hqaAppleBack(request, env, url);
   if (path === "/auth/welcome") return hqaWelcome(request, env, url);
+  if (path === "/auth/password" && post) return hqaPassword(request, env, url);
+  if (path === "/auth/setup") return hqaSetup(request, env, url);
+  if (path === "/signup") return hqaSignup(request, env, url);
+  if (path === "/forgot") return hqaForgot(request, env, url);
   if (path === "/account" || path.startsWith("/account/")) return hqaAccount(request, env, url, path);
-  if (path === "/admin") return hqaAdmin(request, env, url);
+  if (path === "/admin" || path.startsWith("/admin/")) return hqaAdmin(request, env, url);
   if (path === "/logout") {
     const me = await hqaSession(request, env);
     if (me && post) await env.ACCOUNTS.prepare("DELETE FROM sessions WHERE user_id = ?").bind(me.id).run();

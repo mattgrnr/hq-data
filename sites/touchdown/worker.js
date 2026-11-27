@@ -2503,7 +2503,7 @@ boot(false);
 // D1 database (binding ACCOUNTS). The lock is on for preview links, and on the real domains once GATE = "on".
 const HQA_SITES = ["total-hq", "slam-hq", "slapshot-hq", "touchdown-hq", "futbol-hq", "moonshot-hq"];
 const HQA_DAYS = 90;
-const HQA_OPEN = /^\/(guide|privacy|login|logout|auth\/.*|og[^/]*\.png|favicon\.(png|ico)|apple-touch-icon\.png|robots\.txt|registry\.json)$/;
+const HQA_OPEN = /^\/(guide|privacy|login|signup|forgot|logout|auth\/.*|og[^/]*\.png|favicon\.(png|ico)|apple-touch-icon\.png|robots\.txt|registry\.json)$/;
 // link previews (X, iMessage, Slack, Discord...) still see each page's title and image
 const HQA_BOTS = /bot\b|crawler|spider|facebookexternalhit|twitterbot|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|embedly|pinterest|skypeuripreview/i;
 
@@ -2542,7 +2542,7 @@ async function hqaSession(request, env) {
   const tok = hqaCookies(request).hq_s;
   if (!tok || !env.ACCOUNTS) return null;
   return await env.ACCOUNTS.prepare(
-    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
+    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.pw_hash IS NOT NULL has_pw, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
   ).bind(await hqaHash(tok), Date.now()).first();
 }
 async function hqaStartSession(env, userId, site) {
