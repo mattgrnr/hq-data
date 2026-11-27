@@ -155,7 +155,7 @@ color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing
 .ls-cell.top .v b{font-weight:700;color:var(--stitch);margin-left:6px;font-variant-numeric:tabular-nums}
 .hero h1 .hq{background:none;color:var(--stitch);padding:0;border-radius:0;margin-left:11px;font-size:13px;font-weight:600;letter-spacing:.3em;vertical-align:3px;transform:none}
 .sportwrap{position:relative}
-.sportmenu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:210px;padding:6px;z-index:50;display:none;box-shadow:0 12px 28px rgba(0,0,0,.5)}
+.sportmenu{position:absolute;left:0;top:calc(100% + 6px);max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:210px;padding:6px;z-index:50;display:none;box-shadow:0 12px 28px rgba(0,0,0,.5)}
 .sportmenu.open{display:block}
 .sportmenu a,.sportmenu span.soon{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;font-size:14px;color:var(--ink);text-decoration:none;text-transform:none;letter-spacing:0}
 .sportmenu a:hover{background:var(--card)}
