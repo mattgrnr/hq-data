@@ -275,7 +275,13 @@ def norm(name):
     n = unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode()
     for w in (" fc", "fc ", " cf", " afc", " city", " united", " club", "1. ", "ac ", " calcio", "as ", "ssc ", "rc "):
         n = n.replace(w, " ")
-    return " ".join(n.replace(".", " ").replace("-", " ").split())
+    n = " ".join(n.replace(".", " ").replace("-", " ").split())
+    return SAME.get(n, n)
+
+
+# one club, two spellings between FotMob and the books
+SAME = {"lafc": "los angeles", "m'gladbach": "monchengladbach", "borussia monchengladbach": "monchengladbach", "cologne": "koln",
+        "al hazm": "al hazem", "al taawon": "al taawoun", "al qadisiyah": "al qadsiah"}
 
 
 def same_team(a, b):
