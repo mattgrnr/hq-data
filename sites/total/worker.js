@@ -933,7 +933,7 @@ var NOW = new Date();
 BOARDS.forEach(function(b){ b.off = b.status === "live" && !inSeason(b.key, NOW); });
 BOARDS.sort(function(x, y){ return (x.off ? 1 : 0) - (y.off ? 1 : 0); });
 // the account's home sport goes first (while it's in season)
-var HOME = (window.HQ_ME && HQ_ME.p.home) || "";
+var HOME = (typeof HQ_ME === "object" && HQ_ME && HQ_ME.p && HQ_ME.p.home) || "";
 if(HOME) BOARDS.sort(function(x, y){ return (y.key === HOME && !y.off ? 1 : 0) - (x.key === HOME && !x.off ? 1 : 0); });
 
 function laneHTML(b, i){
@@ -1339,7 +1339,7 @@ renderBets();
 plLinks();
 trackStart();
 
-var SLATE = null, FINOPEN = (window.HQ_ME && HQ_ME.p.fin) ? { nhl:1, nba:1, nfl:1, soc:1 } : {};
+var SLATE = null, FINOPEN = (typeof HQ_ME === "object" && HQ_ME && HQ_ME.p && HQ_ME.p.fin) ? { nhl:1, nba:1, nfl:1, soc:1 } : {};
 function fillGames(){
   BOARDS.forEach(function(b){
     var el = document.getElementById("games-" + b.key);
