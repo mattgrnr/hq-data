@@ -306,7 +306,8 @@ function hqaAccountPage(me, note) {
 <h1>YOUR <span>ACCOUNT</span></h1>
 ${note ? `<p class="note ok">${hqaEsc(note)}</p>` : ""}
 <dl class="me"><dt>Email</dt><dd>${hqaEsc(me.email)}</dd><dt>Signed up with</dt><dd>${how}</dd>
-<dt>Member since</dt><dd>${new Date(me.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd></dl>
+<dt>Member since</dt><dd>${new Date(me.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>
+${me.free_until > Date.now() ? `<dt>Premium</dt><dd>Free until ${new Date(me.free_until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>` : ""}</dl>
 <form method="post" action="/account/updates"><input type="hidden" name="on" value="${me.opt_in ? "0" : "1"}">
   <button class="btn" type="submit">${me.opt_in ? "Stop update emails" : "Send me occasional updates"}</button></form>
 <form method="post" action="/logout"><button class="btn" type="submit">Sign out everywhere</button></form>

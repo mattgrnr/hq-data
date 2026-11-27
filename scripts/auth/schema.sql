@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   google_sub TEXT UNIQUE,
   opt_in INTEGER NOT NULL DEFAULT 0, -- agreed to occasional updates
   admin INTEGER NOT NULL DEFAULT 0,  -- can open /admin
+  free_until INTEGER,                -- premium on the house until this time
   age_ok INTEGER NOT NULL,           -- when they confirmed 21+
   created_at INTEGER NOT NULL,
   last_seen INTEGER NOT NULL

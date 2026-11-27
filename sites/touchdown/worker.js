@@ -2542,7 +2542,7 @@ async function hqaSession(request, env) {
   const tok = hqaCookies(request).hq_s;
   if (!tok || !env.ACCOUNTS) return null;
   return await env.ACCOUNTS.prepare(
-    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
+    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
   ).bind(await hqaHash(tok), Date.now()).first();
 }
 async function hqaStartSession(env, userId, site) {
