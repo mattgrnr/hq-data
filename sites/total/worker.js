@@ -644,23 +644,25 @@ body{
 /* ---------- masthead ---------- */
 header{padding:30px 0 0}
 .eyebrow{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);font-weight:500}
+.toprow{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.howlink{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--mute);text-decoration:none;white-space:nowrap}
+.howlink:hover{color:var(--paper)}
+.howlink .qm{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--paper);color:var(--void);font-size:11px;font-weight:700;line-height:1}
 .rule{height:1px;background:var(--rule);margin:12px 0 20px}
 h1{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:clamp(52px,15vw,86px);
    line-height:.86;letter-spacing:.005em;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
    padding:0;border:0;border-radius:0;letter-spacing:.015em;line-height:inherit;
    vertical-align:baseline;transform:none;margin-left:.06em}
-.thesis{margin-top:12px;color:var(--mute);font-size:15px;line-height:1.55;max-width:46ch}
-.thesis b{color:var(--paper);font-weight:500}
 
 .hqnew{transition:opacity .4s}
 .hqnew.bye{opacity:0}
 @media (prefers-reduced-motion:reduce){.hqnew{transition:none}}
 .hqnew{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);padding:8px 8px 8px 12px;margin:12px 0 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
 .hqnew[hidden]{display:none}
-.hqnew a{color:inherit;font-weight:600;text-underline-offset:3px}
+.hqnew a{color:var(--hq);font-weight:600;text-underline-offset:3px}
 .hqnew a:hover{color:var(--paper)}
-.hqnew button{margin-left:auto;background:none;border:0;color:inherit;font-size:18px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:6px}
+.hqnew button{margin-left:auto;background:none;border:0;color:var(--paper);font-size:18px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:6px}
 .hqnew button:hover{color:var(--paper)}
 /* ---------- the board ---------- */
 .boardhead{display:grid;grid-template-columns:3px 52px 1fr auto;align-items:center;gap:0 16px;
@@ -796,8 +798,8 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 .pl-link{background:none;border:0;padding:0;font:inherit;color:var(--open);text-decoration:underline;cursor:pointer}
 .pl-chip{display:inline-block;margin:0 6px 6px 0;padding:6px 11px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
 .pl-chip.on{color:#0c1a10;background:var(--open);border-color:var(--open);font-weight:600}
-.pl-go{flex:1;text-align:center;padding:11px 14px;border:1px solid var(--open);border-radius:10px;background:var(--open);color:#0c1a10;font-weight:600;text-decoration:none;font-size:14px}
-.pl-cp{padding:11px 14px;border-radius:10px;border:1px solid var(--rule);background:transparent;color:var(--paper);font:inherit;font-size:14px;cursor:pointer}
+.pl-go{flex:1;text-align:center;padding:11px 14px;border:1px solid var(--open);border-radius:10px;background:var(--open);color:#0c1a10;font-weight:700;text-decoration:none;font-size:14px}
+.pl-cp{padding:11px 14px;border-radius:10px;border:1px solid var(--rule);background:rgba(255,255,255,.05);color:var(--paper);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .pl-warn{color:#fbbf24}
 .pl-acts button{background:none;border:0;padding:0;font:inherit;font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--mute);cursor:pointer}
 
@@ -832,6 +834,7 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 footer p{margin:0 0 8px}
 .ft-sites{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px;font-size:12px;letter-spacing:.06em}
 .ft-sites a,.ft-rg a{color:var(--mute);text-decoration:none}
+.ft-sites a:hover{color:var(--paper)}
 .ft-rg{color:var(--dim)}
 footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   color:var(--dim);font-size:11.5px;line-height:1.7;max-width:52ch;text-wrap:pretty}
@@ -856,7 +859,6 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 @media (min-width:1024px){
   .wrap{max-width:clamp(820px,70vw,1180px)}
   h1{font-size:clamp(62px,5.2vw,96px)}
-  .thesis{font-size:clamp(15px,1.1vw,19px);max-width:50ch}
   .lane{grid-template-columns:3px 64px 1fr auto;gap:0 20px;padding:21px 2px}
   .boardhead{grid-template-columns:3px 64px 1fr auto;gap:0 20px}
   .lane .nm{font-size:clamp(28px,2.1vw,36px)}
@@ -871,15 +873,14 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 <div class="wrap">
 
   <header>
-    <div class="eyebrow">Every sport · Scored 0–100</div>
+    <div class="toprow"><div class="eyebrow">Every sport · Scored 0–100</div><a class="howlink" href="/guide"><span class="qm">?</span>How HQ works</a></div>
     <div class="rule"></div>
     <h1>TOTAL<span class="badge">HQ</span></h1>
-    <p class="thesis">Every sport’s board, today’s best bets and your parlays in one place. Every player scored <b>0 to 100</b>.</p>
   </header>
 <div class="hqnew" id="hqnew" hidden><span>New here?</span><a href="/guide">See how it works</a><button type="button" aria-label="Dismiss">×</button></div>
 <script>(function(){ var e = document.getElementById("hqnew"); function done(){ try{ localStorage.setItem("hq.guide", "1"); }catch(x){} }
   try{ if(localStorage.getItem("hq.guide")) return; }catch(x){}
-  e.hidden = false; e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime at the bottom of the page.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
+  e.hidden = false; e.querySelector("button").onclick = function(){ done(); e.innerHTML = "<span>You can find this anytime under How HQ works at the top.</span>"; setTimeout(function(){ e.classList.add("bye"); setTimeout(function(){ e.hidden = true; }, 400); }, 2600); }; })();</script>
 
   <div id="shared"></div>
   <div id="bets"></div>
@@ -892,7 +893,6 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 
   <footer>
     <div class="ft-sites"><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
-    <p class="ft-guide"><a href="/guide">How HQ works</a></p>
     <p>Each board reads the same way: one score, five tiers, every input shown. Projections are estimates, not guarantees, and book prices move.</p>
     <p class="ft-rg">21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
   </footer>

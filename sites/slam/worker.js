@@ -431,8 +431,8 @@ body{background:
 #plbar .pl-my .pl-wt span{color:var(--faint);font-weight:400;margin-left:6px}
 #plbar .pl-chip{display:inline-block;margin:0 6px 6px 0;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--faint);font:inherit;font-size:12.5px;cursor:pointer}
 #plbar .pl-chip.on{color:#0c1a10;background:#4ade80;border-color:#4ade80;font-weight:600}
-#plbar .pl-acts{display:flex;gap:8px;margin-top:10px}
-#plbar .pl-acts .navbtn{flex:1}
+#plbar .pl-acts{display:flex;gap:10px;margin-top:10px}
+#plbar .pl-acts .navbtn{flex:1 1 0;min-width:0;font-size:14px;padding:11px 14px;border-radius:10px}     /* same size as Total HQ's slip */
 body{padding-bottom:84px}
 #app .g-tag{display:inline-block;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;vertical-align:1px}
 #app .g-tag.live,#plbar .g-tag.live{color:#fff;background:#dc2626}
@@ -507,6 +507,12 @@ body{padding-bottom:84px}
 #app .lg-all{display:block;width:100%;margin-top:8px;padding:8px 0;border:0;border-radius:10px;background:rgba(255,255,255,.04);color:var(--faint);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 #app .lg-note{font-size:11px;color:var(--faint);margin-bottom:10px}
 /* ===== end games view ===== */
+
+/* props board: started games folded into one line */
+#app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+#app .st-row span{color:var(--ink);font-weight:600;font-size:12.5px}
+#app .st-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app .st-list{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
 
 /* props board: started games folded into one line */
 #app .st-row{display:flex;justify-content:space-between;align-items:center;width:100%;margin:4px 0 8px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--faint);font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
@@ -745,7 +751,7 @@ function sportsMenuHTML(){
           : '<a href="'+s.url+'"><span class="lg">'+s.icon+'</span>'+s.name+'<span class="tag">'+s.tag+'</span></a>';
       }).join("")
     + '<div class="mdiv"></div>'
-    + '<a href="https://total-hq.com/guide?from=slam"><span class="lg"><span class="qm">?</span></span>How it works</a>'
+    + '<a href="https://total-hq.com/guide?from=slam"><span class="lg"><span class="qm">?</span></span>How HQ works</a>'
     + '</div></div>';
 }
 
