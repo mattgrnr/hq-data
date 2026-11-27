@@ -8,3 +8,9 @@ keep_vars = true
 
 [ai]
 binding = "AI"
+
+# accounts: sign-in, sessions and visit counts (scripts/auth)
+[[d1_databases]]
+binding = "ACCOUNTS"
+database_name = "hq-accounts"
+database_id = "0e4fb67e-8386-4745-ba92-ef1baedb7f20"
