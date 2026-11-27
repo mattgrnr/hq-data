@@ -265,7 +265,7 @@ SHORT = {"spurs": "tottenham", "wolves": "wolverhampton", "nottm forest": "notti
 
 def norm(name):
     import unicodedata
-    n = (name or "").lower().strip()
+    n = re.sub(r"\[.*?\]", "", (name or "").lower()).replace("'", "").replace("’", "").strip()     # "Al-Ahli [KSA]", "M'gladbach"
     n = SHORT.get(n, n)
     # the two Manchester clubs, however a feed spells them, kept apart before " city" / " united" are dropped
     n = re.sub(r"\bman(chester|\.)?\s*(city)\b.*", "mancity", n)
@@ -273,14 +273,39 @@ def norm(name):
     for x, y in (("ø", "o"), ("æ", "ae"), ("ß", "ss"), ("đ", "d"), ("ł", "l"), ("ı", "i"), ("/", " ")):   # letters NFKD can't split
         n = n.replace(x, y)
     n = unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode()
-    for w in (" fc", "fc ", " cf", " afc", " city", " united", " club", "1. ", "ac ", " calcio", "as ", "ssc ", "rc "):
-        n = n.replace(w, " ")
-    return " ".join(n.replace(".", " ").replace("-", " ").split())
+    # whole words only: "as " inside "Chivas de" is not AS Roma's "as"
+    w = [x for i, x in enumerate(n.replace("1. ", " ").replace(".", " ").replace("-", " ").split())
+         if x not in ("fc", "cf", "afc", "city", "united", "ac", "calcio", "as", "ssc", "rc") and not (x == "club" and i)]
+    if w and w[0] in CITY:      # "HOU Dynamo", "Saint Louis City SC"
+        w[0] = CITY[w[0]]
+    n = " ".join(w)
+    return SAME.get(n, n)
+
+
+# MLS city codes some books put in front of the club name
+CITY = {"chi": "chicago", "hou": "houston", "sj": "san jose", "phi": "philadelphia", "ne": "new england", "por": "portland",
+        "saint": "st", "atl": "atlanta", "clb": "columbus", "col": "colorado", "mia": "miami", "min": "minnesota", "mtl": "montreal",
+        "nsh": "nashville", "orl": "orlando", "sea": "seattle", "skc": "sporting kansas", "stl": "st louis", "tor": "toronto",
+        "van": "vancouver", "aus": "austin", "clt": "charlotte", "dal": "dallas", "sd": "san diego", "cin": "cincinnati"}
+
+# first words many clubs share: Real Sociedad is not Real Madrid
+SHARED = {"real", "stade", "atletico", "athletic", "sporting", "borussia", "olympique", "racing", "deportivo", "union", "inter",
+          "club", "saint", "san", "new", "dinamo", "dynamo", "hapoel", "maccabi", "red", "royal", "vitoria", "young"}
+
+# one club, two spellings between FotMob and the books
+SAME = {"lafc": "los angeles", "borussia monchengladbach": "monchengladbach", "cologne": "koln",
+        "mgladbach": "monchengladbach", "stade rennais": "rennes", "stade rennes": "rennes", "internazionale": "inter",
+        "olympiakos": "olympiacos", "dep la coruna": "deportivo", "al hazm": "al hazem", "al hazm rass": "al hazem", "al feiha": "al fayha", "al taawon": "al taawoun", "al qadisiyah": "al qadsiah"}
 
 
 def same_team(a, b):
     a, b = norm(a), norm(b)
-    return a == b or a in b or b in a or (a.split() and b.split() and a.split()[0] == b.split()[0] and len(a.split()[0]) > 3)
+    first = a.split()[:1] == b.split()[:1] and len(a.split()[0]) > 3 and a.split()[0] not in SHARED if a and b else False
+    if a == b or a in b or b in a or first:
+        return True
+    # the same names in another order or with an extra word: "Guadalajara Chivas" / "Chivas de Guadalajara", "CF America" / "Club America"
+    x, y = ({w for w in s.split() if len(w) > 3 and w != "club"} for s in (a, b))
+    return bool(x and y) and (x <= y or y <= x)
 
 
 def find_event(sport, gm, events):
@@ -422,9 +447,12 @@ def attach_odds(sport, bd, lam=None):
             import statistics
             sides = {}
             for key, nm in (("h", hn), ("d", "Draw"), ("a", an)):
-                rows = [r for r in h2h if (r[0] == "Draw" if key == "d" else same_team(r[0], nm))]
+                other = an if key == "h" else hn
+                # a label that fits both clubs (New York City / New York Red Bulls) only counts where it fits exactly
+                rows = [r for r in h2h if (r[0] == "Draw" if key == "d" else same_team(r[0], nm)
+                                           and (not same_team(r[0], other) or norm(r[0]) == norm(nm)))]
                 if rows:
-                    sides[key] = rows[0]
+                    sides[key] = merged(rows)[0]     # books label a club several ways: one row with every book's price
             if len(sides) == 3:
                 fair = {k: [] for k in sides}
                 for bk in set.intersection(*(set(r[3]) for r in sides.values())):
