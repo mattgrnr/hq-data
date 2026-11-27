@@ -835,8 +835,8 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 
 footer p{margin:0 0 8px}
 .ft-sites{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px;font-size:12px;letter-spacing:.06em}
-.ft-sites a,.ft-rg a,.ft-guide a{color:var(--mute);text-decoration:none}
-.ft-guide a:hover,.ft-sites a:hover{color:var(--paper)}
+.ft-sites a,.ft-rg a{color:var(--mute);text-decoration:none}
+.ft-sites a:hover{color:var(--paper)}
 .ft-rg{color:var(--dim)}
 footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
   color:var(--dim);font-size:11.5px;line-height:1.7;max-width:52ch;text-wrap:pretty}
@@ -897,7 +897,6 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 
   <footer>
     <div class="ft-sites"><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
-    <p class="ft-guide"><a href="/guide">How HQ works</a></p>
     <p>Each board reads the same way: one score, five tiers, every input shown. Projections are estimates, not guarantees, and book prices move.</p>
     <p class="ft-rg">21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
   </footer>
