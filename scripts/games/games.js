@@ -10,7 +10,7 @@ function gTag(st, x){
 }
 // ---------- props board: players whose game has started fold into one line at the top ----------
 // while anything is still bettable; once the whole slate has started they're the board, like Total HQ's lanes
-let STOPEN = false;
+let STOPEN = !!(window.HQ_ME && HQ_ME.p.fin);     // the account can ask for finished games open
 function boardSplit(rows){
   const started = r => { const gi = gInfo(r); return rState(gi) !== "pre"; };
   const on = rows.filter(r=>!started(r)), off = rows.filter(started);

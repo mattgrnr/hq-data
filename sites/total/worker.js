@@ -315,7 +315,7 @@ footer a:hover{color:var(--paper)}
   if(b && to[k]){ b.textContent = "‹ " + to[k][0]; b.href = to[k][1]; } })();
 </script>
 <footer>
-  <div class="sites"><a href="/">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a><a href="/account">Account</a></div>
+  <div class="sites"><a href="/">Total HQ</a><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
   <p>Scores and projections are estimates, not guarantees, and book prices move.</p>
   <p>21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
 </footer>
@@ -899,7 +899,7 @@ footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--rule);
 
 
   <footer>
-    <div class="ft-sites"><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a><a href="/account">Account</a></div>
+    <div class="ft-sites"><a href="https://touchdown-hq.com">Touchdown</a><a href="https://slapshot-hq.com">Slapshot</a><a href="https://slam-hq.com">Slam</a><a href="https://futbol-hq.com">Futbol</a><a href="https://moonshot-hq.com">Moonshot</a></div>
     <p>Each board reads the same way: one score, five tiers, every input shown. Projections are estimates, not guarantees, and book prices move.</p>
     <p class="ft-rg">21+ only. Bet with what you can afford to lose. Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.</p>
   </footer>
@@ -932,6 +932,9 @@ function inSeason(key, d){
 var NOW = new Date();
 BOARDS.forEach(function(b){ b.off = b.status === "live" && !inSeason(b.key, NOW); });
 BOARDS.sort(function(x, y){ return (x.off ? 1 : 0) - (y.off ? 1 : 0); });
+// the account's home sport goes first (while it's in season)
+var HOME = (window.HQ_ME && HQ_ME.p.home) || "";
+if(HOME) BOARDS.sort(function(x, y){ return (y.key === HOME && !y.off ? 1 : 0) - (x.key === HOME && !x.off ? 1 : 0); });
 
 function laneHTML(b, i){
   var live = b.status === "live";
@@ -1336,7 +1339,7 @@ renderBets();
 plLinks();
 trackStart();
 
-var SLATE = null, FINOPEN = {};
+var SLATE = null, FINOPEN = (window.HQ_ME && HQ_ME.p.fin) ? { nhl:1, nba:1, nfl:1, soc:1 } : {};
 function fillGames(){
   BOARDS.forEach(function(b){
     var el = document.getElementById("games-" + b.key);
@@ -1429,7 +1432,7 @@ async function hqaSession(request, env) {
   const tok = hqaCookies(request).hq_s;
   if (!tok || !env.ACCOUNTS) return null;
   return await env.ACCOUNTS.prepare(
-    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.pw_hash IS NOT NULL has_pw, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
+    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.prefs, u.pw_hash IS NOT NULL has_pw, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
   ).bind(await hqaHash(tok), Date.now()).first();
 }
 async function hqaStartSession(env, userId, site) {
@@ -1464,6 +1467,7 @@ function hqaWrap(app, site, auth) {
       const url = new URL(request.url);
       if (!env.ACCOUNTS || !hqaOn(url, env)) return app.fetch(request, env, ctx);
       if (url.pathname === "/auth/handoff" && site !== "total-hq") return hqaHandoff(url, env, site);
+      if (url.pathname === "/auth/prefs" && request.method === "POST") return hqaSavePrefs(request, env, url);
       if (auth) {
         const r = await auth(request, env, ctx, url);
         if (r) return r;
@@ -1476,7 +1480,8 @@ function hqaWrap(app, site, auth) {
         const back = site === "total-hq" ? url.pathname + url.search : url.href;
         return hqaRedirect(hqaTotal(url, site) + "/login?next=" + encodeURIComponent(back));
       }
-      const res = await app.fetch(request, env, ctx);
+      let res = await app.fetch(request, env, ctx);
+      if (res.status === 200 && (res.headers.get("Content-Type") || "").includes("text/html")) res = await hqaDecorate(res, me, url, site);
       const today = hqaDay(Date.now());
       if (hqaCookies(request).hq_v === today) return res;
       // once a day per site: count the visit and push the 90-day sign-in out again
@@ -1492,6 +1497,52 @@ function hqaWrap(app, site, auth) {
       return out;
     },
   };
+}
+// ---------- signed-in extras on every page: the account badge and the person's preferences ----------
+const HQA_BOOKS = { FD: "FanDuel", DK: "DraftKings", FAN: "Fanatics", HR: "Hard Rock", MGM: "BetMGM", BR: "BetRivers" };
+function hqaPrefs(me) {
+  let p = {};
+  try { p = JSON.parse(me.prefs || "{}") || {}; } catch (e) {}
+  return {
+    books: Array.isArray(p.books) ? p.books.filter(b => HQA_BOOKS[b]) : null,
+    home: ["nfl", "nhl", "nba", "soc", "mlb"].includes(p.home) ? p.home : "",
+    fin: !!p.fin,
+  };
+}
+// My books changed on a board: keep the account's copy in step (same-site posts only)
+async function hqaSavePrefs(request, env, url) {
+  if (request.headers.get("Origin") !== url.origin) return new Response("Forbidden", { status: 403 });
+  const me = await hqaSession(request, env);
+  if (!me) return new Response("Signed out", { status: 401 });
+  let body = {};
+  try { body = await request.json(); } catch (e) {}
+  const p = hqaPrefs(me);
+  if (Array.isArray(body.books)) p.books = body.books.filter(b => HQA_BOOKS[b]);
+  await env.ACCOUNTS.prepare("UPDATE users SET prefs = ? WHERE id = ?").bind(JSON.stringify(p), me.id).run();
+  return new Response("{}", { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+}
+async function hqaDecorate(res, me, url, site) {
+  const p = hqaPrefs(me), acct = hqaTotal(url, site) + "/account";
+  const who = JSON.stringify({ n: (me.email || "?").charAt(0).toUpperCase(), p, a: acct }).replace(/</g, "\\u003c");
+  // before the page's own scripts: the account's My books go where the boards read them, and changes there flow back
+  const head = `<script>window.HQ_ME=${who};(function(){try{var k="hq.parlay",b=HQ_ME.p.books,ls=window.localStorage,set=Storage.prototype.setItem;
+if(b){var s=JSON.parse(ls.getItem(k)||"{}");if(Array.isArray(s))s={u:0,legs:s};if(JSON.stringify(s.my||[])!==JSON.stringify(b)){s.my=b;set.call(ls,k,JSON.stringify(s));}}
+var last=JSON.stringify(b||[]);Storage.prototype.setItem=function(key,v){set.apply(this,arguments);if(key!==k)return;try{var m=JSON.stringify(JSON.parse(v).my||[]);
+if(m!==last){last=m;fetch("/auth/prefs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({books:JSON.parse(m)})});}}catch(e){}};}catch(e){}})();</script>`;
+  // the badge sits at the end of each site's top bar; boards redraw that bar, so it's put back whenever it goes missing
+  const tail = `<style>.hq-me{display:inline-flex;align-items:center;justify-content:center;flex:none;width:34px;height:34px;border-radius:50%;background:#EDEAE3;color:#08090C;
+font:700 15px/1 system-ui,sans-serif;text-decoration:none;margin-left:8px;align-self:center}.hq-me:focus-visible{outline:2px solid #EDEAE3;outline-offset:2px}</style>
+<script>(function(){function put(){if(document.querySelector(".hq-me"))return;var a=document.createElement("a");a.className="hq-me";a.href=HQ_ME.a;a.textContent=HQ_ME.n;a.title="Your account";a.setAttribute("aria-label","Your account");
+var t=document.getElementById("btn-refresh");if(t){t.insertAdjacentElement("afterend",a);return;}
+var h=document.querySelector("header h1");if(!h)return;h.parentNode.style.position="relative";a.style.position="absolute";a.style.right="0";
+a.style.top=(h.offsetTop+h.offsetHeight/2-17)+"px";h.insertAdjacentElement("afterend",a);}
+put();new MutationObserver(put).observe(document.body,{childList:true,subtree:true});})();</script>`;
+  let html = await res.text();
+  html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + head) : head + html;
+  html = html.includes("</body>") ? html.replace("</body>", tail + "</body>") : html + tail;
+  const out = new Response(html, res);
+  out.headers.delete("Content-Length");
+  return out;
 }
 // ==== /HQ ACCOUNTS ====
 
@@ -1598,6 +1649,12 @@ input.code{font-size:26px;letter-spacing:.35em;text-align:center}
 .check{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--rule);border-radius:12px;margin-top:10px;cursor:pointer;font-size:15px;line-height:1.45}
 .check input{width:20px;height:20px;margin-top:1px;accent-color:var(--hq);flex:none}
 .check small{display:block;color:var(--mute);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip input{position:absolute;opacity:0}
+.chip span{display:inline-block;padding:9px 14px;border-radius:99px;border:1px solid var(--rule);background:var(--lift);font-size:14px;cursor:pointer}
+.chip input:checked+span{background:var(--paper);color:#000;border-color:var(--paper)}
+.chip input:focus-visible+span{outline:2px solid var(--paper);outline-offset:2px}
+select{width:100%;height:50px;border-radius:12px;border:1px solid var(--rule);background:var(--lift);color:var(--paper);font:500 16px 'Space Grotesk',system-ui,sans-serif;padding:0 12px}
 .note{margin-top:14px;padding:12px 14px;border-radius:12px;background:rgba(255,77,61,.1);border:1px solid rgba(255,77,61,.35);font-size:14px;line-height:1.45}
 .note.ok{background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.35)}
 .fine{margin-top:26px;color:var(--mute);font-size:12.5px;line-height:1.55}
@@ -1807,15 +1864,27 @@ ${HQA_FINE}`);
 
 // ---------- account, sign out, delete ----------
 function hqaAccountPage(me, note, error) {
+  const p = hqaPrefs(me);
   const how = { apple: "Apple", google: "Google", email: "Email", password: "Email and password", invite: "Invite" }[me.method] || me.method;
   return hqaPage("Your account · Total HQ", `
-<div class="top"><a href="/">← Total HQ</a><a href="/privacy">Privacy</a></div>
+<div class="top"><a href="/">← Total HQ</a><span>${me.admin ? `<a href="/admin">Admin</a> · ` : ""}<a href="/privacy">Privacy</a></span></div>
 <h1>YOUR <span>ACCOUNT</span></h1>
 ${note ? `<p class="note ok">${hqaEsc(note)}</p>` : ""}
 ${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
 <dl class="me"><dt>Email</dt><dd>${hqaEsc(me.email)}</dd><dt>Signed up with</dt><dd>${how}</dd>
 <dt>Member since</dt><dd>${new Date(me.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>
 ${me.free_until > Date.now() ? `<dt>Premium</dt><dd>${me.free_until >= HQA_FOREVER ? "Free for life" : "Free until " + new Date(me.free_until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>` : ""}</dl>
+<h2>Preferences</h2>
+<form method="post" action="/account/prefs">
+  <label class="f">My books <span style="color:var(--dim)">(betslips price only these; none ticked = every book)</span></label>
+  <div class="chips">${Object.entries(HQA_BOOKS).map(([k, v]) => `<label class="chip"><input type="checkbox" name="books" value="${k}"${(p.books || []).includes(k) ? " checked" : ""}><span>${v}</span></label>`).join("")}</div>
+  <label class="f" for="home" style="margin-top:14px">Home sport <span style="color:var(--dim)">(listed first on Total HQ)</span></label>
+  <select id="home" name="home">${[["", "No favorite"], ["nfl", "NFL · Touchdown"], ["nhl", "NHL · Slapshot"], ["nba", "NBA · Slam"], ["soc", "Soccer · Futbol"], ["mlb", "MLB · Moonshot"]]
+    .map(([k, v]) => `<option value="${k}"${p.home === k ? " selected" : ""}>${v}</option>`).join("")}</select>
+  <label class="check"><input type="checkbox" name="fin" value="yes"${p.fin ? " checked" : ""}><span>Show finished games<small>Open the finished games and started players instead of folding them away.</small></span></label>
+  <button class="btn go" type="submit">Save preferences</button>
+</form>
+<h2>Emails</h2>
 <form method="post" action="/account/updates"><input type="hidden" name="on" value="${me.opt_in ? "0" : "1"}">
   <button class="btn" type="submit">${me.opt_in ? "Stop update emails" : "Send me occasional updates"}</button></form>
 <form method="post" action="/logout"><button class="btn" type="submit">Sign out everywhere</button></form>
@@ -1846,6 +1915,14 @@ async function hqaAccount(request, env, url, path) {
     return hqaHtml(hqaAccountPage({ ...me, opt_in: on }, on ? "You'll get occasional updates." : "Update emails are off."));
   }
   if (path === "/account/password" && request.method === "POST") return hqaChangePassword(request, env, url, me);
+  if (path === "/account/prefs" && request.method === "POST") {
+    const f = await hqaForm(request), p = hqaPrefs(me);
+    p.books = f.getAll("books").map(String).filter(b => HQA_BOOKS[b]);
+    p.home = ["nfl", "nhl", "nba", "soc", "mlb"].includes(String(f.get("home"))) ? String(f.get("home")) : "";
+    p.fin = f.get("fin") === "yes";
+    await db.prepare("UPDATE users SET prefs = ? WHERE id = ?").bind(JSON.stringify(p), me.id).run();
+    return hqaHtml(hqaAccountPage({ ...me, prefs: JSON.stringify(p) }, "Preferences saved. They follow you to any device you sign in on."));
+  }
   if (path === "/account/delete" && request.method === "POST") {
     if ((await hqaForm(request)).get("sure") !== "yes") return hqaHtml(hqaAccountPage(me));
     await db.batch([

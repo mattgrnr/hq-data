@@ -101,6 +101,12 @@ input.code{font-size:26px;letter-spacing:.35em;text-align:center}
 .check{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--rule);border-radius:12px;margin-top:10px;cursor:pointer;font-size:15px;line-height:1.45}
 .check input{width:20px;height:20px;margin-top:1px;accent-color:var(--hq);flex:none}
 .check small{display:block;color:var(--mute);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip input{position:absolute;opacity:0}
+.chip span{display:inline-block;padding:9px 14px;border-radius:99px;border:1px solid var(--rule);background:var(--lift);font-size:14px;cursor:pointer}
+.chip input:checked+span{background:var(--paper);color:#000;border-color:var(--paper)}
+.chip input:focus-visible+span{outline:2px solid var(--paper);outline-offset:2px}
+select{width:100%;height:50px;border-radius:12px;border:1px solid var(--rule);background:var(--lift);color:var(--paper);font:500 16px 'Space Grotesk',system-ui,sans-serif;padding:0 12px}
 .note{margin-top:14px;padding:12px 14px;border-radius:12px;background:rgba(255,77,61,.1);border:1px solid rgba(255,77,61,.35);font-size:14px;line-height:1.45}
 .note.ok{background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.35)}
 .fine{margin-top:26px;color:var(--mute);font-size:12.5px;line-height:1.55}
@@ -310,15 +316,27 @@ ${HQA_FINE}`);
 
 // ---------- account, sign out, delete ----------
 function hqaAccountPage(me, note, error) {
+  const p = hqaPrefs(me);
   const how = { apple: "Apple", google: "Google", email: "Email", password: "Email and password", invite: "Invite" }[me.method] || me.method;
   return hqaPage("Your account · Total HQ", `
-<div class="top"><a href="/">← Total HQ</a><a href="/privacy">Privacy</a></div>
+<div class="top"><a href="/">← Total HQ</a><span>${me.admin ? `<a href="/admin">Admin</a> · ` : ""}<a href="/privacy">Privacy</a></span></div>
 <h1>YOUR <span>ACCOUNT</span></h1>
 ${note ? `<p class="note ok">${hqaEsc(note)}</p>` : ""}
 ${error ? `<p class="note" role="alert">${hqaEsc(error)}</p>` : ""}
 <dl class="me"><dt>Email</dt><dd>${hqaEsc(me.email)}</dd><dt>Signed up with</dt><dd>${how}</dd>
 <dt>Member since</dt><dd>${new Date(me.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>
 ${me.free_until > Date.now() ? `<dt>Premium</dt><dd>${me.free_until >= HQA_FOREVER ? "Free for life" : "Free until " + new Date(me.free_until).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</dd>` : ""}</dl>
+<h2>Preferences</h2>
+<form method="post" action="/account/prefs">
+  <label class="f">My books <span style="color:var(--dim)">(betslips price only these; none ticked = every book)</span></label>
+  <div class="chips">${Object.entries(HQA_BOOKS).map(([k, v]) => `<label class="chip"><input type="checkbox" name="books" value="${k}"${(p.books || []).includes(k) ? " checked" : ""}><span>${v}</span></label>`).join("")}</div>
+  <label class="f" for="home" style="margin-top:14px">Home sport <span style="color:var(--dim)">(listed first on Total HQ)</span></label>
+  <select id="home" name="home">${[["", "No favorite"], ["nfl", "NFL · Touchdown"], ["nhl", "NHL · Slapshot"], ["nba", "NBA · Slam"], ["soc", "Soccer · Futbol"], ["mlb", "MLB · Moonshot"]]
+    .map(([k, v]) => `<option value="${k}"${p.home === k ? " selected" : ""}>${v}</option>`).join("")}</select>
+  <label class="check"><input type="checkbox" name="fin" value="yes"${p.fin ? " checked" : ""}><span>Show finished games<small>Open the finished games and started players instead of folding them away.</small></span></label>
+  <button class="btn go" type="submit">Save preferences</button>
+</form>
+<h2>Emails</h2>
 <form method="post" action="/account/updates"><input type="hidden" name="on" value="${me.opt_in ? "0" : "1"}">
   <button class="btn" type="submit">${me.opt_in ? "Stop update emails" : "Send me occasional updates"}</button></form>
 <form method="post" action="/logout"><button class="btn" type="submit">Sign out everywhere</button></form>
@@ -349,6 +367,14 @@ async function hqaAccount(request, env, url, path) {
     return hqaHtml(hqaAccountPage({ ...me, opt_in: on }, on ? "You'll get occasional updates." : "Update emails are off."));
   }
   if (path === "/account/password" && request.method === "POST") return hqaChangePassword(request, env, url, me);
+  if (path === "/account/prefs" && request.method === "POST") {
+    const f = await hqaForm(request), p = hqaPrefs(me);
+    p.books = f.getAll("books").map(String).filter(b => HQA_BOOKS[b]);
+    p.home = ["nfl", "nhl", "nba", "soc", "mlb"].includes(String(f.get("home"))) ? String(f.get("home")) : "";
+    p.fin = f.get("fin") === "yes";
+    await db.prepare("UPDATE users SET prefs = ? WHERE id = ?").bind(JSON.stringify(p), me.id).run();
+    return hqaHtml(hqaAccountPage({ ...me, prefs: JSON.stringify(p) }, "Preferences saved. They follow you to any device you sign in on."));
+  }
   if (path === "/account/delete" && request.method === "POST") {
     if ((await hqaForm(request)).get("sure") !== "yes") return hqaHtml(hqaAccountPage(me));
     await db.batch([
