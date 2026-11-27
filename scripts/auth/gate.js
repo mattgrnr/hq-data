@@ -4,7 +4,7 @@
 // D1 database (binding ACCOUNTS). The lock is on for preview links, and on the real domains once GATE = "on".
 const HQA_SITES = ["total-hq", "slam-hq", "slapshot-hq", "touchdown-hq", "futbol-hq", "moonshot-hq"];
 const HQA_DAYS = 90;
-const HQA_OPEN = /^\/(guide|privacy|login|logout|auth\/.*|og[^/]*\.png|favicon\.(png|ico)|apple-touch-icon\.png|robots\.txt|registry\.json)$/;
+const HQA_OPEN = /^\/(guide|privacy|login|signup|forgot|logout|auth\/.*|og[^/]*\.png|favicon\.(png|ico)|apple-touch-icon\.png|robots\.txt|registry\.json)$/;
 // link previews (X, iMessage, Slack, Discord...) still see each page's title and image
 const HQA_BOTS = /bot\b|crawler|spider|facebookexternalhit|twitterbot|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|embedly|pinterest|skypeuripreview/i;
 
@@ -43,7 +43,7 @@ async function hqaSession(request, env) {
   const tok = hqaCookies(request).hq_s;
   if (!tok || !env.ACCOUNTS) return null;
   return await env.ACCOUNTS.prepare(
-    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
+    "SELECT u.id, u.email, u.method, u.opt_in, u.admin, u.free_until, u.prefs, u.pw_hash IS NOT NULL has_pw, u.created_at, s.token_hash, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?"
   ).bind(await hqaHash(tok), Date.now()).first();
 }
 async function hqaStartSession(env, userId, site) {
@@ -77,7 +77,10 @@ function hqaWrap(app, site, auth) {
     async fetch(request, env, ctx) {
       const url = new URL(request.url);
       if (!env.ACCOUNTS || !hqaOn(url, env)) return app.fetch(request, env, ctx);
+      // Futbol's other names (soccer-hq.com, www.) forward to futbol-hq.com first, then sign-in happens there
+      if (site === "futbol-hq" && (url.hostname === "soccer-hq.com" || url.hostname.startsWith("www."))) return app.fetch(request, env, ctx);
       if (url.pathname === "/auth/handoff" && site !== "total-hq") return hqaHandoff(url, env, site);
+      if (url.pathname === "/auth/prefs" && request.method === "POST") return hqaSavePrefs(request, env, url);
       if (auth) {
         const r = await auth(request, env, ctx, url);
         if (r) return r;
@@ -90,7 +93,8 @@ function hqaWrap(app, site, auth) {
         const back = site === "total-hq" ? url.pathname + url.search : url.href;
         return hqaRedirect(hqaTotal(url, site) + "/login?next=" + encodeURIComponent(back));
       }
-      const res = await app.fetch(request, env, ctx);
+      let res = await app.fetch(request, env, ctx);
+      if (res.status === 200 && (res.headers.get("Content-Type") || "").includes("text/html")) res = await hqaDecorate(res, me, url, site);
       const today = hqaDay(Date.now());
       if (hqaCookies(request).hq_v === today) return res;
       // once a day per site: count the visit and push the 90-day sign-in out again
@@ -106,5 +110,51 @@ function hqaWrap(app, site, auth) {
       return out;
     },
   };
+}
+// ---------- signed-in extras on every page: the account badge and the person's preferences ----------
+const HQA_BOOKS = { FD: "FanDuel", DK: "DraftKings", FAN: "Fanatics", HR: "Hard Rock", MGM: "BetMGM", BR: "BetRivers" };
+function hqaPrefs(me) {
+  let p = {};
+  try { p = JSON.parse(me.prefs || "{}") || {}; } catch (e) {}
+  return {
+    books: Array.isArray(p.books) ? p.books.filter(b => HQA_BOOKS[b]) : null,
+    home: ["nfl", "nhl", "nba", "soc", "mlb"].includes(p.home) ? p.home : "",
+    fin: !!p.fin,
+  };
+}
+// My books changed on a board: keep the account's copy in step (same-site posts only)
+async function hqaSavePrefs(request, env, url) {
+  if (request.headers.get("Origin") !== url.origin) return new Response("Forbidden", { status: 403 });
+  const me = await hqaSession(request, env);
+  if (!me) return new Response("Signed out", { status: 401 });
+  let body = {};
+  try { body = await request.json(); } catch (e) {}
+  const p = hqaPrefs(me);
+  if (Array.isArray(body.books)) p.books = body.books.filter(b => HQA_BOOKS[b]);
+  await env.ACCOUNTS.prepare("UPDATE users SET prefs = ? WHERE id = ?").bind(JSON.stringify(p), me.id).run();
+  return new Response("{}", { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+}
+async function hqaDecorate(res, me, url, site) {
+  const p = hqaPrefs(me), acct = hqaTotal(url, site) + "/account";
+  const who = JSON.stringify({ n: (me.email || "?").charAt(0).toUpperCase(), p, a: acct }).replace(/</g, "\\u003c");
+  // before the page's own scripts: the account's My books go where the boards read them, and changes there flow back
+  const head = `<script>window.HQ_ME=${who};(function(){try{var k="hq.parlay",b=HQ_ME.p.books,ls=window.localStorage,set=Storage.prototype.setItem;
+if(b){var s=JSON.parse(ls.getItem(k)||"{}");if(Array.isArray(s))s={u:0,legs:s};if(JSON.stringify(s.my||[])!==JSON.stringify(b)){s.my=b;set.call(ls,k,JSON.stringify(s));}}
+var last=JSON.stringify(b||[]);Storage.prototype.setItem=function(key,v){set.apply(this,arguments);if(key!==k)return;try{var m=JSON.stringify(JSON.parse(v).my||[]);
+if(m!==last){last=m;fetch("/auth/prefs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({books:JSON.parse(m)})});}}catch(e){}};}catch(e){}})();</script>`;
+  // the badge sits at the end of each site's top bar; boards redraw that bar, so it's put back whenever it goes missing
+  const tail = `<style>.hq-me{display:inline-flex;align-items:center;justify-content:center;flex:none;width:34px;height:34px;border-radius:50%;background:#EDEAE3;color:#08090C;
+font:700 15px/1 system-ui,sans-serif;text-decoration:none;margin-left:8px;align-self:center}.hq-me:focus-visible{outline:2px solid #EDEAE3;outline-offset:2px}</style>
+<script>(function(){function put(){if(document.querySelector(".hq-me"))return;var a=document.createElement("a");a.className="hq-me";a.href=HQ_ME.a;a.textContent=HQ_ME.n;a.title="Your account";a.setAttribute("aria-label","Your account");
+var t=document.getElementById("btn-refresh");if(t){t.insertAdjacentElement("afterend",a);return;}
+var h=document.querySelector("header h1");if(!h)return;h.parentNode.style.position="relative";a.style.position="absolute";a.style.right="0";
+a.style.top=(h.offsetTop+h.offsetHeight/2-17)+"px";h.insertAdjacentElement("afterend",a);}
+put();new MutationObserver(put).observe(document.body,{childList:true,subtree:true});})();</script>`;
+  let html = await res.text();
+  html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + head) : head + html;
+  html = html.includes("</body>") ? html.replace("</body>", tail + "</body>") : html + tail;
+  const out = new Response(html, res);
+  out.headers.delete("Content-Length");
+  return out;
 }
 // ==== /HQ ACCOUNTS ====

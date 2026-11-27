@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   opt_in INTEGER NOT NULL DEFAULT 0, -- agreed to occasional updates
   admin INTEGER NOT NULL DEFAULT 0,  -- can open /admin
   free_until INTEGER,                -- premium on the house until this time
+  pw_hash TEXT,                      -- PBKDF2-SHA256 with its own salt; never the password itself
+  email_ok INTEGER NOT NULL DEFAULT 1, -- 0 until Apple, Google or an admin vouches for the email
+  prefs TEXT,                        -- JSON: My books, home sport, show finished games
   age_ok INTEGER NOT NULL,           -- when they confirmed 21+
   created_at INTEGER NOT NULL,
   last_seen INTEGER NOT NULL
@@ -53,3 +56,15 @@ CREATE TABLE IF NOT EXISTS visits (
   PRIMARY KEY (user_id, site, day)
 );
 CREATE INDEX IF NOT EXISTS visits_day ON visits(day);
+-- one-time links to set or reset a password (made from the admin page, or emailed once email is connected)
+CREATE TABLE IF NOT EXISTS setup (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+-- wrong passwords per email: five in a row locks that account for 15 minutes
+CREATE TABLE IF NOT EXISTS attempts (
+  email TEXT PRIMARY KEY,
+  fails INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER NOT NULL DEFAULT 0
+);
