@@ -1466,6 +1466,8 @@ function hqaWrap(app, site, auth) {
     async fetch(request, env, ctx) {
       const url = new URL(request.url);
       if (!env.ACCOUNTS || !hqaOn(url, env)) return app.fetch(request, env, ctx);
+      // Futbol's other names (soccer-hq.com, www.) forward to futbol-hq.com first, then sign-in happens there
+      if (site === "futbol-hq" && (url.hostname === "soccer-hq.com" || url.hostname.startsWith("www."))) return app.fetch(request, env, ctx);
       if (url.pathname === "/auth/handoff" && site !== "total-hq") return hqaHandoff(url, env, site);
       if (url.pathname === "/auth/prefs" && request.method === "POST") return hqaSavePrefs(request, env, url);
       if (auth) {

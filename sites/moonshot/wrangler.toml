@@ -14,3 +14,7 @@ binding = "AI"
 binding = "ACCOUNTS"
 database_name = "hq-accounts"
 database_id = "0e4fb67e-8386-4745-ba92-ef1baedb7f20"
+
+# every page needs a signed-in account (scripts/auth)
+[vars]
+GATE = "on"
