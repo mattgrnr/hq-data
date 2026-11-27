@@ -151,12 +151,14 @@ h2{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:28px
 .d-pick .px{font-weight:700;font-size:15px}
 .d-pick .bk{display:block;color:var(--mute);font-size:11px;margin:1px 0 3px}
 .chip{display:inline-block;background:var(--open);color:#06240f;font-weight:700;font-size:12px;padding:2px 7px;border-radius:6px}
-.d-bar .l{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px}
-.d-bar .l b{font-weight:700}
-.d-bar .l small{color:var(--mute);font-weight:500;margin-left:6px}
-.d-bar .t{height:6px;border-radius:99px;background:rgba(255,255,255,.07);position:relative;overflow:hidden}
-.d-bar .t i{position:absolute;inset:0 auto 0 0;width:90%;background:var(--paper);border-radius:99px}
-.d-bar .t::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(8,9,12,.7)}
+.d-bar{display:grid;grid-template-columns:minmax(96px,130px) 1fr 58px;align-items:center;column-gap:10px}
+.d-bar .l{color:var(--mute);font-size:12px;line-height:1.25}
+.d-bar .t{height:9px;border-radius:99px;background:rgba(255,255,255,.055);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);position:relative;overflow:hidden}
+.d-bar .t i{position:absolute;inset:0 auto 0 0;width:90%;border-radius:99px;background:linear-gradient(90deg,rgba(245,196,81,.5),var(--hq));box-shadow:0 0 14px rgba(255,77,61,.22)}
+.d-bar .t::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.18)}
+.d-bar .v{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.d-bar .v b{font-size:13.5px;font-weight:700}
+.d-bar .v small{font-size:10.5px;font-weight:500;color:var(--mute);margin-top:2px}
 .d-days{display:inline-flex;gap:2px;padding:3px;border-radius:99px;background:rgba(255,255,255,.05)}
 .d-days span{font-weight:600;padding:6px 14px;border-radius:99px;color:var(--mute)}
 .d-days span.on{background:rgba(255,255,255,.12);color:var(--paper)}
@@ -221,7 +223,7 @@ footer a:hover{color:var(--paper)}
   <div class="item">
     <h3>Tap a player for the why</h3>
     <p>Each bar ranks him against <b>everyone on today’s board</b> for that stat. 90th means he’s ahead of 90% of them; the tick in the middle is the 50th. Tap any bar to see what it measures.</p>
-    <div class="demo d-bar"><div class="l"><span>Shot volume</span><span><b>90th</b><small>4.1 / game</small></span></div><div class="t"><i></i></div></div>
+    <div class="demo d-bar"><span class="l">Shot volume</span><div class="t"><i></i></div><span class="v"><b>90th</b><small>4.1 / game</small></span></div>
   </div>
   <div class="item">
     <h3>Game logs</h3>
