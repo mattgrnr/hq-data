@@ -248,6 +248,10 @@ footer a:hover{color:var(--paper)}
     <h3>Live</h3>
     <p>Once a game starts, player cards show their live stat line, updated every 30 seconds.</p>
   </div>
+  <div class="item">
+    <h3>From Total HQ</h3>
+    <p>Tap <b>Games</b> on any sport to see the day’s games without leaving (the NFL shows the whole week): win chances, the live score, and Final once it ends. Finished games tuck into one <b>Show</b> line while there’s still more to play. Tap a game to open it on its own board.</p>
+  </div>
 </section>
 
 <section id="parlay">
