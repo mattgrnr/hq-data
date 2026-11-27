@@ -660,9 +660,9 @@ h1 .badge{background:none;color:var(--hq);font-size:1em;font-weight:800;
 @media (prefers-reduced-motion:reduce){.hqnew{transition:none}}
 .hqnew{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);padding:8px 8px 8px 12px;margin:12px 0 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03)}
 .hqnew[hidden]{display:none}
-.hqnew a{color:inherit;font-weight:600;text-underline-offset:3px}
+.hqnew a{color:var(--hq);font-weight:600;text-underline-offset:3px}
 .hqnew a:hover{color:var(--paper)}
-.hqnew button{margin-left:auto;background:none;border:0;color:inherit;font-size:18px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:6px}
+.hqnew button{margin-left:auto;background:none;border:0;color:var(--paper);font-size:18px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:6px}
 .hqnew button:hover{color:var(--paper)}
 /* ---------- the board ---------- */
 .boardhead{display:grid;grid-template-columns:3px 52px 1fr auto;align-items:center;gap:0 16px;
