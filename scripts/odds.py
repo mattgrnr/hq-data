@@ -39,7 +39,17 @@ SPORTS = {
 }
 
 
+# each PropLine league -> its FotMob league id on our soccer board
+SOCCER_LID = {"soccer_epl": 47, "soccer_la_liga": 87, "soccer_serie_a": 55, "soccer_bundesliga": 54, "soccer_ligue_1": 53,
+              "soccer_uefa_champions_league": 42, "soccer_uefa_europa_league": 73, "soccer_uefa_conference_league": 10216,
+              "soccer_mls": 130, "soccer_liga_mx": 230, "soccer_saudi_pro": 536}
+CAPPED = False   # set once PropLine says today's request allowance is used up
+
+
 def get(path, **params):
+    global CAPPED
+    if CAPPED:
+        return None
     params["apiKey"] = os.environ["PROPLINE_KEY"]
     url = f"{API}/{path}?{urllib.parse.urlencode(params)}"
     for i in range(3):
@@ -50,6 +60,13 @@ def get(path, **params):
         except Exception as e:
             # never echo the url: it carries the key
             print(f"{path}: try {i + 1} failed ({type(e).__name__}: {getattr(e, 'code', '')})", flush=True)
+            if getattr(e, "code", None) == 429:
+                # out of requests: retrying only spends more, so stop here (and for the rest of this run if it's the daily cap)
+                try:
+                    CAPPED = "daily" in e.read().decode("utf-8", "replace")
+                except Exception:
+                    pass
+                return None
             time.sleep(3 * (i + 1))
     return None
 
@@ -95,17 +112,26 @@ def main():
         print("PROPLINE_KEY is not set; skipped")
         return
     keys, markets = SPORTS[sport]
-    events = []
+    if sport == "soccer":
+        # only the leagues on today's slate: the rest would spend requests on games we don't show
+        board = ROOT / "soccer" / "board.json"
+        lids = {g.get("lid") for g in json.loads(board.read_text()).get("games", [])} if board.exists() else None
+        if lids:
+            keys = [k for k in keys if SOCCER_LID.get(k) in lids]
+    events, failed = [], []
     for key in keys:
         data = get(f"sports/{key}/odds", markets=",".join(markets), includeLinks="true", includeBookIds="true")
         if data is None:
+            failed.append(key)
             continue
         evs = data if isinstance(data, list) else data.get("events") or data.get("data") or [data]
         for ev in evs:
             if isinstance(ev, dict) and not ev.get("live"):
                 events.append(slim(ev, key))
-    out = {"fetched": datetime.now(timezone.utc).isoformat(timespec="seconds"), "events": events}
+    out = {"fetched": datetime.now(timezone.utc).isoformat(timespec="seconds"), "events": events, "failed": failed}
     (ROOT / sport / "odds.json").write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
+    if failed:
+        print(f"{sport}: no odds from {', '.join(failed)}; the board keeps its last lines")
     print(f"{sport}: {len(events)} events with odds")
     per = {}
     for ev in events:
