@@ -764,6 +764,50 @@ def save_lines(bd, path):
         (ldir / f"{day}.json").write_text(json.dumps(d, separators=(",", ":"), ensure_ascii=False))
 
 
+ODDS_KEYS = ("book", "value", "links", "dnb", "dc", "ah_book", "cover_book", "over_book")
+STALE_OK = timedelta(hours=3)
+
+
+def carry_lines(sport, bd, path):
+    """When the odds feed failed this run, games keep the last build's lines and props for up to 3 hours.
+
+    A refused or failed request used to leave the board with no lines at all until the next good run.
+    """
+    import subprocess
+    f = ROOT / sport / "odds.json"
+    odds = json.loads(f.read_text()) if f.exists() else {}
+    if not odds.get("failed"):
+        bd["odds_at"] = odds.get("fetched")
+        return 0
+    try:
+        rel = path.resolve().relative_to(ROOT.resolve())
+        old = json.loads(subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=ROOT, capture_output=True, check=True).stdout)
+        at = datetime.fromisoformat(old["odds_at"])
+    except Exception:
+        return 0
+    if datetime.now(timezone.utc) - at > STALE_OK:
+        return 0
+    bd["odds_at"] = old["odds_at"]
+    key = (lambda g: (g.get("away"), g.get("home"))) if sport == "nfl" else (lambda g: g.get("id"))
+    olds = {key(g): g for g in old.get("games", [])}
+    n = 0
+    for g in bd["games"]:
+        p, op = g.get("proj"), (olds.get(key(g)) or {}).get("proj") or {}
+        if not p or (p.get("book") and not p["book"].get("src")) or not op.get("book") or op["book"].get("src"):
+            continue
+        for k in ODDS_KEYS:
+            if k in op:
+                p[k] = op[k]
+        n += 1
+    props = bd.setdefault("props", {})
+    for nm, stats in (old.get("props") or {}).items():
+        for st, rows in stats.items():
+            props.setdefault(nm, {}).setdefault(st, rows)
+    for k, v in (old.get("evlinks") or {}).items():
+        bd.setdefault("evlinks", {}).setdefault(k, v)
+    return n
+
+
 def main():
     sport = sys.argv[1]
     path = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / sport / "board.json"
@@ -780,6 +824,9 @@ def main():
         nb = attach_odds(sport, bd)
         save_lines(bd, path)
     print(f"{sport}: book lines on {nb} games, props for {attach_props(sport, bd)} players, kept {carry_props(sport, bd, path)} closing lines for games under way")
+    kept = carry_lines(sport, bd, path)
+    if kept:
+        print(f"{sport}: odds feed failed; kept the last lines on {kept} games (from {bd['odds_at']})")
     path.write_text(json.dumps(bd, separators=(",", ":"), ensure_ascii=False))
     print(f"{sport}: {n} of {len(bd['games'])} games projected")
 
